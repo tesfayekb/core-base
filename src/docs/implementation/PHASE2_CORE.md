@@ -1,7 +1,6 @@
-
 # Phase 2: Core Application Features
 
-> **Version**: 2.0.0  
+> **Version**: 2.1.0  
 > **Last Updated**: 2025-05-23
 
 ## Overview
@@ -45,6 +44,23 @@ Multi-level caching strategy from [../rbac/CACHING_STRATEGY.md](../rbac/CACHING_
 - Verify cache invalidation on permission changes
 - Test performance with and without caching
 - Validate cache consistency
+
+## Multi-Tenant Security
+
+### Tenant Context and Switching
+Following [../security/MULTI_TENANT_ROLES.md](../security/MULTI_TENANT_ROLES.md) and [../multitenancy/SESSION_MANAGEMENT.md](../multitenancy/SESSION_MANAGEMENT.md):
+
+- Tenant isolation implementation
+- Cross-tenant security validation
+- Tenant-specific permission handling
+- Data isolation enforcement
+- Tenant switching mechanism implementation per tenant context requirements
+
+**Testing Requirements:**
+- Test tenant isolation mechanisms using [../testing/MULTI_TENANT_TESTING.md](../testing/MULTI_TENANT_TESTING.md)
+- Verify cross-tenant access prevention
+- Test tenant-specific permission validation
+- Validate data isolation enforcement
 
 ## Form System Implementation
 
@@ -198,14 +214,6 @@ Following [../data-model/PERMISSION_TENANT_MIGRATIONS.md](../data-model/PERMISSI
 - Test security monitoring alerts
 - Validate incident response
 
-### Multi-Tenant Security
-Following [../security/MULTI_TENANT_ROLES.md](../security/MULTI_TENANT_ROLES.md):
-
-- Tenant isolation implementation
-- Cross-tenant security validation
-- Tenant-specific permission handling
-- Data isolation enforcement
-
 ## UI Component Enhancement
 
 ### Advanced UI Components
@@ -229,6 +237,23 @@ Following [../ui/responsive/RESPONSIVE_COMPONENTS.md](../ui/responsive/RESPONSIV
 - Performance considerations per [../ui/responsive/PERFORMANCE_CONSIDERATIONS.md](../ui/responsive/PERFORMANCE_CONSIDERATIONS.md)
 - Mobile-first design implementation
 - Responsive typography from [../ui/responsive/RESPONSIVE_TYPOGRAPHY.md](../ui/responsive/RESPONSIVE_TYPOGRAPHY.md)
+
+## Performance Optimization
+
+### Audit System Performance
+Following [../audit/PERFORMANCE_STRATEGIES.md](../audit/PERFORMANCE_STRATEGIES.md):
+
+- Asynchronous log processing implementation
+- Selective logging strategies
+- Efficient storage optimization
+- Smart retention policies
+- Batch processing for audit logs
+
+**Testing Requirements:**
+- Test audit system performance impact
+- Verify asynchronous processing efficiency
+- Test selective logging accuracy
+- Validate retention policy execution
 
 ## Required Reading for Implementation
 
@@ -260,10 +285,18 @@ Following [../ui/responsive/RESPONSIVE_COMPONENTS.md](../ui/responsive/RESPONSIV
 - [../data-model/SCHEMA_MIGRATIONS.md](../data-model/SCHEMA_MIGRATIONS.md)
 - [../data-model/PERMISSION_TENANT_MIGRATIONS.md](../data-model/PERMISSION_TENANT_MIGRATIONS.md)
 
-### Security
+### Security & Multi-Tenant
 - [../security/SECURITY_EVENTS.md](../security/SECURITY_EVENTS.md)
 - [../security/SECURITY_MONITORING.md](../security/SECURITY_MONITORING.md)
 - [../security/MULTI_TENANT_ROLES.md](../security/MULTI_TENANT_ROLES.md)
+- [../multitenancy/SESSION_MANAGEMENT.md](../multitenancy/SESSION_MANAGEMENT.md)
+
+### Performance & Audit
+- [../audit/PERFORMANCE_STRATEGIES.md](../audit/PERFORMANCE_STRATEGIES.md)
+
+### Testing
+- [../testing/MULTI_TENANT_TESTING.md](../testing/MULTI_TENANT_TESTING.md)
+- [../testing/SECURITY_TESTING.md](../testing/SECURITY_TESTING.md)
 
 ### UI & Design
 - [../ui/COMPONENT_ARCHITECTURE.md](../ui/COMPONENT_ARCHITECTURE.md)
@@ -290,6 +323,7 @@ At the end of Phase 2, the application should have:
 
 ## Version History
 
+- **2.1.0**: Added missing document references for multi-tenant testing, audit performance strategies, and tenant switching (2025-05-23)
 - **2.0.0**: Complete rewrite to reference existing documentation and improve AI guidance (2025-05-23)
 - **1.1.0**: Updated with explicit document references and Required Reading section (2025-05-23)
 - **1.0.0**: Initial document creation (2025-05-18)
