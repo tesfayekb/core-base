@@ -331,10 +331,10 @@ describe('Permission Resolution Performance', () => {
 
 ## Related Documentation
 
-- **[CORE_COMPONENT_INTEGRATION.md](CORE_COMPONENT_INTEGRATION.md)**: Basic component integration tests
-- **[INTEGRATION_TEST_ENVIRONMENT.md](INTEGRATION_TEST_ENVIRONMENT.md)**: Test environment setup
-- **[../PERFORMANCE_STANDARDS.md](../PERFORMANCE_STANDARDS.md)**: Performance benchmarks
-- **[../TEST_FRAMEWORK.md](../TEST_FRAMEWORK.md)**: Overall testing framework
+- **[CORE_COMPONENT_INTEGRATION.md](docs/testing/CORE_COMPONENT_INTEGRATION.md)**: Basic component integration tests
+- **[INTEGRATION_TEST_ENVIRONMENT.md](docs/testing/INTEGRATION_TEST_ENVIRONMENT.md)**: Test environment setup
+- **[PERFORMANCE_STANDARDS.md](docs/PERFORMANCE_STANDARDS.md)**: Performance benchmarks
+- **[TEST_FRAMEWORK.md](docs/TEST_FRAMEWORK.md)**: Overall testing framework
 
 ## Version History
 

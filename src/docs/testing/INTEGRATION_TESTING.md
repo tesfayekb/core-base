@@ -12,19 +12,19 @@ This document provides an overview of the comprehensive integration testing stra
 
 ### Core Testing Areas
 
-- **[CORE_COMPONENT_INTEGRATION.md](CORE_COMPONENT_INTEGRATION.md)**: Essential component-to-component integration tests
+- **[CORE_COMPONENT_INTEGRATION.md](docs/testing/CORE_COMPONENT_INTEGRATION.md)**: Essential component-to-component integration tests
   - RBAC and User Management integration
   - Authentication and session management
   - Multi-tenant data isolation
   - Basic audit integration
 
-- **[ADVANCED_INTEGRATION_PATTERNS.md](ADVANCED_INTEGRATION_PATTERNS.md)**: Complex integration scenarios
+- **[ADVANCED_INTEGRATION_PATTERNS.md](docs/testing/ADVANCED_INTEGRATION_PATTERNS.md)**: Complex integration scenarios
   - End-to-end user flows
   - Advanced multi-tenant testing
   - Event-driven integration
   - Performance integration testing
 
-- **[INTEGRATION_TEST_ENVIRONMENT.md](INTEGRATION_TEST_ENVIRONMENT.md)**: Test environment setup and configuration
+- **[INTEGRATION_TEST_ENVIRONMENT.md](docs/testing/INTEGRATION_TEST_ENVIRONMENT.md)**: Test environment setup and configuration
   - Database setup and management
   - Service mocking strategies
   - Test fixtures and helpers
@@ -34,25 +34,25 @@ This document provides an overview of the comprehensive integration testing stra
 
 ### 1. Component-to-Component Integration
 Focus: Testing interactions between closely related components within the same subsystem.
-**See**: [CORE_COMPONENT_INTEGRATION.md](CORE_COMPONENT_INTEGRATION.md)
+**See**: [CORE_COMPONENT_INTEGRATION.md](docs/testing/CORE_COMPONENT_INTEGRATION.md)
 
 ### 2. Subsystem Integration
 Focus: Testing interactions between major subsystems (Auth, RBAC, Multi-tenant, Audit).
-**See**: [CORE_COMPONENT_INTEGRATION.md](CORE_COMPONENT_INTEGRATION.md)
+**See**: [CORE_COMPONENT_INTEGRATION.md](docs/testing/CORE_COMPONENT_INTEGRATION.md)
 
 ### 3. End-to-End Flow Integration
 Focus: Testing complete business flows across multiple subsystems.
-**See**: [ADVANCED_INTEGRATION_PATTERNS.md](ADVANCED_INTEGRATION_PATTERNS.md)
+**See**: [ADVANCED_INTEGRATION_PATTERNS.md](docs/testing/ADVANCED_INTEGRATION_PATTERNS.md)
 
 ### 4. Performance Integration
 Focus: Testing integration points under load and performance requirements.
-**See**: [ADVANCED_INTEGRATION_PATTERNS.md](ADVANCED_INTEGRATION_PATTERNS.md)
+**See**: [ADVANCED_INTEGRATION_PATTERNS.md](docs/testing/ADVANCED_INTEGRATION_PATTERNS.md)
 
 ## Quick Start Guide
 
-1. **Start with Core Integration**: Begin with [CORE_COMPONENT_INTEGRATION.md](CORE_COMPONENT_INTEGRATION.md)
-2. **Set Up Environment**: Configure using [INTEGRATION_TEST_ENVIRONMENT.md](INTEGRATION_TEST_ENVIRONMENT.md)
-3. **Add Advanced Patterns**: Implement complex scenarios from [ADVANCED_INTEGRATION_PATTERNS.md](ADVANCED_INTEGRATION_PATTERNS.md)
+1. **Start with Core Integration**: Begin with [CORE_COMPONENT_INTEGRATION.md](docs/testing/CORE_COMPONENT_INTEGRATION.md)
+2. **Set Up Environment**: Configure using [INTEGRATION_TEST_ENVIRONMENT.md](docs/testing/INTEGRATION_TEST_ENVIRONMENT.md)
+3. **Add Advanced Patterns**: Implement complex scenarios from [ADVANCED_INTEGRATION_PATTERNS.md](docs/testing/ADVANCED_INTEGRATION_PATTERNS.md)
 
 ## Test Coverage Requirements
 
@@ -72,10 +72,10 @@ Integration tests should cover:
 
 ## Related Documentation
 
-- **[../TEST_FRAMEWORK.md](../TEST_FRAMEWORK.md)**: Overall testing framework
-- **[../security/SECURITY_TESTING.md](../security/SECURITY_TESTING.md)**: Security testing approach
-- **[../rbac/TESTING_STRATEGY.md](../rbac/TESTING_STRATEGY.md)**: RBAC-specific testing
-- **[../PERFORMANCE_STANDARDS.md](../PERFORMANCE_STANDARDS.md)**: Performance benchmarks for integration
+- **[TEST_FRAMEWORK.md](docs/TEST_FRAMEWORK.md)**: Overall testing framework
+- **[SECURITY_TESTING.md](docs/testing/SECURITY_TESTING.md)**: Security testing approach
+- **[RBAC Testing Strategy](docs/rbac/TESTING_STRATEGY.md)**: RBAC-specific testing
+- **[PERFORMANCE_STANDARDS.md](docs/PERFORMANCE_STANDARDS.md)**: Performance benchmarks for integration
 
 ## Version History
 

@@ -6,7 +6,7 @@
 
 ## Overview
 
-This document provides a practical implementation guide for creating integration tests that validate interactions between major system components. It builds upon the testing architecture defined in [../TEST_FRAMEWORK.md](../TEST_FRAMEWORK.md) and focuses on practical implementation.
+This document provides a practical implementation guide for creating integration tests that validate interactions between major system components. It builds upon the testing architecture defined in [TEST_FRAMEWORK.md](docs/TEST_FRAMEWORK.md) and focuses on practical implementation.
 
 ## Implementation Approach
 
@@ -364,10 +364,10 @@ describe('User Onboarding Integration Flow', () => {
 
 ## Related Documentation
 
-- **[../testing/INTEGRATION_TESTING.md](../testing/INTEGRATION_TESTING.md)**: Overall integration testing strategy
-- **[../testing/COMPONENT_INTEGRATION_MAP.md](../testing/COMPONENT_INTEGRATION_MAP.md)**: Component integration mapping
-- **[../TEST_FRAMEWORK.md](../TEST_FRAMEWORK.md)**: Overall testing framework
-- **[../rbac/TESTING_STRATEGY.md](../rbac/TESTING_STRATEGY.md)**: RBAC-specific testing
+- **[Integration Testing Overview](docs/testing/INTEGRATION_TESTING.md)**: Overall integration testing strategy
+- **[Component Integration Map](docs/testing/COMPONENT_INTEGRATION_MAP.md)**: Component integration mapping
+- **[TEST_FRAMEWORK.md](docs/TEST_FRAMEWORK.md)**: Overall testing framework
+- **[RBAC Testing Strategy](docs/rbac/TESTING_STRATEGY.md)**: RBAC-specific testing
 
 ## Version History
 

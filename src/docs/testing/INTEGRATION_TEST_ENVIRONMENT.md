@@ -424,10 +424,10 @@ export class IntegrationTestReporter {
 
 ## Related Documentation
 
-- **[CORE_COMPONENT_INTEGRATION.md](CORE_COMPONENT_INTEGRATION.md)**: Core integration testing patterns
-- **[ADVANCED_INTEGRATION_PATTERNS.md](ADVANCED_INTEGRATION_PATTERNS.md)**: Advanced testing scenarios
-- **[../TEST_FRAMEWORK.md](../TEST_FRAMEWORK.md)**: Overall testing framework
-- **[../PERFORMANCE_STANDARDS.md](../PERFORMANCE_STANDARDS.md)**: Performance benchmarks
+- **[CORE_COMPONENT_INTEGRATION.md](docs/testing/CORE_COMPONENT_INTEGRATION.md)**: Core integration testing patterns
+- **[ADVANCED_INTEGRATION_PATTERNS.md](docs/testing/ADVANCED_INTEGRATION_PATTERNS.md)**: Advanced testing scenarios
+- **[TEST_FRAMEWORK.md](docs/TEST_FRAMEWORK.md)**: Overall testing framework
+- **[PERFORMANCE_STANDARDS.md](docs/PERFORMANCE_STANDARDS.md)**: Performance benchmarks
 
 ## Version History
 

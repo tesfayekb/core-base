@@ -241,10 +241,10 @@ Integration tests should cover:
 
 ## Related Documentation
 
-- **[ADVANCED_INTEGRATION_PATTERNS.md](ADVANCED_INTEGRATION_PATTERNS.md)**: Advanced integration testing patterns
-- **[INTEGRATION_TEST_ENVIRONMENT.md](INTEGRATION_TEST_ENVIRONMENT.md)**: Test environment setup and configuration
-- **[../rbac/TESTING_STRATEGY.md](../rbac/TESTING_STRATEGY.md)**: RBAC-specific testing
-- **[../TEST_FRAMEWORK.md](../TEST_FRAMEWORK.md)**: Overall testing framework
+- **[ADVANCED_INTEGRATION_PATTERNS.md](docs/testing/ADVANCED_INTEGRATION_PATTERNS.md)**: Advanced integration testing patterns
+- **[INTEGRATION_TEST_ENVIRONMENT.md](docs/testing/INTEGRATION_TEST_ENVIRONMENT.md)**: Test environment setup and configuration
+- **[RBAC Testing Strategy](docs/rbac/TESTING_STRATEGY.md)**: RBAC-specific testing
+- **[TEST_FRAMEWORK.md](docs/TEST_FRAMEWORK.md)**: Overall testing framework
 
 ## Version History
 
