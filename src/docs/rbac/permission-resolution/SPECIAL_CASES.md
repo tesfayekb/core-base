@@ -1,12 +1,12 @@
 
-# Special Permission Resolution Cases
+# Permission Resolution Special Cases
 
 > **Version**: 1.0.0  
-> **Last Updated**: 2025-05-22
+> **Last Updated**: 2025-05-23
 
 ## Overview
 
-This document details special cases and exceptions in the permission resolution process that go beyond the standard algorithm.
+This document details special permission resolution cases that require additional handling beyond the standard algorithm, including resource-specific permissions and permission wildcards.
 
 ## Resource-Specific Permissions
 
@@ -42,6 +42,62 @@ async function resolveResourceSpecificPermission(
   // Implementation of resource-specific permission check
   // ...
 }
+```
+
+### Resource-Specific Permission Database Query
+
+```sql
+-- Function to check resource-specific permissions
+CREATE OR REPLACE FUNCTION check_resource_specific_permission(
+  p_user_id UUID,
+  p_action TEXT,
+  p_resource_type TEXT,
+  p_specific_resource_id UUID,
+  p_tenant_id UUID DEFAULT NULL
+) RETURNS BOOLEAN AS $$
+DECLARE
+  v_has_permission BOOLEAN;
+  v_tenant_id UUID;
+  v_resource_type_id UUID;
+BEGIN
+  -- Get tenant context
+  v_tenant_id := COALESCE(p_tenant_id, get_user_current_tenant(p_user_id));
+  
+  -- Get resource type ID
+  SELECT id INTO v_resource_type_id 
+  FROM resources 
+  WHERE name = p_resource_type;
+  
+  -- Check for specific resource permission
+  SELECT EXISTS (
+    SELECT 1
+    FROM resource_specific_permissions rsp
+    JOIN role_permissions rp ON rsp.permission_id = rp.permission_id
+    JOIN permissions p ON p.id = rp.permission_id
+    JOIN user_roles ur ON ur.role_id = rp.role_id
+    WHERE ur.user_id = p_user_id
+    AND p.resource_id = v_resource_type_id
+    AND p.action = p_action
+    AND rsp.resource_id = p_specific_resource_id
+    
+    UNION
+    
+    -- Tenant-specific resource permissions
+    SELECT 1
+    FROM resource_specific_permissions rsp
+    JOIN role_permissions rp ON rsp.permission_id = rp.permission_id
+    JOIN permissions p ON p.id = rp.permission_id
+    JOIN user_tenants ut ON ut.role_id = rp.role_id
+    WHERE ut.user_id = p_user_id
+    AND ut.tenant_id = v_tenant_id
+    AND p.resource_id = v_resource_type_id
+    AND p.action = p_action
+    AND rsp.resource_id = p_specific_resource_id
+  ) INTO v_has_permission;
+  
+  RETURN v_has_permission;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 ```
 
 ## Permission Wildcards
@@ -82,142 +138,115 @@ function checkWildcardPermission(
 }
 ```
 
-## Owner Permissions
+### Wildcard Database Implementation
 
-Resource owners may have special permissions regardless of role assignments:
+```sql
+-- Function to check permissions with wildcard support
+CREATE OR REPLACE FUNCTION check_wildcard_permission(
+  p_user_id UUID,
+  p_action TEXT,
+  p_resource_type TEXT
+) RETURNS BOOLEAN AS $$
+DECLARE
+  v_has_permission BOOLEAN;
+BEGIN
+  SELECT EXISTS (
+    SELECT 1
+    FROM user_permissions up
+    WHERE up.user_id = p_user_id
+    AND (
+      -- Exact match
+      (up.resource_name = p_resource_type AND up.action_name = p_action)
+      -- Resource wildcard
+      OR (up.resource_name = '*' AND up.action_name = p_action)
+      -- Action wildcard
+      OR (up.resource_name = p_resource_type AND up.action_name = '*')
+      -- Global wildcard
+      OR (up.resource_name = '*' AND up.action_name = '*')
+    )
+  ) INTO v_has_permission;
+  
+  RETURN v_has_permission;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+```
+
+## Owner-Based Permissions
+
+Special permissions based on resource ownership:
 
 ```typescript
 async function checkOwnerPermission(
   userId: string,
+  actionKey: string,
   resourceType: string,
-  resourceId: string,
-  tenantId?: string
+  resourceId: string
 ): Promise<boolean> {
-  // Get effective tenant context
-  const effectiveTenantId = tenantId || await getCurrentTenantContext(userId);
-  
-  // Check if resource type supports ownership
+  // 1. Check if resource type supports ownership
   if (!supportsOwnership(resourceType)) {
     return false;
   }
   
-  // Check if user is the owner of this resource
-  const isOwner = await checkResourceOwnership(userId, resourceType, resourceId, effectiveTenantId);
-  
-  // If user is owner, check if ownership grants this permission
-  if (isOwner) {
-    const ownerPermissions = await getOwnerPermissions(resourceType);
-    return ownerPermissions.includes(resourceType);
-  }
-  
-  return false;
-}
-```
-
-## Delegation Permissions
-
-Temporarily delegated permissions require special handling:
-
-```typescript
-async function checkDelegatedPermission(
-  userId: string,
-  actionKey: string,
-  resourceType: string,
-  resourceId?: string,
-  tenantId?: string
-): Promise<boolean> {
-  // Get effective tenant context
-  const effectiveTenantId = tenantId || await getCurrentTenantContext(userId);
-  
-  // Check active delegations
-  const activeDelegations = await getActiveDelegations(
-    userId,
-    effectiveTenantId,
-    new Date()
-  );
-  
-  // No active delegations
-  if (activeDelegations.length === 0) {
+  // 2. Check if user is the owner of the resource
+  const isOwner = await isResourceOwner(userId, resourceType, resourceId);
+  if (!isOwner) {
     return false;
   }
   
-  // Check if any delegation grants this permission
-  for (const delegation of activeDelegations) {
-    const hasDelegatedPermission = await checkDelegationPermission(
-      delegation.id,
-      actionKey,
-      resourceType,
-      resourceId
-    );
-    
-    if (hasDelegatedPermission) {
-      // Log delegation use for audit
-      await logDelegationUse(delegation.id, userId, actionKey, resourceType, resourceId);
-      return true;
-    }
-  }
-  
-  return false;
+  // 3. Check if the action is allowed for owners
+  return isActionAllowedForOwners(resourceType, actionKey);
 }
 ```
 
-## Time-Bound Permissions
+## Hierarchical Resource Permissions
 
-Permissions that are only valid during specific time periods:
+Some resource types have hierarchical permission inheritance:
 
 ```typescript
-async function checkTimeConstrainedPermission(
+async function checkHierarchicalPermission(
   userId: string,
   actionKey: string,
   resourceType: string,
-  resourceId?: string,
-  tenantId?: string
+  resourceId: string
 ): Promise<boolean> {
-  // Get role permissions that match this request
-  const permissions = await getRolePermissions(
-    userId,
-    actionKey,
-    resourceType,
-    tenantId
+  // Check direct permission first
+  const hasDirectPermission = await resolveResourceSpecificPermission(
+    userId, actionKey, resourceType, resourceId
   );
   
-  // Check time constraints on matching permissions
-  const now = new Date();
-  
-  for (const permission of permissions) {
-    // If permission has no time constraints, it's valid
-    if (!permission.timeConstraints) {
-      return true;
-    }
-    
-    const { validFrom, validUntil, validDays, validHours } = permission.timeConstraints;
-    
-    // Check validity period
-    if (validFrom && now < new Date(validFrom)) continue;
-    if (validUntil && now > new Date(validUntil)) continue;
-    
-    // Check day of week
-    if (validDays && !validDays.includes(now.getDay())) continue;
-    
-    // Check hour of day
-    const currentHour = now.getHours();
-    if (validHours && !(validHours.start <= currentHour && currentHour <= validHours.end)) continue;
-    
-    // Permission is valid for current time
+  if (hasDirectPermission) {
     return true;
   }
   
-  return false;
+  // If resource supports hierarchy, check parent resources
+  if (!supportsHierarchy(resourceType)) {
+    return false;
+  }
+  
+  // Get parent resource
+  const parentResource = await getParentResource(resourceType, resourceId);
+  if (!parentResource) {
+    return false;
+  }
+  
+  // Recursively check permission on parent
+  return checkHierarchicalPermission(
+    userId,
+    actionKey,
+    parentResource.type,
+    parentResource.id
+  );
 }
 ```
 
 ## Related Documentation
 
-- **[RESOLUTION_ALGORITHM_CORE.md](RESOLUTION_ALGORITHM_CORE.md)**: Core resolution algorithm
-- **[SQL_IMPLEMENTATION.md](SQL_IMPLEMENTATION.md)**: SQL implementation details
-- **[PERFORMANCE_OPTIMIZATION.md](PERFORMANCE_OPTIMIZATION.md)**: Optimization techniques
-- **[../CACHING_STRATEGY.md](../CACHING_STRATEGY.md)**: Permission caching approach
+- **[RESOLUTION_ALGORITHM.md](RESOLUTION_ALGORITHM.md)**: Overview of resolution process
+- **[CORE_ALGORITHM.md](CORE_ALGORITHM.md)**: Core algorithm pseudocode
+- **[DATABASE_QUERIES.md](DATABASE_QUERIES.md)**: SQL implementation
+- **[PERMISSION_MODEL.md](PERMISSION_MODEL.md)**: Core permission model
+- **[ENTITY_BOUNDARIES.md](ENTITY_BOUNDARIES.md)**: Entity-level permission boundaries
 
 ## Version History
 
-- **1.0.0**: Initial special cases document (2025-05-22)
+- **1.0.0**: Initial document created from RESOLUTION_ALGORITHM.md refactoring (2025-05-23)
