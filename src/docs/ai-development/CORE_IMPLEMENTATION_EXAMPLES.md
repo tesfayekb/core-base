@@ -1,470 +1,477 @@
 
 # Core Implementation Examples
 
-> **Version**: 1.0.0  
+> **Version**: 1.1.0  
 > **Last Updated**: 2025-05-23
 
 ## Overview
 
-This document provides the essential implementation examples for all major system components. These examples follow the patterns defined in the [AUTHORITATIVE_IMPLEMENTATION_PATH.md](AUTHORITATIVE_IMPLEMENTATION_PATH.md).
+This document provides essential implementation examples following the standardized patterns from [CORE_PATTERNS.md](CORE_PATTERNS.md). All examples use the same consistent patterns.
 
-## Database Examples
-
-### Tenant-Aware Repository Pattern
+## Authentication Implementation
 
 ```typescript
 /**
- * Standard tenant-aware repository implementation
+ * Standard authentication service implementation
+ * Follows patterns from CORE_PATTERNS.md
  */
-export class TenantAwareRepository<T extends { id: string }> {
-  constructor(
-    private tableName: string,
-    private tenantService: TenantContextService
-  ) {}
-  
-  async findById(id: string): Promise<T | null> {
-    const tenantId = this.tenantService.getCurrentTenantId();
-    if (!tenantId) {
-      throw new Error('No tenant context established');
-    }
-    
-    // Database query with tenant context
-    const { data, error } = await supabase
-      .from(this.tableName)
-      .select('*')
-      .eq('id', id)
-      .eq('tenant_id', tenantId)
-      .single();
-      
-    if (error) {
-      if (error.code === 'PGRST116') {
-        return null; // Not found
-      }
-      throw error;
-    }
-    
-    return data as T;
-  }
-  
-  // Additional repository methods follow the same pattern
-  // with tenant context enforcement
-}
-```
+import { z } from 'zod';
 
-## Authentication Examples
-
-### Tenant-Aware Authentication
-
-```typescript
-/**
- * Login with tenant context
- */
-export async function loginWithTenant(
-  email: string,
-  password: string,
-  tenantId?: string
-): Promise<{ 
-  success: boolean; 
-  user?: User; 
-  tenantId?: string;
-  error?: string;
-}> {
-  try {
-    // 1. Authenticate the user
-    const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-      email,
-      password
-    });
-    
-    if (authError) throw authError;
-    if (!authData.user) throw new Error('Authentication failed');
-    
-    // 2. Get user's tenant access
-    const { data: tenants, error: tenantsError } = await supabase
-      .from('user_tenants')
-      .select(`
-        tenant_id,
-        is_default,
-        tenants (
-          id,
-          name,
-          slug
-        )
-      `)
-      .eq('user_id', authData.user.id)
-      .eq('is_active', true);
-      
-    if (tenantsError) throw tenantsError;
-    
-    // 3. Determine which tenant to use
-    let selectedTenantId = tenantId;
-    
-    // If no tenant specified, use default or first available
-    if (!selectedTenantId) {
-      const defaultTenant = tenants.find(t => t.is_default);
-      selectedTenantId = defaultTenant ? 
-        defaultTenant.tenant_id : 
-        (tenants.length > 0 ? tenants[0].tenant_id : undefined);
-    }
-    
-    // 4. Verify access to specified tenant
-    if (selectedTenantId) {
-      const hasTenantAccess = tenants.some(t => t.tenant_id === selectedTenantId);
-      if (!hasTenantAccess) {
-        throw new Error('User does not have access to the specified tenant');
-      }
-      
-      // 5. Set tenant context
-      await supabase.rpc('set_tenant_context', {
-        tenant_id: selectedTenantId
-      });
-    }
-    
-    return {
-      success: true,
-      user: authData.user,
-      tenantId: selectedTenantId
-    };
-  } catch (error) {
-    console.error('Login error:', error);
-    return {
-      success: false,
-      error: error.message
-    };
-  }
-}
-```
-
-## RBAC Examples
-
-### Permission Check
-
-```typescript
-/**
- * Standard permission check implementation
- */
-export async function checkPermission(
-  userId: string,
-  action: string,
-  resourceType: string,
-  resourceId?: string
-): Promise<boolean> {
-  // 1. Get tenant context
-  const tenantId = getCurrentTenantId();
-  if (!tenantId) {
-    console.error('No tenant context established');
-    return false;
-  }
-  
-  // 2. Check for SuperAdmin status (tenant-independent)
-  const { data: isAdmin, error: adminError } = await supabase.rpc(
-    'is_super_admin',
-    { user_id: userId }
-  );
-  
-  if (adminError) {
-    console.error('Error checking admin status:', adminError);
-    return false;
-  }
-  
-  if (isAdmin) {
-    return true; // SuperAdmin has all permissions
-  }
-  
-  // 3. Check specific permission in tenant context
-  const { data, error } = await supabase.rpc(
-    'check_user_permission',
-    {
-      user_id: userId,
-      tenant_id: tenantId,
-      action_name: action,
-      resource_type: resourceType,
-      resource_id: resourceId || null
-    }
-  );
-  
-  if (error) {
-    console.error('Error checking permission:', error);
-    return false;
-  }
-  
-  return data === true;
-}
-```
-
-## Multi-Tenant Examples
-
-### Tenant Context Provider
-
-```typescript
-// React context for tenant management
-export const TenantContext = createContext<{
-  currentTenant: Tenant | null;
-  availableTenants: Tenant[];
-  setCurrentTenant: (tenantId: string) => Promise<boolean>;
-  isLoading: boolean;
-}>({
-  currentTenant: null,
-  availableTenants: [],
-  setCurrentTenant: async () => false,
-  isLoading: false
-});
-
-// Provider implementation
-export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [currentTenant, setCurrentTenantState] = useState<Tenant | null>(null);
-  const [availableTenants, setAvailableTenants] = useState<Tenant[]>([]);
-  const [isLoading, setIsLoading] = useState<boolean>(false);
-  
-  const { user } = useAuth();
-  
-  // Load user's tenant access
-  useEffect(() => {
-    if (!user) return;
-    
-    async function loadTenants() {
-      setIsLoading(true);
-      
-      try {
-        const { data, error } = await supabase
-          .from('user_tenants')
-          .select(`
-            tenant_id,
-            is_default,
-            tenants (
-              id,
-              name,
-              slug
-            )
-          `)
-          .eq('user_id', user.id)
-          .eq('is_active', true);
-          
-        if (error) throw error;
-        
-        const tenants = data.map(ut => ({
-          id: ut.tenant_id,
-          name: ut.tenants.name,
-          slug: ut.tenants.slug,
-          isDefault: ut.is_default
-        }));
-        
-        setAvailableTenants(tenants);
-        
-        // Set default tenant if none selected
-        if (!currentTenant && tenants.length > 0) {
-          const defaultTenant = tenants.find(t => t.isDefault) || tenants[0];
-          await setCurrentTenant(defaultTenant.id);
-        }
-      } catch (error) {
-        console.error('Error loading tenants:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    }
-    
-    loadTenants();
-  }, [user]);
-  
-  // Function to change tenant context
-  const setCurrentTenant = async (tenantId: string): Promise<boolean> => {
-    setIsLoading(true);
-    
-    try {
-      const tenant = availableTenants.find(t => t.id === tenantId);
-      if (!tenant) {
-        throw new Error('Tenant not found in available tenants');
-      }
-      
-      // Set tenant context in database
-      await supabase.rpc('set_tenant_context', { tenant_id: tenantId });
-      
-      // Update local state
-      setCurrentTenantState(tenant);
-      
-      // Store last used tenant
-      localStorage.setItem(`lastTenant_${user?.id}`, tenantId);
-      
-      // Invalidate caches that may contain tenant-specific data
-      queryClient.invalidateQueries();
-      
-      return true;
-    } catch (error) {
-      console.error('Error setting tenant:', error);
-      return false;
-    } finally {
-      setIsLoading(false);
-    }
-  };
-  
-  return (
-    <TenantContext.Provider
-      value={{
-        currentTenant,
-        availableTenants,
-        setCurrentTenant,
-        isLoading
-      }}
-    >
-      {children}
-    </TenantContext.Provider>
-  );
-};
-```
-
-## Audit Logging Examples
-
-### Standard Audit Log Function
-
-```typescript
-/**
- * Standard audit logging function
- */
-export async function logAuditEvent(
-  eventType: string,
-  data: Record<string, any>,
-  metadata: {
-    userId?: string;
-    resourceId?: string;
-    resourceType?: string;
-    tenantId?: string;
-  } = {}
-): Promise<boolean> {
-  try {
-    // 1. Get current tenant context if not provided
-    const tenantId = metadata.tenantId || getCurrentTenantId();
-    
-    // 2. Get current user if not provided
-    const userId = metadata.userId || getCurrentUserId();
-    
-    if (!userId) {
-      console.error('Cannot log audit event: No user context');
-      return false;
-    }
-    
-    // 3. Create audit log entry
-    const { error } = await supabase
-      .from('audit_logs')
-      .insert({
-        event_type: eventType,
-        user_id: userId,
-        tenant_id: tenantId,
-        resource_id: metadata.resourceId,
-        resource_type: metadata.resourceType,
-        event_data: data,
-        created_at: new Date().toISOString()
-      });
-      
-    if (error) {
-      console.error('Error logging audit event:', error);
-      return false;
-    }
-    
-    return true;
-  } catch (error) {
-    console.error('Error in audit logging:', error);
-    return false;
-  }
-}
-```
-
-## Security Examples
-
-### Input Validation
-
-```typescript
-/**
- * Standard input validation function
- */
-export function validateInput(
-  input: any,
-  schema: z.ZodSchema
-): { 
-  isValid: boolean; 
-  data?: any; 
-  errors?: z.ZodError 
-} {
-  try {
-    const validatedData = schema.parse(input);
-    return {
-      isValid: true,
-      data: validatedData
-    };
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      return {
-        isValid: false,
-        errors: error
-      };
-    }
-    
-    // Re-throw unexpected errors
-    throw error;
-  }
-}
-
-// Example usage with a schema
-const userSchema = z.object({
-  name: z.string().min(2).max(100),
+const LoginSchema = z.object({
   email: z.string().email(),
-  role: z.enum(['admin', 'user', 'guest']),
-  tenantId: z.string().uuid()
+  password: z.string().min(8),
+  tenantId: z.string().uuid().optional()
 });
 
-// Validate user input
-const validation = validateInput(userInput, userSchema);
-if (validation.isValid) {
-  // Process validated data
-  processUser(validation.data);
-} else {
-  // Handle validation errors
-  handleValidationErrors(validation.errors);
-}
-```
+export const authService = {
+  async login(credentials: unknown): Promise<StandardResult<AuthResult>> {
+    try {
+      // 1. Validate input
+      const validation = validateInput(credentials, LoginSchema);
+      if (!validation.isValid) {
+        return { 
+          success: false, 
+          error: 'Invalid credentials format',
+          code: 'VALIDATION_ERROR'
+        };
+      }
 
-## UI Examples
+      // 2. Authenticate with Supabase
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+        email: validation.data.email,
+        password: validation.data.password
+      });
 
-### Tenant Selector Component
+      if (authError) {
+        await logAuditEvent('authentication', { 
+          email: validation.data.email, 
+          status: 'failed',
+          metadata: { reason: authError.message }
+        });
+        return { success: false, error: 'Invalid credentials' };
+      }
 
-```tsx
-/**
- * Standard tenant selector component
- */
-export const TenantSelector: React.FC = () => {
-  const { 
-    currentTenant, 
-    availableTenants, 
-    setCurrentTenant, 
-    isLoading 
-  } = useTenantContext();
-  
-  if (availableTenants.length <= 1) {
-    return null; // Don't show selector if only one tenant
+      // 3. Get tenant access
+      const tenantId = validation.data.tenantId || await getDefaultTenant(authData.user.id);
+      if (!tenantId) {
+        return { success: false, error: 'No tenant access available' };
+      }
+
+      // 4. Set tenant context
+      await supabase.rpc('set_tenant_context', { tenant_id: tenantId });
+
+      // 5. Load permissions
+      const permissions = await loadUserPermissions(authData.user.id, tenantId);
+
+      // 6. Log success
+      await logAuditEvent('authentication', { 
+        userId: authData.user.id, 
+        tenantId, 
+        status: 'success' 
+      });
+
+      return {
+        success: true,
+        data: {
+          userId: authData.user.id,
+          tenantId,
+          session: authData.session,
+          permissions
+        }
+      };
+    } catch (error) {
+      console.error('Authentication error:', error);
+      return { success: false, error: 'Authentication failed' };
+    }
   }
-  
-  return (
-    <Select
-      value={currentTenant?.id || ''}
-      onValueChange={async (value) => {
-        await setCurrentTenant(value);
-      }}
-      disabled={isLoading}
-    >
-      <SelectTrigger className="w-[180px]">
-        <SelectValue placeholder="Select tenant" />
-      </SelectTrigger>
-      <SelectContent>
-        {availableTenants.map((tenant) => (
-          <SelectItem key={tenant.id} value={tenant.id}>
-            {tenant.name}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
-  );
 };
 ```
 
-## Version History
+## Permission Management
 
-- **1.0.0**: Initial core implementation examples (2025-05-23)
+```typescript
+/**
+ * Standard permission service implementation
+ */
+export const permissionService = {
+  async checkPermission(context: PermissionContext): Promise<boolean> {
+    try {
+      // 1. Check cache
+      const cacheKey = `perm:${context.userId}:${context.tenantId}:${context.resourceType}:${context.action}`;
+      const cached = permissionCache.get(cacheKey);
+      if (cached !== undefined) return cached;
+
+      // 2. Check SuperAdmin
+      const { data: isSuperAdmin } = await supabase.rpc('is_super_admin', {
+        user_id: context.userId
+      });
+      
+      if (isSuperAdmin) {
+        permissionCache.set(cacheKey, true, 300);
+        return true;
+      }
+
+      // 3. Set tenant context and check permission
+      await supabase.rpc('set_tenant_context', { tenant_id: context.tenantId });
+      
+      const { data: hasPermission } = await supabase.rpc('check_user_permission', {
+        user_id: context.userId,
+        resource_type: context.resourceType,
+        action_name: context.action,
+        resource_id: context.resourceId
+      });
+
+      const result = hasPermission === true;
+      permissionCache.set(cacheKey, result, 300);
+      return result;
+    } catch (error) {
+      console.error('Permission check error:', error);
+      return false;
+    }
+  }
+};
+```
+
+## Multi-Tenant Data Access
+
+```typescript
+/**
+ * Standard tenant-aware repository
+ */
+export class TenantRepository<T extends { id: string; tenant_id: string }> {
+  constructor(private tableName: string) {}
+
+  async findById(
+    context: { userId: string; tenantId: string },
+    id: string
+  ): Promise<StandardResult<T | null>> {
+    try {
+      // 1. Check permission
+      const hasPermission = await permissionService.checkPermission({
+        userId: context.userId,
+        tenantId: context.tenantId,
+        resourceType: this.tableName,
+        action: 'ViewAny'
+      });
+
+      if (!hasPermission) {
+        return { success: false, error: 'Permission denied', code: 'PERMISSION_DENIED' };
+      }
+
+      // 2. Set tenant context
+      await supabase.rpc('set_tenant_context', { tenant_id: context.tenantId });
+
+      // 3. Query with tenant filter
+      const { data, error } = await supabase
+        .from(this.tableName)
+        .select('*')
+        .eq('id', id)
+        .eq('tenant_id', context.tenantId)
+        .single();
+
+      if (error) {
+        if (error.code === 'PGRST116') {
+          return { success: true, data: null };
+        }
+        return { success: false, error: error.message };
+      }
+
+      // 4. Log access
+      await logAuditEvent('data_access', {
+        userId: context.userId,
+        tenantId: context.tenantId,
+        resourceType: this.tableName,
+        resourceId: id,
+        action: 'view'
+      });
+
+      return { success: true, data: data as T };
+    } catch (error) {
+      console.error('Repository error:', error);
+      return { success: false, error: 'Data access failed' };
+    }
+  }
+
+  async create(
+    context: { userId: string; tenantId: string },
+    entity: Omit<T, 'id' | 'tenant_id' | 'created_at' | 'updated_at'>
+  ): Promise<StandardResult<T>> {
+    try {
+      // 1. Check permission
+      const hasPermission = await permissionService.checkPermission({
+        userId: context.userId,
+        tenantId: context.tenantId,
+        resourceType: this.tableName,
+        action: 'Create'
+      });
+
+      if (!hasPermission) {
+        return { success: false, error: 'Permission denied', code: 'PERMISSION_DENIED' };
+      }
+
+      // 2. Set tenant context
+      await supabase.rpc('set_tenant_context', { tenant_id: context.tenantId });
+
+      // 3. Create with tenant_id
+      const { data, error } = await supabase
+        .from(this.tableName)
+        .insert({
+          ...entity,
+          tenant_id: context.tenantId
+        })
+        .select()
+        .single();
+
+      if (error) {
+        return { success: false, error: error.message };
+      }
+
+      // 4. Log creation
+      await logAuditEvent('data_access', {
+        userId: context.userId,
+        tenantId: context.tenantId,
+        resourceType: this.tableName,
+        resourceId: data.id,
+        action: 'create'
+      });
+
+      return { success: true, data: data as T };
+    } catch (error) {
+      console.error('Repository error:', error);
+      return { success: false, error: 'Data creation failed' };
+    }
+  }
+}
+```
+
+## React Hook Implementation
+
+```typescript
+/**
+ * Standard permission hook
+ */
+export function usePermission(
+  resourceType: string,
+  action: string,
+  resourceId?: string
+) {
+  const [state, setState] = useState({
+    hasPermission: false,
+    isLoading: true,
+    error: null as string | null
+  });
+  
+  const { user, tenantId } = useAuth();
+
+  useEffect(() => {
+    if (!user || !tenantId) {
+      setState({ hasPermission: false, isLoading: false, error: null });
+      return;
+    }
+
+    const checkPermission = async () => {
+      try {
+        setState(prev => ({ ...prev, isLoading: true, error: null }));
+        
+        const hasPermission = await permissionService.checkPermission({
+          userId: user.id,
+          tenantId,
+          resourceType,
+          action,
+          resourceId
+        });
+
+        setState({ hasPermission, isLoading: false, error: null });
+      } catch (error) {
+        setState({ 
+          hasPermission: false, 
+          isLoading: false, 
+          error: error.message 
+        });
+      }
+    };
+
+    checkPermission();
+  }, [user, tenantId, resourceType, action, resourceId]);
+
+  return state;
+}
+```
+
+## Component Implementation
+
+```typescript
+/**
+ * Standard permission gate component
+ */
+interface PermissionGateProps {
+  resourceType: string;
+  action: string;
+  resourceId?: string;
+  children: React.ReactNode;
+  fallback?: React.ReactNode;
+}
+
+export const PermissionGate: React.FC<PermissionGateProps> = ({
+  resourceType,
+  action,
+  resourceId,
+  children,
+  fallback = null
+}) => {
+  const { hasPermission, isLoading } = usePermission(resourceType, action, resourceId);
+
+  if (isLoading) {
+    return <div className="animate-pulse">Checking permissions...</div>;
+  }
+
+  if (!hasPermission) {
+    return <>{fallback}</>;
+  }
+
+  return <>{children}</>;
+};
+```
+
+## API Route Implementation
+
+```typescript
+/**
+ * Standard API route with multi-tenant support
+ */
+export async function handleApiRequest(req: Request): Promise<Response> {
+  try {
+    // 1. Get user context
+    const session = await getSession(req);
+    if (!session) {
+      return Response.json(
+        { success: false, error: 'Unauthorized' }, 
+        { status: 401 }
+      );
+    }
+
+    // 2. Get tenant context
+    const tenantId = req.headers.get('x-tenant-id');
+    if (!tenantId) {
+      return Response.json(
+        { success: false, error: 'Missing tenant context' }, 
+        { status: 400 }
+      );
+    }
+
+    // 3. Validate input
+    const body = await req.json();
+    const validation = validateInput(body, RequestSchema);
+    if (!validation.isValid) {
+      return Response.json(
+        { 
+          success: false, 
+          error: 'Invalid input',
+          details: validation.errors?.format()
+        }, 
+        { status: 400 }
+      );
+    }
+
+    // 4. Check permission
+    const hasPermission = await permissionService.checkPermission({
+      userId: session.user.id,
+      tenantId,
+      resourceType: 'api_resource',
+      action: 'Execute'
+    });
+
+    if (!hasPermission) {
+      return Response.json(
+        { success: false, error: 'Permission denied' }, 
+        { status: 403 }
+      );
+    }
+
+    // 5. Execute business logic
+    const result = await executeBusinessLogic(validation.data, {
+      userId: session.user.id,
+      tenantId
+    });
+
+    if (!result.success) {
+      return Response.json(result, { status: 400 });
+    }
+
+    return Response.json(result);
+  } catch (error) {
+    console.error('API error:', error);
+    return Response.json(
+      { success: false, error: 'Internal server error' }, 
+      { status: 500 }
+    );
+  }
+}
+```
+
+## Utility Functions
+
+```typescript
+/**
+ * Standard utility functions
+ */
+
+// Tenant context utilities
+export const tenantUtils = {
+  async getCurrentTenant(userId: string): Promise<string | null> {
+    try {
+      const { data } = await supabase
+        .from('user_tenants')
+        .select('tenant_id')
+        .eq('user_id', userId)
+        .eq('is_default', true)
+        .single();
+      
+      return data?.tenant_id || null;
+    } catch {
+      return null;
+    }
+  },
+
+  async setTenantContext(tenantId: string): Promise<void> {
+    await supabase.rpc('set_tenant_context', { tenant_id: tenantId });
+  }
+};
+
+// Cache utilities
+export const cacheUtils = {
+  get<T>(key: string): T | undefined {
+    // Implementation depends on cache provider (Redis, memory, etc.)
+    return cache.get(key);
+  },
+
+  set<T>(key: string, value: T, ttlSeconds: number = 300): void {
+    cache.set(key, value, ttlSeconds);
+  },
+
+  invalidate(pattern: string): void {
+    cache.invalidatePattern(pattern);
+  }
+};
+
+// PII sanitization
+export function sanitizePII(data: any): any {
+  const sensitiveFields = ['password', 'ssn', 'creditCard', 'email'];
+  
+  if (typeof data !== 'object' || data === null) {
+    return data;
+  }
+
+  const sanitized = { ...data };
+  
+  for (const field of sensitiveFields) {
+    if (field in sanitized) {
+      sanitized[field] = '[REDACTED]';
+    }
+  }
+
+  return sanitized;
+}
+```
+
+These examples demonstrate the consistent patterns that should be used throughout the system. All implementations must follow these exact patterns for consistency and maintainability.
