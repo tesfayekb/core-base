@@ -1,7 +1,7 @@
 
 # Global Documentation Map
 
-> **Version**: 4.0.0  
+> **Version**: 4.1.0  
 > **Last Updated**: 2025-05-23
 
 ## Official Implementation Path
@@ -10,7 +10,15 @@ The **only** official implementation path is:
 
 - **[ai-development/AUTHORITATIVE_IMPLEMENTATION_PATH.md](ai-development/AUTHORITATIVE_IMPLEMENTATION_PATH.md)**
 
-All implementations must follow this path exactly. This document provides the single source of truth for implementation sequence, validation checkpoints, and integration strategy.
+All implementations must follow this path exactly with mandatory validation checkpoints between phases.
+
+## Mandatory Validation System
+
+**NEW**: Validation checkpoints are now mandatory between all implementation phases:
+
+- **[implementation/PHASE_VALIDATION_CHECKPOINTS.md](implementation/PHASE_VALIDATION_CHECKPOINTS.md)**: Complete validation requirements
+
+**No phase transition is allowed without passing all validation criteria.**
 
 ## Documentation Hierarchy
 
@@ -20,7 +28,7 @@ For reference purposes, this project follows a three-tier documentation structur
 High-level guides and starting points that provide overview and navigation.
 
 ### 2. Implementation Guides
-Phase-specific, actionable instructions organized by implementation phase.
+Phase-specific, actionable instructions organized by implementation phase with validation gates.
 
 ### 3. Reference Documents
 Detailed specifications, standards, and component-specific documentation.
@@ -45,13 +53,29 @@ When implementing features:
    - [ai-development/AUTHORITATIVE_IMPLEMENTATION_PATH.md](ai-development/AUTHORITATIVE_IMPLEMENTATION_PATH.md)
    - Implement exactly in the order specified
 
-2. **Reference canonical specifications**
+2. **Pass mandatory validation checkpoints**
+   - [implementation/PHASE_VALIDATION_CHECKPOINTS.md](implementation/PHASE_VALIDATION_CHECKPOINTS.md)
+   - Cannot proceed without 100% validation pass rate
+
+3. **Reference canonical specifications**
    - Use canonical references for specifications
    - Do not modify canonical references
 
-3. **Validate against success criteria**
+4. **Validate against success criteria**
    - Check implementation against phase success criteria
    - Run tests specified in testing guides
+
+## Quality Gates Enforcement
+
+### Automated Validation
+- All phases require automated test validation
+- Performance benchmarks must be met
+- Security reviews are mandatory
+
+### Manual Sign-off
+- Product owner approval required for phase completion
+- Documentation must be current and accurate
+- No critical issues can remain unresolved
 
 ## Related Documentation
 
@@ -61,6 +85,7 @@ When implementing features:
 
 ## Version History
 
+- **4.1.0**: Added mandatory validation checkpoint system for all phase transitions (2025-05-23)
 - **4.0.0**: Established single authoritative implementation path (2025-05-23)
 - **3.0.0**: Implemented three-tier documentation hierarchy (2025-05-23)
 - **2.0.0**: Refactored to reference specialized documentation maps (2025-05-22)
