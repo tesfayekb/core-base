@@ -1,0 +1,98 @@
+
+# RBAC System Documentation Map
+
+> **Version**: 1.0.0  
+> **Last Updated**: 2025-05-22
+
+This document provides a visual guide to the Role-Based Access Control (RBAC) documentation files in the project plan.
+
+## RBAC Documentation Structure
+
+```
+rbac/
+├── README.md                      # Entry point and overview
+├── ROLE_ARCHITECTURE.md           # Role definition and structure
+├── PERMISSION_TYPES.md            # Permission taxonomy and implementation
+├── PERMISSION_RESOLUTION.md       # How permissions are resolved for users
+├── PERMISSION_DEPENDENCIES.md     # Functional dependencies between permission types
+├── ENTITY_BOUNDARIES.md           # Entity-level permission isolation
+├── CACHING_STRATEGY.md            # Multi-level caching approach
+├── DATABASE_OPTIMIZATION.md       # Database design for permissions
+├── PERMISSION_QUERY_OPTIMIZATION.md # Query optimization strategies
+├── PERFORMANCE_OPTIMIZATION.md    # Performance techniques
+├── MONITORING_ANALYTICS.md        # Monitoring and analytics
+└── diagrams/
+    ├── README.md                  # Diagrams overview
+    └── PERMISSION_RESOLUTION_FLOW.md # Visual diagram of permission resolution
+```
+
+## Document Relationships
+
+```mermaid
+graph TD
+    README["README.md"] --> ROLE["ROLE_ARCHITECTURE.md"]
+    README --> PERM["PERMISSION_TYPES.md"]
+    README --> RES["PERMISSION_RESOLUTION.md"]
+    README --> PERMDEP["PERMISSION_DEPENDENCIES.md"]
+    README --> ENT["ENTITY_BOUNDARIES.md"]
+    README --> CACHE["CACHING_STRATEGY.md"]
+    README --> DB["DATABASE_OPTIMIZATION.md"]
+    README --> QUERY["PERMISSION_QUERY_OPTIMIZATION.md"]
+    README --> PERF["PERFORMANCE_OPTIMIZATION.md"]
+    README --> MON["MONITORING_ANALYTICS.md"]
+    README --> DIAG["diagrams/README.md"]
+    
+    PERMDEP -.-> RES
+    PERMDEP -.-> PERM
+    DIAG --> FLOW["diagrams/PERMISSION_RESOLUTION_FLOW.md"]
+    QUERY -.-> DB
+    QUERY -.-> CACHE
+    QUERY -.-> PERF
+```
+
+## Integration with Other Systems
+
+```mermaid
+graph TD
+    README["README.md"] --> SEC["../security/README.md"]
+    README --> AUDIT["../audit/README.md"]
+    README --> MOB["../mobile/README.md"]
+    README --> CORE["../CORE_ARCHITECTURE.md"]
+    README --> DOC["../DOCUMENTATION_MAP.md"]
+    
+    SEC -.-> TENANT["../security/MULTI_TENANT_ROLES.md"]
+    TENANT -.-> ENT["ENTITY_BOUNDARIES.md"]
+    
+    AUDIT -.-> SEC_INT["../audit/SECURITY_INTEGRATION.md"]
+    SEC_INT -.-> MON["MONITORING_ANALYTICS.md"]
+    
+    MOB -.-> MOB_SEC["../mobile/SECURITY.md"]
+```
+
+## Key Implementation Details
+
+- Direct permission assignment model with no role hierarchy or inheritance
+- Functional dependencies between permissions for logical consistency
+- Entity boundaries for multi-tenant isolation
+- Multi-level caching for performance optimization
+- Optimized permission queries with monitoring and analytics
+
+## How to Use This Map
+
+1. Start with **README.md** for a high-level overview of the RBAC system
+2. For **role management**, continue to **ROLE_ARCHITECTURE.md**
+3. For **permission types**, see **PERMISSION_TYPES.md**
+4. For **permission resolution**, refer to **PERMISSION_RESOLUTION.md** and **PERMISSION_DEPENDENCIES.md**
+5. For **multi-tenant boundaries**, check **ENTITY_BOUNDARIES.md**
+6. For **performance and optimization**, explore the caching and optimization documents
+
+## Related Maps
+
+- [Core Architecture Map](CORE_ARCHITECTURE_MAP.md)
+- [Security System Map](SECURITY_SYSTEM_MAP.md)
+- [Multi-Tenant Map](MULTI_TENANT_MAP.md)
+- [Integration Map](INTEGRATION_MAP.md)
+
+## Version History
+
+- **1.0.0**: Initial RBAC system documentation map (2025-05-22)
