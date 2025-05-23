@@ -1,31 +1,32 @@
 
 # RBAC Integration
 
-> **Version**: 1.0.0  
-> **Last Updated**: 2025-05-22
+> **Version**: 1.1.0  
+> **Last Updated**: 2025-05-23
 
 ## Overview
 
-This document describes how the user management system integrates with the Role-Based Access Control (RBAC) system, focusing on role assignment architecture and permission resolution.
+This document describes how the user management system integrates with the Role-Based Access Control (RBAC) system using the direct permission assignment model.
 
-## Role Assignment Architecture
+## Direct Role Assignment Architecture
 
 ### User-Role Relationship
 
-Users are assigned roles through two distinct mechanisms:
+Users are assigned roles through direct mechanisms without hierarchy:
 
 1. **Direct Role Assignment**:
    - Roles assigned at the user level (`user_roles` table)
-   - Global roles that apply across the system
-   - Typically used for system-wide administrative roles
+   - No role inheritance or hierarchy
+   - Flat role structure for clear permission boundaries
 
 2. **Tenant-Specific Role Assignment**:
    - Roles assigned within tenant context (`user_tenants` table)
    - Different roles possible in different tenants
    - Scoped to operations within the tenant
+   - No cross-tenant role inheritance
 
 ```sql
--- Direct role assignment table
+-- Direct role assignment table (no hierarchy)
 CREATE TABLE user_roles (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -36,7 +37,7 @@ CREATE TABLE user_roles (
   UNIQUE(user_id, role_id)
 );
 
--- Tenant-specific role assignment 
+-- Tenant-specific direct role assignment 
 CREATE TABLE user_tenants (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -51,69 +52,31 @@ CREATE TABLE user_tenants (
 
 ### Default Roles
 
-The system provides automatic role assignment for new users:
+The system provides automatic direct role assignment for new users:
 
 1. **System Default Role**:
-   - All new users receive the `BasicUser` role
+   - All new users receive the `BasicUser` role directly
    - Provides minimal permissions for self-service operations
    - Cannot be removed from users (protected by system)
 
 2. **Tenant Default Roles**:
    - Each tenant can define a default role for new members
    - Applied during user-tenant association
-   - Can be overridden during explicit invitation
+   - No inheritance from parent or system roles
 
-3. **Role Templates**:
-   - Predefined role collections for common user types
-   - Simplifies role assignment for administrators
-   - Configurable per-tenant
+## Direct Permission Resolution
 
-```typescript
-interface TenantRoleConfig {
-  tenantId: string;
-  defaultRoleId: string;
-  roleTemplates: Array<{
-    name: string;
-    description: string;
-    roleIds: string[];
-  }>;
-}
-```
-
-### Role Assignment Permissions
-
-Role assignment follows these permission rules:
-
-1. **Assignment Permissions**:
-   - Requires `ManageRoles` permission to assign roles
-   - SuperAdmin can assign any role
-   - Entity administrators can only assign roles they possess
-   - Users cannot assign roles to themselves
-
-2. **Permission Checking**:
-   - Role assignment validated at application level
-   - Database-level constraints enforce security
-   - Assignment attempts logged for audit
-
-3. **Assignment Workflow**:
-   - Direct assignment by administrator
-   - Role request with approval workflow
-   - Automatic assignment based on rules
-   - Bulk assignment operations
-
-## Permission Resolution
-
-The permission resolution process follows the direct permission assignment model with these characteristics:
+The permission resolution process follows the direct assignment model:
 
 1. **Context-Aware Permission Checks**:
    - User permissions evaluated within current tenant context
-   - Permission union across all assigned roles
+   - Permission union across all directly assigned roles
    - SuperAdmin bypass for system-critical operations
 
-2. **Permission Resolution Logic**:
+2. **Direct Permission Resolution Logic**:
    ```typescript
-   // Permission check function
-   async function hasPermission(
+   // Direct permission check function
+   async function hasDirectPermission(
      userId: string,
      action: string,
      resourceType: string,
@@ -126,164 +89,79 @@ The permission resolution process follows the direct permission assignment model
      const tenantId = getCurrentTenantContext();
      if (!tenantId) return false;
      
-     // Get user roles (both global and tenant-specific)
-     const roles = await getUserRoles(userId, tenantId);
-     if (!roles.length) return false;
+     // Get user roles (both global and tenant-specific, no hierarchy)
+     const directRoles = await getUserDirectRoles(userId, tenantId);
+     if (!directRoles.length) return false;
      
-     // Check permissions across all roles (union)
-     return await checkRolePermissions(roles, action, resourceType, resourceId);
+     // Check permissions across all directly assigned roles (union)
+     return await checkDirectRolePermissions(directRoles, action, resourceType, resourceId);
    }
    ```
 
-3. **Permission Caching**:
+3. **Direct Permission Caching**:
    - User permissions cached for performance
-   - Cache invalidated on role changes
+   - Cache invalidated on direct role changes
    - Separate cache entries per tenant context
    - Time-limited cache validity
 
-```typescript
-interface PermissionCacheKey {
-  userId: string;
-  tenantId: string;
-  timestamp: number;
-}
+## Role Assignment Permissions
 
-interface PermissionCacheEntry {
-  permissions: Set<string>; // Format: "action:resourceType"
-  expiresAt: number;
-}
+Role assignment follows these direct permission rules:
 
-// Permission cache implementation
-class PermissionCache {
-  private cache = new Map<string, PermissionCacheEntry>();
-  private readonly TTL_MS = 5 * 60 * 1000; // 5 minute TTL
-  
-  getCacheKey(userId: string, tenantId: string): string {
-    return `${userId}:${tenantId}`;
-  }
-  
-  getPermissions(userId: string, tenantId: string): Set<string> | null {
-    const key = this.getCacheKey(userId, tenantId);
-    const entry = this.cache.get(key);
-    
-    if (!entry || entry.expiresAt < Date.now()) {
-      return null; // Cache miss or expired
-    }
-    
-    return entry.permissions;
-  }
-  
-  setPermissions(userId: string, tenantId: string, permissions: Set<string>): void {
-    const key = this.getCacheKey(userId, tenantId);
-    this.cache.set(key, {
-      permissions,
-      expiresAt: Date.now() + this.TTL_MS
-    });
-  }
-  
-  invalidate(userId: string, tenantId?: string): void {
-    if (tenantId) {
-      // Invalidate specific tenant cache
-      this.cache.delete(this.getCacheKey(userId, tenantId));
-    } else {
-      // Invalidate all tenant caches for user
-      for (const key of this.cache.keys()) {
-        if (key.startsWith(`${userId}:`)) {
-          this.cache.delete(key);
-        }
-      }
-    }
-  }
-}
-```
+1. **Direct Assignment Permissions**:
+   - Requires `ManageRoles` permission to assign roles directly
+   - SuperAdmin can assign any role directly
+   - Entity administrators can only assign roles they directly possess
+   - Users cannot assign roles to themselves
+
+2. **Permission Checking**:
+   - Role assignment validated at application level
+   - Database-level constraints enforce security
+   - Assignment attempts logged for audit
 
 ## Integration with User Management
 
-### Role Assignment UI
+### Direct Role Management UI
 
 The user management interface provides:
 
-1. **Role Management Interface**:
-   - Role assignment dialog
+1. **Direct Role Management Interface**:
+   - Direct role assignment dialog
    - Role removal confirmation
-   - Role conflict detection
-   - Permission preview
+   - Direct role conflict detection
+   - Permission preview for directly assigned roles
 
-2. **Tenant Role Management**:
-   - Tenant-specific role assignment
+2. **Tenant Direct Role Management**:
+   - Tenant-specific direct role assignment
    - Cross-tenant role comparison
    - Default tenant role configuration
    - Bulk tenant role updates
-
-3. **Permission Visualization**:
-   - Effective permission display
-   - Permission source tracing
-   - Permission comparison
-   - Permission inheritance visual display
 
 ### User Context Switching
 
 When users switch tenant context:
 
-1. **Permission Recalculation**:
+1. **Direct Permission Recalculation**:
    - Clear permission cache
-   - Recalculate effective permissions
+   - Recalculate effective permissions from directly assigned roles
    - Apply new permission set to UI
    - Update tenant-specific UI elements
 
-2. **Role-Based UI Adaptation**:
-   - Dynamic navigation updates
+2. **Direct Role-Based UI Adaptation**:
+   - Dynamic navigation updates based on direct permissions
    - Feature availability changes
    - Permission-based component rendering
    - Conditional action enabling/disabling
 
-## Role and Permission Testing
-
-The system provides automated testing for role-based access:
-
-1. **Permission Test Cases**:
-   - Access with appropriate permissions
-   - Rejection with insufficient permissions
-   - Role-based access scenarios
-   - Permission boundary tests
-
-2. **Test Data Generation**:
-   ```typescript
-   export const createTestUser = (overrides?: Partial<User>) => ({
-     id: faker.string.uuid(),
-     email: faker.internet.email(),
-     fullName: faker.person.fullName(),
-     isActive: true,
-     role: 'user',
-     ...overrides
-   });
-   
-   export const createTestRole = (overrides?: Partial<Role>) => ({
-     id: faker.string.uuid(),
-     name: `Role-${faker.string.alphanumeric(5)}`,
-     description: faker.lorem.sentence(),
-     isSystemRole: false,
-     ...overrides
-   });
-   
-   export const assignRoleToUser = (userId: string, roleId: string) => ({
-     id: faker.string.uuid(),
-     userId,
-     roleId,
-     createdAt: new Date(),
-     updatedAt: new Date(),
-     createdBy: faker.string.uuid()
-   });
-   ```
-
 ## Related Documentation
 
 - **[../rbac/README.md](../rbac/README.md)**: RBAC system overview
-- **[../rbac/ROLE_ARCHITECTURE.md](../rbac/ROLE_ARCHITECTURE.md)**: Role structure
-- **[../rbac/permission-resolution/README.md](../rbac/permission-resolution/README.md)**: Permission resolution process
+- **[../rbac/ROLE_ARCHITECTURE.md](../rbac/ROLE_ARCHITECTURE.md)**: Direct role structure
+- **[../rbac/permission-resolution/README.md](../rbac/permission-resolution/README.md)**: Direct permission resolution
 - **[../rbac/PERMISSION_TYPES.md](../rbac/PERMISSION_TYPES.md)**: Permission taxonomy
 - **[MULTITENANCY_INTEGRATION.md](MULTITENANCY_INTEGRATION.md)**: Multi-tenant role management
 
 ## Version History
 
+- **1.1.0**: Updated to align with direct permission assignment model (2025-05-23)
 - **1.0.0**: Initial document created from user management refactoring (2025-05-22)

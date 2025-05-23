@@ -1,14 +1,14 @@
 
 # Phase 1.4: Basic RBAC Implementation
 
-> **Version**: 1.0.0  
+> **Version**: 1.1.0  
 > **Last Updated**: 2025-05-23
 
 ## Overview
 
-This guide covers basic RBAC system implementation with SuperAdmin and BasicUser roles, direct permission assignment, and foundation permission checking. This builds on authentication from Phase 1.3.
+This guide covers basic RBAC system implementation using the direct permission assignment model with SuperAdmin and BasicUser roles. This builds on authentication from Phase 1.3.
 
-## Permission Model Foundation
+## Direct Permission Model Foundation
 
 ### Direct Assignment Model
 Following [../../rbac/ROLE_ARCHITECTURE.md](../../rbac/ROLE_ARCHITECTURE.md):
@@ -17,13 +17,13 @@ Following [../../rbac/ROLE_ARCHITECTURE.md](../../rbac/ROLE_ARCHITECTURE.md):
 - Users assigned directly to roles
 - Roles contain direct permission assignments
 - No role inheritance or hierarchical permissions
-- Clear permission resolution path
+- Clear, flat permission resolution path
 
 ### Basic Role Definitions
 
 **SuperAdmin Role:**
 - Universal system access
-- All permission types granted
+- All permission types granted directly
 - System administration capabilities
 - User and role management permissions
 
@@ -52,18 +52,18 @@ Following [../../rbac/PERMISSION_TYPES.md](../../rbac/PERMISSION_TYPES.md):
 **Testing Requirements:**
 - Test SuperAdmin role has universal access
 - Verify BasicUser role has limited permissions
-- Test permission checking mechanisms  
+- Test direct permission checking mechanisms  
 - Validate role assignment and removal
 
-## Permission Resolution Foundation
+## Direct Permission Resolution Foundation
 
 ### Basic Permission Checking
 Using [../../rbac/permission-resolution/CORE_ALGORITHM.md](../../rbac/permission-resolution/CORE_ALGORITHM.md):
 
-**Resolution Steps:**
-1. Get user's assigned roles
-2. Collect all permissions from roles
-3. Check specific permission exists
+**Direct Resolution Steps:**
+1. Get user's directly assigned roles
+2. Collect all permissions from roles (union approach)
+3. Check specific permission exists in union
 4. Apply entity boundary rules
 
 ### Entity Boundaries
@@ -76,8 +76,8 @@ Following [../../rbac/ENTITY_BOUNDARIES.md](../../rbac/ENTITY_BOUNDARIES.md):
 
 ## Permission Infrastructure
 
-### Permission Checking Service
-- Centralized permission validation
+### Direct Permission Checking Service
+- Centralized permission validation using direct assignment model
 - Cacheable permission queries
 - Performance-optimized lookups
 - Consistent error handling
@@ -85,8 +85,8 @@ Following [../../rbac/ENTITY_BOUNDARIES.md](../../rbac/ENTITY_BOUNDARIES.md):
 ### UI Integration Foundation
 Using [../../rbac/permission-resolution/UI_INTEGRATION.md](../../rbac/permission-resolution/UI_INTEGRATION.md):
 
-**Permission-Based Rendering:**
-- Conditional component display
+**Direct Permission-Based Rendering:**
+- Conditional component display based on direct permissions
 - Permission-aware navigation
 - Action button visibility
 - Menu item filtering
@@ -100,7 +100,7 @@ Following [../../rbac/CACHING_STRATEGY.md](../../rbac/CACHING_STRATEGY.md):
 - Performance monitoring setup
 
 **Testing Requirements:**
-- Test permission checking performance
+- Test direct permission checking performance
 - Verify cache effectiveness
 - Test cache invalidation scenarios
 - Validate UI permission rendering
@@ -108,13 +108,13 @@ Following [../../rbac/CACHING_STRATEGY.md](../../rbac/CACHING_STRATEGY.md):
 ## RBAC Integration
 
 ### Database Integration
-- Permission resolution queries
+- Direct permission resolution queries
 - Optimized permission lookups
 - Index strategies for performance
 - Data consistency validation
 
 ### Authentication Integration
-- Role assignment during registration
+- Direct role assignment during registration
 - Permission context in authentication
 - Session-based permission caching
 - Logout permission cleanup
@@ -123,11 +123,11 @@ Following [../../rbac/CACHING_STRATEGY.md](../../rbac/CACHING_STRATEGY.md):
 
 ✅ SuperAdmin role grants universal access  
 ✅ BasicUser role properly restricted  
-✅ Permission checking service operational  
+✅ Direct permission checking service operational  
 ✅ Entity boundaries enforced  
-✅ UI renders based on permissions  
+✅ UI renders based on direct permissions  
 ✅ Basic caching functional  
-✅ Role assignment/removal working  
+✅ Direct role assignment/removal working  
 
 ## Next Steps
 
@@ -135,8 +135,12 @@ Continue to [SECURITY_INFRASTRUCTURE.md](SECURITY_INFRASTRUCTURE.md) for securit
 
 ## Related Documentation
 
-- [../../rbac/ROLE_ARCHITECTURE.md](../../rbac/ROLE_ARCHITECTURE.md): Role architecture principles
+- [../../rbac/ROLE_ARCHITECTURE.md](../../rbac/ROLE_ARCHITECTURE.md): Direct role architecture principles
 - [../../rbac/PERMISSION_TYPES.md](../../rbac/PERMISSION_TYPES.md): Permission type definitions
-- [../../rbac/permission-resolution/CORE_ALGORITHM.md](../../rbac/permission-resolution/CORE_ALGORITHM.md): Permission resolution
+- [../../rbac/permission-resolution/CORE_ALGORITHM.md](../../rbac/permission-resolution/CORE_ALGORITHM.md): Direct permission resolution
 - [../../rbac/ENTITY_BOUNDARIES.md](../../rbac/ENTITY_BOUNDARIES.md): Entity boundary enforcement
 
+## Version History
+
+- **1.1.0**: Updated to align with direct permission assignment model (2025-05-23)
+- **1.0.0**: Initial basic RBAC implementation guide (2025-05-23)

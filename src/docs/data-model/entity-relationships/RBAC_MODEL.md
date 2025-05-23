@@ -1,12 +1,12 @@
 
 # Role-Based Access Control (RBAC) Model
 
-> **Version**: 1.0.0  
-> **Last Updated**: 2025-05-22
+> **Version**: 1.1.0  
+> **Last Updated**: 2025-05-23
 
 ## Overview
 
-This document defines the entity relationships for the Role-Based Access Control (RBAC) system, describing how roles, permissions, and resources interact.
+This document defines the entity relationships for the Role-Based Access Control (RBAC) system using the direct permission assignment model, describing how roles, permissions, and resources interact without hierarchy.
 
 ## Entity Relationship Diagram
 
@@ -77,15 +77,16 @@ erDiagram
 
 ### Roles
 
-Defines user roles within the system using a flat role structure.
+Defines user roles within the system using a flat role structure with no hierarchy.
 
 **Key Properties**:
 - Name and description
 - System role flag (for protected roles like SuperAdmin)
+- No parent/child relationships or inheritance
 
 **Relationships**:
-- One-to-many with role permissions
-- Many-to-many with users through user roles
+- One-to-many with role permissions (direct assignment)
+- Many-to-many with users through user roles (direct assignment)
 
 ### Resources
 
@@ -100,24 +101,26 @@ Represents system resources that can be protected by permissions.
 
 ### Permissions
 
-Links resources with specific actions that can be performed on them.
+Links resources with specific actions that can be performed on them using direct assignment.
 
 **Key Properties**:
 - Action identifier
 - Resource reference
+- No inheritance or hierarchy
 
 **Relationships**:
 - Many-to-one with resources
-- One-to-many with role permissions
+- One-to-many with role permissions (direct assignment)
 
 ### Role Permissions
 
-Junction table connecting roles to their granted permissions.
+Junction table connecting roles to their directly granted permissions.
 
 **Key Properties**:
 - Role reference
 - Permission reference
 - Creation audit information
+- Direct assignment (no inheritance)
 
 **Relationships**:
 - Many-to-one with roles
@@ -136,24 +139,26 @@ Defines the available actions that can be performed on each resource.
 
 ### User Roles
 
-Associates users with their assigned roles.
+Associates users with their directly assigned roles.
 
 **Key Properties**:
 - User reference
 - Role reference
 - Creation audit information
+- Direct assignment (no inheritance)
 
 **Relationships**:
 - Many-to-one with users
 - Many-to-one with roles
 
-## Permission Implementation
+## Direct Permission Implementation
 
 The system implements a direct permission assignment model with these characteristics:
 
 1. **Flat Permission Structure**: Permissions are directly assigned to roles without hierarchical inheritance
 2. **Union-Based Resolution**: Users with multiple roles have the union of all permissions from their roles
 3. **Explicit Permissions**: All permissions must be explicitly granted to roles
+4. **No Role Hierarchy**: Roles have no parent-child relationships or inheritance patterns
 
 ## Related Documentation
 
@@ -165,4 +170,5 @@ The system implements a direct permission assignment model with these characteri
 
 ## Version History
 
+- **1.1.0**: Updated to align with direct permission assignment model (2025-05-23)
 - **1.0.0**: Initial document creation from entity relationships refactoring (2025-05-22)

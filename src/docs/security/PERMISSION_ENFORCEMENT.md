@@ -1,37 +1,37 @@
 # Permission Enforcement Algorithms
 
-> **Version**: 1.0.0  
+> **Version**: 1.1.0  
 > **Last Updated**: 2025-05-23
 
 ## Overview
 
-This document details the specific algorithms implemented for permission checks, enforcement, and resolution.
+This document details the specific algorithms implemented for permission checks, enforcement, and resolution using the direct permission assignment model.
 
-## Permission Check Implementation
+## Direct Permission Check Implementation
 
-The system implements this algorithm for permission checks across all layers:
+The system implements this algorithm for direct permission checks across all layers:
 
 ```typescript
-// Permission check implementation
-async function checkUserPermission(userId: string, resource: string, action: string): Promise<boolean> {
+// Direct permission check implementation
+async function checkDirectUserPermission(userId: string, resource: string, action: string): Promise<boolean> {
   // 1. Check cache first for performance
-  const cacheKey = `perm:${userId}:${resource}:${action}`;
+  const cacheKey = `direct_perm:${userId}:${resource}:${action}`;
   const cachedResult = await cache.get(cacheKey);
   if (cachedResult !== undefined) {
     return cachedResult === 'true';
   }
   
-  // 2. Get user roles
-  const userRoles = await getUserRoles(userId);
+  // 2. Get user's directly assigned roles
+  const userDirectRoles = await getUserDirectRoles(userId);
   
   // 3. SuperAdmin short-circuit
-  if (userRoles.includes('super_admin')) {
-    await cache.set(cacheKey, 'true', 3600); // Cache for 1 hour
+  if (userDirectRoles.some(role => role.name === 'SuperAdmin')) {
+    await cache.set(cacheKey, 'true', 3600);
     return true;
   }
   
   // 4. Basic user default permission check
-  if (userRoles.includes('user')) {
+  if (userDirectRoles.some(role => role.name === 'BasicUser')) {
     const isDefaultPermission = BASIC_USER_DEFAULT_PERMISSIONS.some(
       p => p.resource === resource && p.action === action
     );
@@ -42,12 +42,12 @@ async function checkUserPermission(userId: string, resource: string, action: str
     }
   }
   
-  // 5. Check role-based permissions with direct assignment model
+  // 5. Check direct role-based permissions (union approach)
   let hasPermission = false;
   
-  for (const role of userRoles) {
-    const rolePermissions = await getRolePermissions(role);
-    if (rolePermissions.some(p => p.resource === resource && p.action === action)) {
+  for (const role of userDirectRoles) {
+    const directRolePermissions = await getDirectRolePermissions(role.id);
+    if (directRolePermissions.some(p => p.resource === resource && p.action === action)) {
       hasPermission = true;
       break;
     }
@@ -56,12 +56,13 @@ async function checkUserPermission(userId: string, resource: string, action: str
   // 6. Audit permission check
   await auditSecurityEvent({
     type: 'authorization',
-    subtype: 'permission_check',
+    subtype: 'direct_permission_check',
     userId: userId,
     metadata: {
       resource,
       action,
-      granted: hasPermission
+      granted: hasPermission,
+      model: 'direct_assignment'
     }
   });
   
@@ -74,11 +75,11 @@ async function checkUserPermission(userId: string, resource: string, action: str
 
 ## API Middleware Implementation
 
-The permission enforcement middleware for API routes:
+The direct permission enforcement middleware for API routes:
 
 ```typescript
-// Permission middleware implementation
-function requirePermission(resource: string, action: string): RequestHandler {
+// Direct permission middleware implementation
+function requireDirectPermission(resource: string, action: string): RequestHandler {
   return async (req, res, next) => {
     try {
       // 1. Verify user is authenticated
@@ -92,8 +93,8 @@ function requirePermission(resource: string, action: string): RequestHandler {
       // 2. Get tenant context if applicable
       const tenantId = req.headers['x-tenant-id'] as string || undefined;
       
-      // 3. Check user permission
-      const hasPermission = await checkUserPermission(
+      // 3. Check user direct permission
+      const hasPermission = await checkDirectUserPermission(
         req.user.id,
         resource,
         action,
@@ -104,14 +105,15 @@ function requirePermission(resource: string, action: string): RequestHandler {
         // 4. Audit failed permission check
         await auditSecurityEvent({
           type: 'authorization',
-          subtype: 'permission_denied',
+          subtype: 'direct_permission_denied',
           userId: req.user.id,
           metadata: {
             resource,
             action,
             path: req.path,
             method: req.method,
-            tenantId
+            tenantId,
+            model: 'direct_assignment'
           }
         });
         
@@ -125,16 +127,17 @@ function requirePermission(resource: string, action: string): RequestHandler {
       next();
     } catch (error) {
       // 6. Handle unexpected errors
-      console.error('Permission check error:', error);
+      console.error('Direct permission check error:', error);
       
       await auditSecurityEvent({
         type: 'error',
-        subtype: 'permission_check_error',
+        subtype: 'direct_permission_check_error',
         userId: req.user?.id,
         metadata: {
           resource,
           action,
-          error: error.message
+          error: error.message,
+          model: 'direct_assignment'
         }
       });
       
@@ -147,19 +150,19 @@ function requirePermission(resource: string, action: string): RequestHandler {
 }
 ```
 
-## UI Component Permission Check
+## UI Component Direct Permission Check
 
-The permission check implementation for UI components:
+The direct permission check implementation for UI components:
 
 ```typescript
-// UI permission hook implementation
-function usePermission(resource: string, action: string): {
+// UI direct permission hook implementation
+function useDirectPermission(resource: string, action: string): {
   hasPermission: boolean;
   isLoading: boolean;
   error: Error | null;
 } {
   const { user } = useAuth();
-  const queryKey = `permission:${user?.id}:${resource}:${action}`;
+  const queryKey = `direct_permission:${user?.id}:${resource}:${action}`;
   
   const { data, isLoading, error } = useQuery({
     queryKey: [queryKey],
@@ -168,7 +171,7 @@ function usePermission(resource: string, action: string): {
         return false;
       }
       
-      const result = await api.permissions.check({
+      const result = await api.permissions.checkDirect({
         resource,
         action
       });
@@ -190,21 +193,21 @@ function usePermission(resource: string, action: string): {
   };
 }
 
-// Conditional render component based on permission
-function PermissionGate({ 
+// Direct permission gate component
+function DirectPermissionGate({ 
   resource, 
   action, 
   fallback = null,
   children 
-}: PermissionGateProps) {
-  const { hasPermission, isLoading } = usePermission(resource, action);
+}: DirectPermissionGateProps) {
+  const { hasPermission, isLoading } = useDirectPermission(resource, action);
   
   // During initial load, render nothing or a skeleton
   if (isLoading) {
     return <LoadingIndicator />;
   }
   
-  // If permission granted, render children
+  // If direct permission granted, render children
   if (hasPermission) {
     return <>{children}</>;
   }
@@ -214,13 +217,13 @@ function PermissionGate({
 }
 ```
 
-## Database-Level Permission Enforcement
+## Database-Level Direct Permission Enforcement
 
-Row-level security implementation in the database:
+Row-level security implementation with direct assignment model:
 
 ```sql
--- Create permission check function for database policies
-CREATE OR REPLACE FUNCTION check_permission_policy(
+-- Create direct permission check function for database policies
+CREATE OR REPLACE FUNCTION check_direct_permission_policy(
   resource_name TEXT, 
   action_name TEXT
 ) RETURNS BOOLEAN AS $$
@@ -239,44 +242,29 @@ BEGIN
       RETURN TRUE;
     END IF;
     
-    -- Check cached permission using pg_cached_plan
-    /*+ BitmapScan(user_permissions idx_user_permissions_resource_action) */
+    -- Check direct permission assignment (no hierarchy)
     RETURN EXISTS (
       SELECT 1
-      FROM user_permissions
-      WHERE user_id = auth_user_id
-      AND resource_name = $1
-      AND action_name = $2
+      FROM user_roles ur
+      JOIN role_permissions rp ON ur.role_id = rp.role_id
+      JOIN permissions p ON rp.permission_id = p.id
+      JOIN resources r ON p.resource_id = r.id
+      WHERE ur.user_id = auth_user_id
+      AND r.name = resource_name
+      AND p.action = action_name
     );
   END;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
-
--- Apply row-level security policy to a table
-CREATE POLICY users_access_policy ON users
-  USING (
-    -- For SELECTs
-    check_permission_policy('users', 'view')
-    OR 
-    -- Allow users to see their own record regardless of permissions
-    id = auth.uid()
-  )
-  WITH CHECK (
-    -- For INSERTs and UPDATEs
-    check_permission_policy('users', 'create')
-    OR
-    (check_permission_policy('users', 'update') 
-     AND id = auth.uid())
-  );
 ```
 
-## Multiple Permission Check Optimization
+## Multiple Direct Permission Check Optimization
 
-Efficient batch checking for multiple permissions:
+Efficient batch checking for multiple direct permissions:
 
 ```typescript
-// Efficient checking of multiple permissions
-async function checkMultiplePermissions(
+// Efficient checking of multiple direct permissions
+async function checkMultipleDirectPermissions(
   userId: string,
   checks: Array<{ resource: string, action: string }>
 ): Promise<Record<string, boolean>> {
@@ -286,7 +274,7 @@ async function checkMultiplePermissions(
   );
   
   // 2. Get cached results for all keys
-  const cacheKeys = permissionKeys.map(key => `perm:${userId}:${key}`);
+  const cacheKeys = permissionKeys.map(key => `direct_perm:${userId}:${key}`);
   const cachedResults = await cache.mget(cacheKeys);
   
   // 3. Track which permissions need to be checked
@@ -308,31 +296,31 @@ async function checkMultiplePermissions(
     return results;
   }
   
-  // 6. Get user roles once
-  const userRoles = await getUserRoles(userId);
+  // 6. Get user's directly assigned roles once
+  const userDirectRoles = await getUserDirectRoles(userId);
   
   // 7. SuperAdmin short-circuit
-  if (userRoles.includes('super_admin')) {
+  if (userDirectRoles.some(role => role.name === 'SuperAdmin')) {
     // Grant all permissions and cache them
     const cacheEntries: Record<string, string> = {};
     
     missingChecks.forEach(({ resource, action }) => {
       const key = `${resource}:${action}`;
       results[key] = true;
-      cacheEntries[`perm:${userId}:${key}`] = 'true';
+      cacheEntries[`direct_perm:${userId}:${key}`] = 'true';
     });
     
     await cache.mset(cacheEntries, 3600);
     return results;
   }
   
-  // 8. Get all role permissions in one query
-  const rolePermissions = await Promise.all(
-    userRoles.map(role => getRolePermissions(role))
+  // 8. Get all direct role permissions in one query
+  const directRolePermissions = await Promise.all(
+    userDirectRoles.map(role => getDirectRolePermissions(role.id))
   );
   
-  // 9. Flatten role permissions
-  const flatPermissions = rolePermissions.flat();
+  // 9. Flatten direct role permissions
+  const flatPermissions = directRolePermissions.flat();
   
   // 10. Check each missing permission
   const cacheEntries: Record<string, string> = {};
@@ -344,7 +332,7 @@ async function checkMultiplePermissions(
     );
     
     results[key] = hasPermission;
-    cacheEntries[`perm:${userId}:${key}`] = hasPermission ? 'true' : 'false';
+    cacheEntries[`direct_perm:${userId}:${key}`] = hasPermission ? 'true' : 'false';
   }
   
   // 11. Cache results
@@ -358,10 +346,11 @@ async function checkMultiplePermissions(
 
 - **[OVERVIEW.md](OVERVIEW.md)**: Security implementation overview
 - **[AUTH_ALGORITHMS.md](AUTH_ALGORITHMS.md)**: Authentication algorithms
-- **[../rbac/permission-resolution/CORE_ALGORITHM.md](../rbac/permission-resolution/CORE_ALGORITHM.md)**: Core permission resolution
+- **[../rbac/permission-resolution/CORE_ALGORITHM.md](../rbac/permission-resolution/CORE_ALGORITHM.md)**: Core direct permission resolution
 - **[../rbac/permission-resolution/PERFORMANCE_OPTIMIZATION.md](../rbac/permission-resolution/PERFORMANCE_OPTIMIZATION.md)**: Performance optimization
 - **[../rbac/PERMISSION_IMPLEMENTATION_GUIDE.md](../rbac/PERMISSION_IMPLEMENTATION_GUIDE.md)**: Implementation guide
 
 ## Version History
 
+- **1.1.0**: Updated to align with direct permission assignment model (2025-05-23)
 - **1.0.0**: Initial document created from OVERVIEW.md refactoring (2025-05-23)

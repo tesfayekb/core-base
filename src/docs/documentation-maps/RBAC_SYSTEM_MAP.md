@@ -1,17 +1,17 @@
 
 # RBAC System Documentation Map
 
-> **Version**: 1.1.0  
+> **Version**: 1.2.0  
 > **Last Updated**: 2025-05-23
 
-This document provides a visual guide to the Role-Based Access Control (RBAC) documentation files in the project plan.
+This document provides a visual guide to the Role-Based Access Control (RBAC) documentation files using the direct permission assignment model.
 
 ## RBAC Documentation Structure
 
 ```
 rbac/
 ├── README.md                      # Entry point and overview
-├── ROLE_ARCHITECTURE.md           # Role definition and structure
+├── ROLE_ARCHITECTURE.md           # Direct role definition and flat structure
 ├── PERMISSION_TYPES.md            # Permission taxonomy and implementation
 ├── PERMISSION_RESOLUTION.md       # How permissions are resolved for users
 ├── PERMISSION_DEPENDENCIES.md     # Functional dependencies between permission types
@@ -27,8 +27,11 @@ rbac/
 │   └── IMPLEMENTATION_PATTERNS.md # Implementation patterns for entity boundaries
 └── permission-resolution/         # Detailed permission resolution documentation
     ├── README.md                  # Permission resolution overview
-    ├── PERMISSION_MODEL.md        # Permission model details
+    ├── PERMISSION_MODEL.md        # Direct permission model details
     ├── RESOLUTION_ALGORITHM.md    # Resolution algorithm details
+    ├── CORE_ALGORITHM.md          # Core algorithm implementation
+    ├── DATABASE_QUERIES.md        # Direct permission SQL queries
+    ├── HIERARCHICAL.md            # Direct assignment implementation (replaces hierarchy)
     ├── ENTITY_BOUNDARIES.md       # Entity boundaries in permission resolution
     └── IMPLEMENTATION.md          # Implementation details
 ```
@@ -56,6 +59,9 @@ graph TD
     RES --> RES_README["permission-resolution/README.md"]
     RES_README --> RES_MODEL["permission-resolution/PERMISSION_MODEL.md"]
     RES_README --> RES_ALG["permission-resolution/RESOLUTION_ALGORITHM.md"]
+    RES_README --> RES_CORE["permission-resolution/CORE_ALGORITHM.md"]
+    RES_README --> RES_DB["permission-resolution/DATABASE_QUERIES.md"]
+    RES_README --> RES_DIRECT["permission-resolution/HIERARCHICAL.md"]
     RES_README --> RES_ENT["permission-resolution/ENTITY_BOUNDARIES.md"]
     RES_README --> RES_IMP["permission-resolution/IMPLEMENTATION.md"]
     
@@ -68,6 +74,9 @@ graph TD
     QUERY -.-> DB
     QUERY -.-> CACHE
     QUERY -.-> PERF
+    
+    RES_DIRECT -.-> RES_MODEL
+    RES_DIRECT -.-> RES_CORE
 ```
 
 ## Integration with Other Systems
@@ -94,7 +103,7 @@ graph TD
 
 ## Key Implementation Details
 
-- Direct permission assignment model with no role hierarchy or inheritance
+- **Direct permission assignment model** with no role hierarchy or inheritance
 - Functional dependencies between permissions for logical consistency
 - Entity boundaries for multi-tenant isolation
 - Multi-level caching for performance optimization
@@ -102,8 +111,8 @@ graph TD
 
 ## How to Use This Map
 
-1. Start with **README.md** for a high-level overview of the RBAC system
-2. For **role management**, continue to **ROLE_ARCHITECTURE.md**
+1. Start with **README.md** for a high-level overview of the direct permission assignment RBAC system
+2. For **role management**, continue to **ROLE_ARCHITECTURE.md** (flat structure)
 3. For **permission types**, see **PERMISSION_TYPES.md**
 4. For **permission resolution**, refer to **PERMISSION_RESOLUTION.md** and **PERMISSION_DEPENDENCIES.md**
 5. For **multi-tenant boundaries**, check **ENTITY_BOUNDARIES.md** (canonical implementation) 
@@ -120,5 +129,6 @@ graph TD
 
 ## Version History
 
+- **1.2.0**: Updated to align with direct permission assignment model throughout (2025-05-23)
 - **1.1.0**: Updated document relationships to show entity boundaries as canonical reference, added implementation examples (2025-05-23)
 - **1.0.0**: Initial RBAC system documentation map (2025-05-22)

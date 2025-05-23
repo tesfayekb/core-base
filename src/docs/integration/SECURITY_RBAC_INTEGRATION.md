@@ -1,11 +1,12 @@
+
 # Security and RBAC Integration
 
-> **Version**: 1.1.0  
-> **Last Updated**: 2025-05-22
+> **Version**: 1.2.0  
+> **Last Updated**: 2025-05-23
 
 ## Overview
 
-This document details the integration points between the Security system and the Role-Based Access Control (RBAC) system, defining how authentication flows integrate with permission resolution.
+This document details the integration between the Security system and the Role-Based Access Control (RBAC) system, defining how authentication flows integrate with the direct permission assignment model.
 
 ## Authentication to Permission Resolution Flow
 
@@ -25,16 +26,16 @@ sequenceDiagram
     AS-->>U: AuthResponse(token, user)
 ```
 
-## Integration Interfaces
+## Direct Permission Assignment Integration
 
 ### Permission Check Interface
 
 ```typescript
-interface PermissionCheckInterface {
+interface DirectPermissionInterface {
   /**
-   * Check if a user has a specific permission on a resource
+   * Check if a user has a specific permission using direct assignment model
    */
-  checkPermission(
+  checkDirectPermission(
     userId: string, 
     resource: string, 
     action: string, 
@@ -43,9 +44,9 @@ interface PermissionCheckInterface {
   ): Promise<boolean>;
   
   /**
-   * Check multiple permissions at once for efficiency
+   * Check multiple permissions at once using union approach
    */
-  checkMultiplePermissions(
+  checkMultipleDirectPermissions(
     userId: string,
     checks: Array<{
       resource: string;
@@ -60,49 +61,49 @@ interface PermissionCheckInterface {
   }>>;
   
   /**
-   * Efficiently check if user has any of the specified permissions
+   * Get all permissions for a user (union of all role permissions)
    */
-  hasAnyPermission(
+  getUserPermissionUnion(
     userId: string,
-    permissions: Array<{
-      resource: string;
-      action: string;
-    }>
-  ): Promise<boolean>;
+    tenantId?: string
+  ): Promise<Array<{
+    resource: string;
+    action: string;
+  }>>;
 }
 ```
 
 ### Role Management Interface
 
 ```typescript
-interface RoleManagementInterface {
+interface DirectRoleManagementInterface {
   /**
-   * Get all roles assigned to a user
+   * Get all roles directly assigned to a user
    */
-  getUserRoles(userId: string): Promise<Role[]>;
+  getUserDirectRoles(userId: string): Promise<Role[]>;
   
   /**
-   * Assign a role to a user
+   * Assign a role directly to a user
    */
-  assignRoleToUser(
+  assignDirectRoleToUser(
     userId: string, 
     roleId: string, 
     assignedBy: string
   ): Promise<void>;
   
   /**
-   * Remove a role from a user
+   * Remove a role directly from a user
    */
-  removeRoleFromUser(
+  removeDirectRoleFromUser(
     userId: string, 
     roleId: string, 
     removedBy: string
   ): Promise<void>;
   
   /**
-   * Check if a user has specific role
+   * Check if a user has specific role (direct assignment only)
    */
-  userHasRole(userId: string, roleName: string): Promise<boolean>;
+  userHasDirectRole(userId: string, roleName: string): Promise<boolean>;
 }
 ```
 
@@ -111,7 +112,7 @@ interface RoleManagementInterface {
 ### Authentication Middleware
 
 ```typescript
-// Authentication middleware implementation
+// Authentication middleware with direct permission model
 function authenticate(req: Request, res: Response, next: NextFunction) {
   const token = extractTokenFromRequest(req);
   
@@ -120,12 +121,11 @@ function authenticate(req: Request, res: Response, next: NextFunction) {
   }
   
   try {
-    // Verify token and extract user ID
     const decoded = verifyToken(token);
     const userId = decoded.sub;
     
-    // Get user roles using RBAC integration
-    const roles = await permissionService.getUserRoles(userId);
+    // Get user roles using direct assignment model
+    const roles = await permissionService.getUserDirectRoles(userId);
     
     // Store user and roles in request context
     req.user = {
@@ -134,7 +134,6 @@ function authenticate(req: Request, res: Response, next: NextFunction) {
       permissions: decoded.permissions || []
     };
     
-    // Continue to next middleware
     next();
   } catch (error) {
     return res.status(401).json({ error: 'Invalid authentication' });
@@ -144,38 +143,17 @@ function authenticate(req: Request, res: Response, next: NextFunction) {
 
 ### Authorization Integration Points
 
-Permission checks should be performed at these integration points:
+Permission checks are performed using the direct assignment model at:
 - API endpoints via middleware
 - Route guards in frontend applications
 - UI component rendering logic
 - Service layer business logic
 - Database queries through RLS policies
 
-## Authentication Result Structure
-
-```typescript
-interface AuthenticationResult {
-  authenticated: boolean;
-  user?: {
-    id: string;
-    email: string;
-    name: string;
-    roles: Role[];
-    permissions?: Permission[];
-  };
-  session?: {
-    id: string;
-    expiresAt: string;
-  };
-  token?: string;
-  mfaRequired?: boolean;
-}
-```
-
 ## Permission Check Request/Response
 
 ```typescript
-interface PermissionCheckRequest {
+interface DirectPermissionCheckRequest {
   userId: string;
   resource: string;
   action: string;
@@ -183,44 +161,45 @@ interface PermissionCheckRequest {
   context?: Record<string, any>;
 }
 
-interface PermissionCheckResponse {
+interface DirectPermissionCheckResponse {
   granted: boolean;
   reason?: string;
   grantedBy?: {
     roleId: string;
     roleName: string;
-  };
+  }[];
 }
 ```
 
 ## Error Handling
 
-The Security and RBAC integration must implement standardized error handling following the guidelines in [../security/ERROR_HANDLING.md](../security/ERROR_HANDLING.md):
+The Security and RBAC integration implements standardized error handling:
 
 1. **Authentication Errors**
-   - All authentication failures must follow the standardized error format
-   - Error responses must never reveal whether a user exists
-   - Multiple authentication failures must trigger appropriate security events
+   - All authentication failures follow standardized error format
+   - Error responses never reveal whether a user exists
+   - Multiple authentication failures trigger security events
 
 2. **Permission Check Errors**
-   - Permission denials must be logged with appropriate context
-   - Errors must include traceId for correlation with audit logs
-   - Performance optimizations for error cases should follow [../rbac/PERMISSION_QUERY_OPTIMIZATION.md](../rbac/PERMISSION_QUERY_OPTIMIZATION.md)
+   - Permission denials are logged with appropriate context
+   - Errors include traceId for correlation with audit logs
+   - Performance optimizations for error cases
 
 3. **Critical Integration Errors**
-   - Service unavailability must be handled gracefully
-   - Fallback mechanisms must be implemented for critical security functions
-   - All integration errors must be properly classified and logged
+   - Service unavailability is handled gracefully
+   - Fallback mechanisms for critical security functions
+   - All integration errors are properly classified and logged
 
 ## Related Documentation
 
 - **[../security/AUTH_SYSTEM.md](../security/AUTH_SYSTEM.md)**: Authentication system details
 - **[../security/ERROR_HANDLING.md](../security/ERROR_HANDLING.md)**: Standardized error handling
-- **[../rbac/PERMISSION_RESOLUTION.md](../rbac/PERMISSION_RESOLUTION.md)**: Permission resolution process
+- **[../rbac/PERMISSION_RESOLUTION.md](../rbac/PERMISSION_RESOLUTION.md)**: Direct permission resolution
 - **[SECURITY_AUDIT_INTEGRATION.md](SECURITY_AUDIT_INTEGRATION.md)**: Security audit integration
 - **[EVENT_ARCHITECTURE.md](EVENT_ARCHITECTURE.md)**: Event architecture for integration
 
 ## Version History
 
-- **1.1.0**: Added explicit error handling section referencing ERROR_HANDLING.md (2025-05-22)
+- **1.2.0**: Updated to align with direct permission assignment model (2025-05-23)
+- **1.1.0**: Added explicit error handling section (2025-05-22)
 - **1.0.0**: Initial Security and RBAC integration specification
