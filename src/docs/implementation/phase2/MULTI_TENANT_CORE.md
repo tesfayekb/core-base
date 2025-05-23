@@ -1,103 +1,45 @@
 
-# Phase 2.2: Multi-Tenant Core Implementation
+# Phase 2.2: Legacy - Multi-Tenant Core Implementation
 
-> **Version**: 1.0.0  
+> **Version**: 2.0.0  
 > **Last Updated**: 2025-05-23
 
-## Overview
+## ⚠️ DEPRECATED NOTICE
 
-This guide covers core multi-tenant infrastructure including data isolation, tenant context management, and security validation. This implements the foundational multi-tenant architecture.
+**This guide has been superseded by the new multi-tenant first approach.**
 
-## Prerequisites
+**New Path**: Multi-tenant capabilities are now foundational architecture implemented in **Phase 1.6: Multi-Tenant Foundation** and enhanced in **Phase 2.2: Enhanced Multi-Tenant Features**.
 
-- Phase 1.2: Database Foundation completed
-- Phase 2.1: Advanced RBAC operational
-- Core database schema with tenant support
+## Migration Notice
 
-## Tenant Data Isolation
+If you were following this guide:
 
-### Complete Data Isolation Implementation
-Following [../../multitenancy/DATA_ISOLATION.md](../../multitenancy/DATA_ISOLATION.md):
+1. **Stop Here**: This implementation approach is deprecated
+2. **Start Fresh**: Begin with Phase 1.6 for foundational multi-tenancy
+3. **Enhanced Features**: Continue to Phase 2.2 for advanced multi-tenant capabilities
 
-**Database-Level Isolation:**
-- Row Level Security policies for all tenant data
-- Tenant-specific indexes and constraints
-- Query pattern enforcement for tenant boundaries
-- Cross-tenant access prevention
+## Why This Changed
 
-**Query Pattern Implementation:**
-Using [../../multitenancy/DATABASE_QUERY_PATTERNS.md](../../multitenancy/DATABASE_QUERY_PATTERNS.md):
-- Tenant-aware query builders
-- Automatic tenant filtering
-- Multi-tenant index optimization
-- Performance monitoring for tenant queries
+The original approach of adding multi-tenancy in Phase 2 was problematic because:
 
-**Testing Requirements:**
-- Test tenant isolation mechanisms using [../../testing/MULTI_TENANT_TESTING.md](../../testing/MULTI_TENANT_TESTING.md)
-- Verify cross-tenant access prevention
-- Test query performance with tenant isolation
-- Validate database security policies
+- **Retrofitting Complexity**: Adding multi-tenancy to existing single-tenant code is error-prone
+- **Architecture Mismatch**: Multi-tenant isolation requires foundational database and authentication changes
+- **Performance Issues**: Optimizing for multi-tenancy requires ground-up design
+- **Security Risks**: Tenant isolation must be built into core security model
 
-## Tenant Context and Switching
+## New Implementation Path
 
-### Tenant Context Management
-Following [../../multitenancy/SESSION_MANAGEMENT.md](../../multitenancy/SESSION_MANAGEMENT.md):
-
-**Context Tracking:**
-- Current tenant identification
-- User-tenant relationship validation
-- Tenant permission context
-- Session-level tenant state
-
-**Tenant Switching Implementation:**
-Using [../../security/MULTI_TENANT_ROLES.md](../../security/MULTI_TENANT_ROLES.md):
-- Secure tenant context switching
-- Permission re-evaluation on switch
-- Session security during transitions
-- Audit logging for tenant switches
-
-**Testing Requirements:**
-- Test tenant context switching
-- Verify permission resolution across tenant contexts
-- Test tenant-specific permission validation
-- Validate data isolation during context switches
-
-## Multi-Tenant Security Validation
-
-### Security Boundary Enforcement
-- Entity-level permission isolation per tenant
-- Cross-tenant permission validation
-- Tenant-specific role assignments
-- Security event logging for tenant operations
-
-### Performance Optimization
-Following [../../multitenancy/PERFORMANCE_OPTIMIZATION.md](../../multitenancy/PERFORMANCE_OPTIMIZATION.md):
-- Tenant-specific caching strategies
-- Optimized database connections
-- Query performance monitoring
-- Resource usage tracking per tenant
-
-**Testing Requirements:**
-- Test security boundary enforcement
-- Verify tenant-specific permission isolation
-- Test performance under multi-tenant load
-- Validate resource usage patterns
-
-## Success Criteria
-
-✅ Complete tenant data isolation operational  
-✅ Tenant context switching functional  
-✅ Cross-tenant access prevention verified  
-✅ Multi-tenant security boundaries enforced  
-✅ Performance targets met for tenant operations  
-✅ Tenant-specific audit logging active  
-
-## Next Steps
-
-Continue to [ENHANCED_AUDIT_LOGGING.md](ENHANCED_AUDIT_LOGGING.md) for comprehensive audit system.
+✅ **Phase 1.6**: [Multi-Tenant Foundation](../phase1/MULTI_TENANT_FOUNDATION.md)  
+✅ **Phase 2.2**: [Enhanced Multi-Tenant Features](ENHANCED_MULTI_TENANT.md)
 
 ## Related Documentation
 
+- [../PHASE1_FOUNDATION.md](../PHASE1_FOUNDATION.md): Updated foundation with multi-tenancy
 - [../../multitenancy/README.md](../../multitenancy/README.md): Multi-tenant architecture overview
-- [../../multitenancy/DATA_ISOLATION.md](../../multitenancy/DATA_ISOLATION.md): Data isolation implementation
-- [../../security/MULTI_TENANT_ROLES.md](../../security/MULTI_TENANT_ROLES.md): Multi-tenant security
+- [../../DEVELOPMENT_ROADMAP.md](../../DEVELOPMENT_ROADMAP.md): Updated development timeline
+
+## Version History
+
+- **2.0.0**: Deprecated in favor of multi-tenant first approach (2025-05-23)
+- **1.0.0**: Initial multi-tenant core implementation guide (2025-05-23)
+
