@@ -209,7 +209,7 @@ export class MobileAuthService {
 
 ```typescript
 // Certificate pinning implementation
-import { fetch } from 'react-native-ssl-pinning';
+import { fetch from 'react-native-ssl-pinning';
 
 export class SecureApiClient {
   private baseUrl: string;

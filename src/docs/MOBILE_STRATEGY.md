@@ -1,4 +1,5 @@
 
+
 # Mobile Application Strategy
 
 > **Version**: 1.0.1  
@@ -23,3 +24,4 @@ Please refer to the new structure in the [mobile directory](mobile/README.md).
 - [Detailed Mobile Security](security/MOBILE_SECURITY.md)
 - [Development Roadmap](DEVELOPMENT_ROADMAP.md)
 - [Core Architecture](CORE_ARCHITECTURE.md)
+

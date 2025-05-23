@@ -35,3 +35,4 @@ This document outlines our architectural approach to mobile application developm
 - **[INTEGRATION.md](INTEGRATION.md)**: Core platform integration strategy
 - **[TESTING.md](TESTING.md)**: Mobile testing methodology
 - **[../DEVELOPMENT_ROADMAP.md](../DEVELOPMENT_ROADMAP.md)**: Overall development timeline
+
