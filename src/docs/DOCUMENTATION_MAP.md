@@ -1,7 +1,7 @@
 
 # Documentation Map
 
-> **Version**: 3.0.0  
+> **Version**: 3.1.0  
 > **Last Updated**: 2025-05-23
 
 ## Documentation Hierarchy
@@ -55,6 +55,9 @@ These are the definitive specifications for key subsystems:
 - **[rbac/ROLE_ARCHITECTURE.md](rbac/ROLE_ARCHITECTURE.md)**: RBAC role architecture
 - **[data-model/DATABASE_SCHEMA.md](data-model/DATABASE_SCHEMA.md)**: Database schema
 - **[implementation/AUDIT_INTEGRATION_CHECKLIST.md](implementation/AUDIT_INTEGRATION_CHECKLIST.md)**: Audit integration requirements
+- **[design/PATTERN_ENFORCEMENT_MECHANISMS.md](design/PATTERN_ENFORCEMENT_MECHANISMS.md)**: **NEW** - Pattern enforcement mechanisms
+- **[design/CENTRALIZED_PERFORMANCE_MONITORING.md](design/CENTRALIZED_PERFORMANCE_MONITORING.md)**: **NEW** - Centralized performance monitoring
+- **[design/DOCUMENTATION_MAINTENANCE_AUTOMATION.md](design/DOCUMENTATION_MAINTENANCE_AUTOMATION.md)**: **NEW** - Documentation automation
 
 ### Component-Specific References
 Detailed specifications for individual components:
@@ -83,6 +86,7 @@ For detailed documentation navigation:
 
 ## Version History
 
+- **3.1.0**: Added new documents for design and architecture improvements (2025-05-23)
 - **3.0.0**: Established clear three-tier documentation hierarchy (2025-05-23)
 - **2.0.0**: Refactored into specialized documentation maps (2025-05-22)
 - **1.0.0**: Initial documentation map (2025-05-22)
