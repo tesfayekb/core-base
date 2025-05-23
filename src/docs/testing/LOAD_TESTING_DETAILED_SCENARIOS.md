@@ -1,12 +1,12 @@
 
 # Detailed Load Testing Scenarios
 
-> **Version**: 1.0.0  
+> **Version**: 2.0.0  
 > **Last Updated**: 2025-05-23
 
 ## Overview
 
-This document provides comprehensive, detailed load testing scenarios that extend the foundation established in [LOAD_TESTING_SCENARIOS.md](src/docs/testing/LOAD_TESTING_SCENARIOS.md) with specific implementation details, tools, and metrics.
+This document provides comprehensive, detailed load testing scenarios with specific implementation details, tools, and metrics for validating system performance under various load conditions.
 
 ## Industry-Specific Load Testing Scenarios
 
@@ -27,13 +27,14 @@ This document provides comprehensive, detailed load testing scenarios that exten
   - P95 response time < 800ms
   - No deadlocks or data inconsistency
 
-**Test Script Implementation**:
+**Implementation Script**:
 ```javascript
 import http from 'k6/http';
 import { check, group, sleep } from 'k6';
-import { Rate } from 'k6/metrics';
+import { Rate, Trend } from 'k6/metrics';
 
 const errorRate = new Rate('errors');
+const transactionDuration = new Trend('transaction_duration');
 
 export const options = {
   scenarios: {
@@ -41,9 +42,11 @@ export const options = {
       executor: 'ramping-vus',
       startVUs: 100,
       stages: [
-        { duration: '10m', target: 500 },
-        { duration: '10m', target: 750 },
+        { duration: '10m', target: 300 },
+        { duration: '10m', target: 600 },
         { duration: '10m', target: 1000 },
+        { duration: '5m', target: 1000 },
+        { duration: '5m', target: 0 }
       ],
       gracefulRampDown: '2m',
     },
@@ -53,41 +56,156 @@ export const options = {
     'http_req_duration{transaction:balance}': ['p(95)<200'],
     'http_req_duration{transaction:transfer}': ['p(95)<500'],
     'errors': ['rate<0.01'],
+    'transaction_duration': ['p(95)<800']
   },
 };
 
-export default function() {
-  group('Account Balance', function() {
-    const balanceResp = http.get(`${BASE_URL}/accounts/${ACCOUNT_ID}/balance`, {
-      tags: { transaction: 'balance' },
-    });
-    
-    check(balanceResp, {
-      'balance status is 200': (r) => r.status === 200,
-      'balance response time < 200ms': (r) => r.timings.duration < 200,
-    }) || errorRate.add(1);
+const BASE_URL = 'https://api.example.com';
+const TENANT_ID = 'financial-tenant-001';
+
+export function setup() {
+  // Create test accounts and initial data
+  const setupResp = http.post(`${BASE_URL}/test/setup`, {
+    accounts: 10000,
+    tenant: TENANT_ID
   });
   
-  if (Math.random() < 0.3) {  // 30% write transactions
-    group('Funds Transfer', function() {
-      const transferResp = http.post(`${BASE_URL}/transactions/transfer`, {
-        fromAccount: ACCOUNT_ID,
-        toAccount: RECIPIENT_ID,
-        amount: Math.floor(Math.random() * 1000) + 1,
-        currency: 'USD',
-        reference: `TEST-${Date.now()}`,
-      }, {
-        tags: { transaction: 'transfer' },
-      });
-      
-      check(transferResp, {
-        'transfer status is 200': (r) => r.status === 200,
-        'transfer contains confirmation': (r) => r.json().hasOwnProperty('confirmationId'),
-      }) || errorRate.add(1);
-    });
-  }
+  return {
+    accounts: setupResp.json().accounts,
+    tenantId: TENANT_ID
+  };
+}
+
+export default function(data) {
+  const account = data.accounts[Math.floor(Math.random() * data.accounts.length)];
   
-  sleep(Math.random() * 2 + 1);  // Random sleep between 1-3 seconds
+  group('Financial Transaction Flow', function() {
+    // Authentication
+    const authResp = http.post(`${BASE_URL}/auth/login`, {
+      accountId: account.id,
+      tenantId: data.tenantId
+    }, {
+      tags: { transaction: 'auth' }
+    });
+    
+    check(authResp, {
+      'authentication successful': (r) => r.status === 200,
+      'auth token received': (r) => r.json().token !== undefined
+    }) || errorRate.add(1);
+    
+    const token = authResp.json().token;
+    const headers = {
+      'Authorization': `Bearer ${token}`,
+      'X-Tenant-ID': data.tenantId,
+      'Content-Type': 'application/json'
+    };
+    
+    // Balance Check (60% of operations)
+    if (Math.random() < 0.6) {
+      group('Account Balance Check', function() {
+        const startTime = Date.now();
+        
+        const balanceResp = http.get(
+          `${BASE_URL}/accounts/${account.id}/balance`,
+          { headers, tags: { transaction: 'balance' } }
+        );
+        
+        const duration = Date.now() - startTime;
+        transactionDuration.add(duration);
+        
+        check(balanceResp, {
+          'balance status is 200': (r) => r.status === 200,
+          'balance response time < 200ms': (r) => r.timings.duration < 200,
+          'balance contains amount': (r) => r.json().balance !== undefined
+        }) || errorRate.add(1);
+      });
+    }
+    
+    // Transaction History (additional read operation)
+    if (Math.random() < 0.4) {
+      group('Transaction History', function() {
+        const historyResp = http.get(
+          `${BASE_URL}/accounts/${account.id}/transactions?limit=50`,
+          { headers, tags: { transaction: 'history' } }
+        );
+        
+        check(historyResp, {
+          'history status is 200': (r) => r.status === 200,
+          'history contains transactions': (r) => Array.isArray(r.json().transactions)
+        }) || errorRate.add(1);
+      });
+    }
+    
+    // Money Transfer (30% of operations)
+    if (Math.random() < 0.3) {
+      group('Money Transfer', function() {
+        const recipientAccount = data.accounts[Math.floor(Math.random() * data.accounts.length)];
+        const transferAmount = Math.floor(Math.random() * 1000) + 1;
+        
+        const startTime = Date.now();
+        
+        const transferResp = http.post(`${BASE_URL}/transactions/transfer`, 
+          JSON.stringify({
+            fromAccount: account.id,
+            toAccount: recipientAccount.id,
+            amount: transferAmount,
+            currency: 'USD',
+            reference: `LOAD-TEST-${Date.now()}`,
+            tenantId: data.tenantId
+          }), 
+          { headers, tags: { transaction: 'transfer' } }
+        );
+        
+        const duration = Date.now() - startTime;
+        transactionDuration.add(duration);
+        
+        check(transferResp, {
+          'transfer status is 200': (r) => r.status === 200,
+          'transfer contains confirmation': (r) => r.json().confirmationId !== undefined,
+          'transfer response time < 500ms': (r) => r.timings.duration < 500
+        }) || errorRate.add(1);
+        
+        // Verify transfer completion
+        if (transferResp.status === 200) {
+          sleep(0.5); // Brief pause for transaction processing
+          
+          const confirmationResp = http.get(
+            `${BASE_URL}/transactions/${transferResp.json().confirmationId}`,
+            { headers, tags: { transaction: 'confirmation' } }
+          );
+          
+          check(confirmationResp, {
+            'confirmation status is 200': (r) => r.status === 200,
+            'transfer confirmed': (r) => r.json().status === 'completed'
+          }) || errorRate.add(1);
+        }
+      });
+    }
+    
+    // Reporting Operations (10% of operations)
+    if (Math.random() < 0.1) {
+      group('Account Reporting', function() {
+        const reportResp = http.get(
+          `${BASE_URL}/accounts/${account.id}/report?period=30days`,
+          { headers, tags: { transaction: 'report' } }
+        );
+        
+        check(reportResp, {
+          'report status is 200': (r) => r.status === 200,
+          'report contains data': (r) => r.json().summary !== undefined
+        }) || errorRate.add(1);
+      });
+    }
+  });
+  
+  sleep(Math.random() * 2 + 1); // Random sleep between 1-3 seconds
+}
+
+export function teardown(data) {
+  // Cleanup test data
+  http.post(`${BASE_URL}/test/cleanup`, {
+    tenantId: data.tenantId
+  });
 }
 ```
 
@@ -104,7 +222,7 @@ export default function() {
 - **Success Criteria**:
   - All reports complete within 8-hour window
   - Database CPU < 85% sustained
-  - Report generation < 2 minutes
+  - Report generation < 2 minutes per report
   - Interactive user operations remain responsive (< 2s)
 
 ### Healthcare Scenarios
@@ -116,7 +234,7 @@ export default function() {
   - Shift change: Spike to 500 concurrent users within 15 minutes
   - Duration: 2 hours (covering complete shift transition)
 - **Operations**:
-  - Patient record retrieval (with images)
+  - Patient record retrieval (with medical images)
   - Medication administration recording
   - Clinical notes entry
   - Lab result viewing
@@ -127,75 +245,116 @@ export default function() {
   - System maintains HIPAA audit logging under load
   - Zero errors in medication administration workflow
 
-**Test Configuration**:
-```yaml
-# Healthcare shift change load test
-execution:
-  - concurrency: 100
-    hold-for: 15m
-    scenario: baseline_operations
-  - concurrency: 500
-    ramp-up: 15m
-    hold-for: 30m
-    scenario: shift_change
-  - concurrency: 300
-    ramp-down: 30m
-    hold-for: 45m
-    scenario: post_shift
+**Gatling Implementation**:
+```scala
+import io.gatling.core.Predef._
+import io.gatling.http.Predef._
+import scala.concurrent.duration._
 
-scenarios:
-  baseline_operations:
-    requests:
-      - url: /api/patients/${patientId}/summary
-        method: GET
-        headers:
-          Authorization: Bearer ${token}
-        extract-jsonpath:
-          patientName: $.name
-        assert:
-          - contains:
-              - "$.patientId"
-              - "${patientId}"
-          
-      - url: /api/patients/${patientId}/medications
-        method: GET
-        assert:
-          - response-time: 1000
+class HealthcareShiftChangeSimulation extends Simulation {
+  
+  val httpProtocol = http
+    .baseUrl("https://hospital-api.example.com")
+    .acceptHeader("application/json")
+    .contentTypeHeader("application/json")
+    .header("X-HIPAA-Compliance", "enabled")
+  
+  val patientIds = csv("patients.csv").random
+  val nurseCredentials = csv("nurses.csv").circular
+  
+  val baselineOperations = scenario("Baseline Hospital Operations")
+    .feed(nurseCredentials)
+    .feed(patientIds)
+    .exec(
+      http("Nurse Login")
+        .post("/api/auth/login")
+        .body(StringBody("""{"username":"${username}","password":"${password}","role":"nurse"}"""))
+        .check(status.is(200))
+        .check(jsonPath("$.token").saveAs("authToken"))
+        .check(jsonPath("$.permissions").saveAs("permissions"))
+    )
+    .pause(1, 3)
+    .exec(
+      http("Get Patient Summary")
+        .get("/api/patients/${patientId}/summary")
+        .header("Authorization", "Bearer ${authToken}")
+        .check(status.is(200))
+        .check(responseTimeInMillis.lt(1000))
+        .check(jsonPath("$.patientId").is("${patientId}"))
+    )
+    .pause(2, 5)
+    .exec(
+      http("Get Patient Medications")
+        .get("/api/patients/${patientId}/medications")
+        .header("Authorization", "Bearer ${authToken}")
+        .check(status.is(200))
+        .check(jsonPath("$.medications").exists)
+    )
+    .pause(1, 2)
+    .exec(
+      http("Record Vital Signs")
+        .post("/api/patients/${patientId}/vitals")
+        .header("Authorization", "Bearer ${authToken}")
+        .body(StringBody("""{"temperature":98.6,"bloodPressure":"120/80","heartRate":72,"timestamp":"${__time()}"}"""))
+        .check(status.is(201))
+    )
 
-  shift_change:
-    requests:
-      - include-scenario: baseline_operations
-      
-      - url: /api/patients/${patientId}/notes
-        method: POST
-        headers:
-          Content-Type: application/json
-        body: >
-          {"note": "Patient vitals stable during shift change", "timestamp": "${__time()}"}
-        assert:
-          - response-time: 2000
+  val shiftChangeOperations = scenario("Shift Change Operations")
+    .feed(nurseCredentials)
+    .feed(patientIds)
+    .exec(
+      http("Shift Login")
+        .post("/api/auth/login")
+        .body(StringBody("""{"username":"${username}","password":"${password}","shift":"night"}"""))
+        .check(status.is(200))
+        .check(jsonPath("$.token").saveAs("authToken"))
+    )
+    .pause(1)
+    .exec(
+      http("Get Shift Handover")
+        .get("/api/shift/handover")
+        .header("Authorization", "Bearer ${authToken}")
+        .check(status.is(200))
+        .check(jsonPath("$.patients").exists)
+    )
+    .repeat(3) {
+      feed(patientIds)
+        .exec(
+          http("Quick Patient Check")
+            .get("/api/patients/${patientId}/current-status")
+            .header("Authorization", "Bearer ${authToken}")
+            .check(status.is(200))
+            .check(responseTimeInMillis.lt(500))
+        )
+        .pause(1)
+    }
+    .exec(
+      http("Complete Handover")
+        .post("/api/shift/handover/complete")
+        .header("Authorization", "Bearer ${authToken}")
+        .body(StringBody("""{"shiftId":"${shiftId}","status":"completed","notes":"Handover completed successfully"}"""))
+        .check(status.is(200))
+    )
 
-      - url: /api/handover/shift
-        method: POST
-        body: >
-          {"shiftId": "${shiftId}", "handoverNotes": "Complete handover", "timestamp": "${__time()}"}
+  setUp(
+    baselineOperations.inject(
+      constantUsersPerSec(2) during(15.minutes)
+    ),
+    shiftChangeOperations.inject(
+      nothingFor(15.minutes),
+      rampUsers(400) during(15.minutes),
+      constantUsers(400) during(30.minutes),
+      rampUsers(100) during(30.minutes),
+      constantUsers(100) during(30.minutes)
+    )
+  ).protocols(httpProtocol)
+    .assertions(
+      global.responseTime.p95.lt(2000),
+      global.successfulRequests.percent.gt(99.5),
+      forAll.responseTime.p99.lt(5000)
+    )
+}
 ```
-
-#### Telehealth Session Load
-**Scenario**: Peak-hour telehealth video consultations
-- **Users**: 1000 concurrent video sessions
-- **Bandwidth**: 2 Mbps per session (2 GB/s aggregate)
-- **Duration**: 4-hour peak window
-- **Operations**:
-  - Video/audio streaming
-  - Medical record access during consultation
-  - Prescription generation
-  - Appointment scheduling
-- **Success Criteria**:
-  - Video quality metrics maintained
-  - Authentication system handles concurrent logins
-  - No session drops during consultations
-  - Prescription system handles peak load
 
 ### E-Commerce Scenarios
 
@@ -219,79 +378,152 @@ scenarios:
   - Payment processing < 5 seconds
   - Cart abandonment < 25%
 
-**JMeter Test Plan**:
-```xml
-<jmeterTestPlan version="1.2" properties="5.0">
-  <hashTree>
-    <TestPlan guiclass="TestPlanGui" testclass="TestPlan" testname="Flash Sale Load Test">
-      <elementProp name="TestPlan.user_defined_variables" elementType="Arguments">
-        <collectionProp name="Arguments.arguments">
-          <elementProp name="BASE_URL" elementType="Argument">
-            <stringProp name="Argument.name">BASE_URL</stringProp>
-            <stringProp name="Argument.value">https://ecommerce.example.com</stringProp>
-          </elementProp>
-        </collectionProp>
-      </elementProp>
-    </TestPlan>
-    <hashTree>
-      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="Pre-Sale Browse Users">
-        <intProp name="ThreadGroup.num_threads">10000</intProp>
-        <intProp name="ThreadGroup.ramp_time">300</intProp>
-        <!-- Additional configuration -->
-      </ThreadGroup>
-      <hashTree>
-        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="View Product Page">
-          <stringProp name="HTTPSampler.path">/products/flash-sale-item</stringProp>
-          <stringProp name="HTTPSampler.method">GET</stringProp>
-          <!-- Additional configuration -->
-        </HTTPSamplerProxy>
-        <hashTree>
-          <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion">
-            <collectionProp name="Asserion.test_strings">
-              <stringProp>Flash Sale Item</stringProp>
-            </collectionProp>
-            <stringProp name="Assertion.test_field">Assertion.response_data</stringProp>
-            <boolProp name="Assertion.assume_success">false</boolProp>
-            <intProp name="Assertion.test_type">2</intProp>
-          </ResponseAssertion>
-          <hashTree/>
-        </hashTree>
-      </hashTree>
-      
-      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="Sale Start Users">
-        <intProp name="ThreadGroup.num_threads">50000</intProp>
-        <intProp name="ThreadGroup.ramp_time">120</intProp>
-        <!-- Additional configuration -->
-      </ThreadGroup>
-      <hashTree>
-        <!-- Complete purchase flow with cart, checkout, payment -->
-      </hashTree>
-    </hashTree>
-  </hashTree>
-</jmeterTestPlan>
-```
+**Artillery Implementation**:
+```yaml
+# Flash Sale Load Test Configuration
+config:
+  target: 'https://ecommerce-api.example.com'
+  phases:
+    - duration: 300  # 5 minutes pre-sale
+      arrivalRate: 100
+      name: "Pre-sale browsing"
+    - duration: 120  # 2 minutes sale start
+      arrivalRate: 2500
+      name: "Flash sale start"
+    - duration: 3600 # 1 hour sustained
+      arrivalRate: 1000
+      name: "Sustained flash sale"
+    - duration: 7200 # 2 hours wind down
+      arrivalRate: 200
+      name: "Post-sale activity"
+  payload:
+    path: "flash-sale-users.csv"
+    fields:
+      - "userId"
+      - "sessionId"
+      - "location"
+  plugins:
+    metrics-by-endpoint:
+      useOnlyRequestNames: true
 
-#### Black Friday Traffic Pattern
-**Scenario**: Sustained high traffic during shopping event
-- **Traffic Pattern**:
-  - Normal: 5,000 concurrent users
-  - Ramp-up: Increase to 100,000 users over 2 hours
-  - Sustained: 100,000 concurrent users for 12 hours
-  - Ramp-down: Decrease to 20,000 users over 4 hours
-- **Operations Mix**:
-  - 70% browsing and search
-  - 20% cart operations
-  - 10% checkout and payment
-- **Infrastructure Impact**:
-  - CDN cache efficiency
-  - Database read replicas utilization
-  - Payment gateway integration load
-  - Inventory synchronization performance
-- **Success Criteria**:
-  - Search response < 500ms
-  - Checkout success rate > 99%
-  - Zero inventory inconsistencies
-  - Infrastructure cost optimization metrics
+scenarios:
+  - name: "Flash Sale User Journey"
+    weight: 100
+    engine: http
+    flow:
+      # Pre-sale browsing
+      - get:
+          url: "/products/flash-sale-item"
+          capture:
+            - json: "$.productId"
+              as: "productId"
+            - json: "$.price"
+              as: "originalPrice"
+          expect:
+            - statusCode: 200
+            - contentType: json
+            - hasProperty: "inventory.available"
+
+      # Check inventory availability
+      - get:
+          url: "/products/{{ productId }}/inventory"
+          expect:
+            - statusCode: 200
+            - property: "available"
+              gt: 0
+
+      # Add to cart (high concurrency operation)
+      - post:
+          url: "/cart/add"
+          json:
+            productId: "{{ productId }}"
+            quantity: 1
+            userId: "{{ userId }}"
+            sessionId: "{{ sessionId }}"
+          capture:
+            - json: "$.cartId"
+              as: "cartId"
+          expect:
+            - statusCode: 201
+            - property: "success"
+              equals: true
+
+      # Brief pause for user decision
+      - think: 2
+
+      # Proceed to checkout (30% conversion rate)
+      - ifTrue: "Math.random() < 0.3"
+        then:
+          - get:
+              url: "/cart/{{ cartId }}"
+              expect:
+                - statusCode: 200
+                
+          - post:
+              url: "/checkout/initiate"
+              json:
+                cartId: "{{ cartId }}"
+                userId: "{{ userId }}"
+              capture:
+                - json: "$.checkoutId"
+                  as: "checkoutId"
+              expect:
+                - statusCode: 200
+                
+          # Payment processing
+          - post:
+              url: "/checkout/{{ checkoutId }}/payment"
+              json:
+                method: "credit_card"
+                cardToken: "test_card_token"
+                amount: "{{ originalPrice }}"
+              expect:
+                - statusCode: 200
+                - responseTime: 5000
+                
+          # Order confirmation
+          - post:
+              url: "/checkout/{{ checkoutId }}/complete"
+              expect:
+                - statusCode: 201
+                - property: "orderConfirmed"
+                  equals: true
+
+      # Inventory verification checkpoint
+      - get:
+          url: "/products/{{ productId }}/inventory"
+          expect:
+            - statusCode: 200
+
+  # Inventory monitoring scenario
+  - name: "Inventory Monitoring"
+    weight: 5
+    engine: http
+    flow:
+      - loop:
+          count: 1000
+          over:
+            - get:
+                url: "/admin/inventory/flash-sale-item/status"
+                headers:
+                  Authorization: "Bearer {{ adminToken }}"
+                expect:
+                  - statusCode: 200
+                  - property: "oversold"
+                    equals: false
+            - think: 5
+
+# Custom functions for validation
+functions:
+  validateInventory: |
+    function(requestParams, response, context, ee, next) {
+      const inventory = response.body.inventory;
+      if (inventory.sold > inventory.total) {
+        ee.emit('counter', 'inventory.oversold', 1);
+      }
+      return next();
+    }
+```
 
 ## Enterprise System Scenarios
 
@@ -319,9 +551,11 @@ scenarios:
   - No cross-tenant data leakage
   - System stability maintained
 
-**Resource Monitoring Script**:
+**Node.js Monitoring Implementation**:
 ```typescript
-// Tenant resource monitoring during load test
+import { performance } from 'perf_hooks';
+import axios from 'axios';
+
 interface TenantMetrics {
   tenantId: string;
   responseTimeP95: number;
@@ -329,205 +563,237 @@ interface TenantMetrics {
   queriesPerSecond: number;
   cacheHitRatio: number;
   errorRate: number;
+  resourceUsage: {
+    cpu: number;
+    memory: number;
+    diskIO: number;
+  };
 }
 
-class MultiTenantMonitor {
+class MultiTenantLoadTester {
   private baselineMetrics: Map<string, TenantMetrics> = new Map();
   private currentMetrics: Map<string, TenantMetrics> = new Map();
+  private testStartTime: number = 0;
   
-  async captureBaseline(tenantIds: string[]): Promise<void> {
-    for (const tenantId of tenantIds) {
-      this.baselineMetrics.set(tenantId, await this.collectMetrics(tenantId));
+  async runNoisyNeighborTest(): Promise<void> {
+    this.testStartTime = performance.now();
+    
+    // Start baseline monitoring
+    const standardTenants = this.generateStandardTenantIds(50);
+    const noisyTenant = 'noisy-tenant-001';
+    
+    // Capture baseline metrics
+    await this.captureBaseline([...standardTenants, noisyTenant]);
+    
+    // Start concurrent load
+    const standardTenantPromises = standardTenants.map(tenantId => 
+      this.runStandardTenantLoad(tenantId)
+    );
+    
+    const noisyTenantPromise = this.runNoisyTenantLoad(noisyTenant);
+    
+    // Monitor performance during test
+    const monitoringPromise = this.monitorTenantPerformance([...standardTenants, noisyTenant]);
+    
+    // Wait for test completion
+    await Promise.all([
+      ...standardTenantPromises,
+      noisyTenantPromise,
+      monitoringPromise
+    ]);
+    
+    // Generate final report
+    await this.generatePerformanceReport();
+  }
+  
+  private async runStandardTenantLoad(tenantId: string): Promise<void> {
+    const duration = 4 * 60 * 60 * 1000; // 4 hours
+    const endTime = Date.now() + duration;
+    
+    while (Date.now() < endTime) {
+      // Standard CRUD operations
+      await this.performStandardOperations(tenantId);
+      
+      // Brief pause between operations
+      await this.sleep(100 + Math.random() * 200); // 100-300ms
     }
   }
   
-  async monitorTenants(tenantIds: string[], intervalSeconds: number): Promise<void> {
-    const intervalMs = intervalSeconds * 1000;
+  private async runNoisyTenantLoad(tenantId: string): Promise<void> {
+    const duration = 4 * 60 * 60 * 1000; // 4 hours
+    const endTime = Date.now() + duration;
     
-    setInterval(async () => {
-      for (const tenantId of tenantIds) {
-        const metrics = await this.collectMetrics(tenantId);
-        this.currentMetrics.set(tenantId, metrics);
-        
-        this.analyzeImpact(tenantId);
-      }
-    }, intervalMs);
+    while (Date.now() < endTime) {
+      // Resource-intensive operations
+      const operations = [
+        () => this.performComplexQuery(tenantId),
+        () => this.performFullTextSearch(tenantId),
+        () => this.performBatchOperation(tenantId),
+        () => this.invalidateCache(tenantId)
+      ];
+      
+      // Execute multiple operations concurrently
+      await Promise.all(operations.map(op => op()));
+      
+      // Minimal pause for maximum resource usage
+      await this.sleep(50);
+    }
   }
   
-  private analyzeImpact(tenantId: string): void {
+  private async performStandardOperations(tenantId: string): Promise<void> {
+    const operations = [
+      // Read operations (70%)
+      ...(Array(7).fill(0).map(() => () => this.performRead(tenantId))),
+      
+      // Write operations (20%)
+      ...(Array(2).fill(0).map(() => () => this.performWrite(tenantId))),
+      
+      // Admin operations (10%)
+      () => this.performAdminOperation(tenantId)
+    ];
+    
+    const selectedOperation = operations[Math.floor(Math.random() * operations.length)];
+    await selectedOperation();
+  }
+  
+  private async performComplexQuery(tenantId: string): Promise<void> {
+    const startTime = performance.now();
+    
+    try {
+      await axios.post('/api/analytics/complex-report', {
+        tenantId,
+        reportType: 'comprehensive',
+        dateRange: {
+          start: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000), // 90 days
+          end: new Date()
+        },
+        includeSubTenants: true,
+        aggregationLevel: 'detailed'
+      }, {
+        timeout: 60000, // 1 minute timeout
+        headers: { 'X-Tenant-ID': tenantId }
+      });
+    } catch (error) {
+      console.error(`Complex query failed for tenant ${tenantId}:`, error.message);
+    }
+    
+    const duration = performance.now() - startTime;
+    await this.recordMetric(tenantId, 'complexQuery', duration);
+  }
+  
+  private async performBatchOperation(tenantId: string): Promise<void> {
+    const batchSize = 10000; // Large batch
+    const startTime = performance.now();
+    
+    try {
+      await axios.post('/api/data/batch-process', {
+        tenantId,
+        operations: Array(batchSize).fill(0).map((_, index) => ({
+          type: 'update',
+          entityId: `entity-${index}`,
+          data: { updated: new Date(), batchId: startTime }
+        }))
+      }, {
+        timeout: 120000, // 2 minute timeout
+        headers: { 'X-Tenant-ID': tenantId }
+      });
+    } catch (error) {
+      console.error(`Batch operation failed for tenant ${tenantId}:`, error.message);
+    }
+    
+    const duration = performance.now() - startTime;
+    await this.recordMetric(tenantId, 'batchOperation', duration);
+  }
+  
+  private async monitorTenantPerformance(tenantIds: string[]): Promise<void> {
+    const monitoringInterval = 30000; // 30 seconds
+    
+    while (true) {
+      for (const tenantId of tenantIds) {
+        const metrics = await this.collectCurrentMetrics(tenantId);
+        this.currentMetrics.set(tenantId, metrics);
+        
+        await this.analyzePerformanceImpact(tenantId);
+      }
+      
+      await this.sleep(monitoringInterval);
+    }
+  }
+  
+  private async analyzePerformanceImpact(tenantId: string): Promise<void> {
     const baseline = this.baselineMetrics.get(tenantId);
     const current = this.currentMetrics.get(tenantId);
     
     if (!baseline || !current) return;
     
     const responseTimeImpact = (current.responseTimeP95 / baseline.responseTimeP95 - 1) * 100;
+    const cpuImpact = (current.databaseCpuUsage / baseline.databaseCpuUsage - 1) * 100;
+    const cacheImpact = (baseline.cacheHitRatio / current.cacheHitRatio - 1) * 100;
     
     if (responseTimeImpact > 10) {
-      console.warn(`Tenant ${tenantId} experiencing ${responseTimeImpact.toFixed(2)}% response time degradation`);
+      console.warn(`⚠️  Tenant ${tenantId} experiencing ${responseTimeImpact.toFixed(2)}% response time degradation`);
       
-      // Alert and potential mitigation actions
+      // Check if this is due to noisy neighbor
+      if (tenantId !== 'noisy-tenant-001') {
+        await this.alertNoisyNeighborImpact(tenantId, {
+          responseTimeImpact,
+          cpuImpact,
+          cacheImpact
+        });
+      }
+    }
+    
+    // Record metrics for final analysis
+    await this.recordPerformanceMetrics(tenantId, {
+      responseTimeImpact,
+      cpuImpact,
+      cacheImpact,
+      timestamp: Date.now()
+    });
+  }
+  
+  private async collectCurrentMetrics(tenantId: string): Promise<TenantMetrics> {
+    try {
+      const response = await axios.get(`/api/monitoring/tenant/${tenantId}/metrics`, {
+        headers: { 'Authorization': 'Bearer admin-token' }
+      });
+      
+      return response.data;
+    } catch (error) {
+      console.error(`Failed to collect metrics for tenant ${tenantId}:`, error.message);
+      
+      // Return default metrics on error
+      return {
+        tenantId,
+        responseTimeP95: 0,
+        databaseCpuUsage: 0,
+        queriesPerSecond: 0,
+        cacheHitRatio: 0,
+        errorRate: 100,
+        resourceUsage: { cpu: 0, memory: 0, diskIO: 0 }
+      };
     }
   }
   
-  private async collectMetrics(tenantId: string): Promise<TenantMetrics> {
-    // Implementation to collect actual metrics from monitoring systems
-    return {
-      tenantId,
-      responseTimeP95: 0,
-      databaseCpuUsage: 0,
-      queriesPerSecond: 0,
-      cacheHitRatio: 0,
-      errorRate: 0
-    };
+  private sleep(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
   }
 }
+
+// Usage
+const tester = new MultiTenantLoadTester();
+tester.runNoisyNeighborTest().then(() => {
+  console.log('Noisy neighbor load test completed');
+}).catch(error => {
+  console.error('Load test failed:', error);
+});
 ```
-
-#### Tenant Provisioning Under Load
-**Scenario**: Creating new tenants while system is under load
-- **Background Load**:
-  - 500 active tenants with normal operations
-  - 10,000 concurrent users across existing tenants
-- **Provisioning Operations**:
-  - Create 50 new tenants (one every 5 minutes)
-  - Each tenant provisioning includes:
-    - Database schema creation
-    - Default data population
-    - User setup and permissions
-    - Storage allocation
-- **Success Criteria**:
-  - Existing tenant performance unaffected
-  - New tenant provisioning < 3 minutes each
-  - Zero failures in tenant creation
-  - All new tenants immediately functional
-
-### Authentication and Permission System
-
-#### Authentication Storm Testing
-**Scenario**: Sudden mass authentication event
-- **Pattern**:
-  - Baseline: 50 logins per minute
-  - Storm: 5,000 logins within 60 seconds
-  - Sustained: 500 logins per minute for 30 minutes
-- **Authentication Types**:
-  - Username/password
-  - OAuth/OIDC flows
-  - Multi-factor authentication
-  - SSO integration
-- **Success Criteria**:
-  - Authentication service remains responsive
-  - Token issuance successful for valid credentials
-  - Failed login rate unchanged from baseline
-  - MFA systems handle increased verification load
-
-**Gatling Simulation**:
-```scala
-import io.gatling.core.Predef._
-import io.gatling.http.Predef._
-import scala.concurrent.duration._
-
-class AuthenticationStormSimulation extends Simulation {
-  
-  val httpProtocol = http
-    .baseUrl("https://auth.example.com")
-    .acceptHeader("application/json")
-    .contentTypeHeader("application/json")
-  
-  val baselineUsers = scenario("Baseline Authentication")
-    .exec(
-      http("Login Request")
-        .post("/api/auth/login")
-        .body(StringBody("""{"username":"${username}","password":"${password}"}"""))
-        .check(status.is(200))
-        .check(jsonPath("$.token").saveAs("authToken"))
-    )
-    .pause(1, 5)
-    .exec(
-      http("Access Protected Resource")
-        .get("/api/resources/protected")
-        .header("Authorization", "Bearer ${authToken}")
-        .check(status.is(200))
-    )
-
-  val stormUsers = scenario("Authentication Storm")
-    // Similar to baseline but with different user pools and timing
-  
-  val mfaUsers = scenario("MFA Authentication")
-    // Additional MFA challenge flow
-  
-  setUp(
-    baselineUsers.inject(
-      constantUsersPerSec(1) during(10.minutes)
-    ),
-    stormUsers.inject(
-      nothingFor(10.minutes),
-      rampUsers(5000) during(1.minute)
-    ),
-    mfaUsers.inject(
-      nothingFor(10.minutes),
-      rampUsers(1000) during(1.minute)
-    )
-  ).protocols(httpProtocol)
-}
-```
-
-#### Permission Resolution Performance
-**Scenario**: High-volume permission checking under load
-- **User Setup**:
-  - 10,000 concurrent users
-  - Complex permission hierarchy
-  - 50+ permissions per user
-  - Entity-level permission checks
-- **Operation Mix**:
-  - 5,000 permission checks per second
-  - Read/write permission balance
-  - Cross-entity permission checks
-  - Permission cache invalidation events
-- **Success Criteria**:
-  - Permission resolution < 15ms per check
-  - Cache hit rate > 95%
-  - Zero incorrect permission grants
-  - Permission service CPU < 60%
-
-### RBAC and Multi-Tenant Scenarios
-
-#### Role Assignment Storm
-**Scenario**: Mass role changes across multi-tenant system
-- **Setup**:
-  - 100 tenants with 1,000 users each
-  - Role hierarchy with inheritance
-  - Entity-specific role assignments
-- **Operations**:
-  - Mass role reassignment (10,000 role changes)
-  - Permission cache invalidation
-  - Cross-tenant permission resolution
-- **Success Criteria**:
-  - Role assignment processing < 10 minutes
-  - Permission resolution accuracy maintained
-  - Audit logging successfully captures all changes
-  - System remains responsive during processing
-
-#### Cross-Tenant Operation Load
-**Scenario**: Complex operations spanning multiple tenants
-- **Setup**:
-  - 50 related tenants with shared operations
-  - 5,000 concurrent users across tenants
-- **Operations**:
-  - Cross-tenant data aggregation
-  - Tenant comparison reports
-  - Global admin operations
-  - Multi-tenant search queries
-- **Success Criteria**:
-  - Data isolation maintained under load
-  - Cross-tenant operations < 5 seconds
-  - System resource allocation balanced
-  - Zero unauthorized cross-tenant access
 
 ## Mobile-Specific Load Testing
 
 ### Connectivity Pattern Simulation
 
-#### Network Transition Load
+#### Network Transition Load Testing
 **Scenario**: Users moving between connectivity states
 - **Setup**:
   - 10,000 mobile users
@@ -546,147 +812,250 @@ class AuthenticationStormSimulation extends Simulation {
   - Proper conflict resolution on reconnection
   - Battery efficiency maintained
 
-#### Background Sync Performance
-**Scenario**: Mobile app background synchronization
-- **Pattern**:
-  - 50,000 devices with periodic background sync
-  - Sync frequency: Every 15 minutes when background
-  - Variable payload sizes (1KB to 10MB)
-- **Constraints**:
-  - Limited processing time (Android/iOS limits)
-  - Battery optimization requirements
-  - Variable network conditions
-- **Success Criteria**:
-  - Complete sync within OS background time limits
-  - Incremental sync efficiency > 90%
-  - Battery impact < 1% per sync
-  - Adaptive behavior based on network conditions
-
-**Background Sync Monitoring**:
+**Playwright Mobile Simulation**:
 ```typescript
-interface SyncMetrics {
-  deviceId: string;
-  syncStartTime: number;
-  syncEndTime: number;
-  bytesTransferred: number;
-  batteryImpact: number;
-  networkType: 'wifi' | '5g' | '4g' | '3g' | '2g';
-  syncResult: 'success' | 'partial' | 'failed';
-  errorReason?: string;
-}
+import { test, expect, devices } from '@playwright/test';
 
-class BackgroundSyncMonitor {
-  private metrics: SyncMetrics[] = [];
+class MobileConnectivityTester {
+  private page: any;
+  private context: any;
   
-  recordSync(metric: SyncMetrics): void {
-    this.metrics.push(metric);
+  async simulateNetworkTransitions() {
+    // Simulate different mobile devices
+    const mobileDevices = [
+      devices['iPhone 13'],
+      devices['Pixel 5'],
+      devices['Galaxy S21']
+    ];
     
-    // Analyze for problems
-    this.analyzeSync(metric);
-    
-    // Send to analytics in batch
-    if (this.metrics.length >= 100) {
-      this.sendMetricsBatch();
+    for (const device of mobileDevices) {
+      await this.testDeviceConnectivity(device);
     }
   }
   
-  private analyzeSync(metric: SyncMetrics): void {
-    const syncDuration = metric.syncEndTime - metric.syncStartTime;
+  async testDeviceConnectivity(device: any) {
+    this.context = await browser.newContext({
+      ...device,
+      permissions: ['geolocation']
+    });
     
-    // Check if sync is taking too long based on network type
-    const thresholds = {
-      'wifi': 30000, // 30 seconds
-      '5g': 45000,   // 45 seconds
-      '4g': 60000,   // 60 seconds
-      '3g': 120000,  // 2 minutes
-      '2g': 300000   // 5 minutes
-    };
+    this.page = await this.context.newPage();
     
-    if (syncDuration > thresholds[metric.networkType]) {
-      console.warn(`Sync taking too long for device ${metric.deviceId} on ${metric.networkType}: ${syncDuration}ms`);
-    }
+    // Test network transition scenarios
+    await this.test5GTo4GTransition();
+    await this.testWiFiToOfflineTransition();
+    await this.testIntermittentConnectivity();
     
-    // Check battery impact
-    if (metric.batteryImpact > 1.0) {
-      console.warn(`High battery impact for device ${metric.deviceId}: ${metric.batteryImpact}%`);
-    }
+    await this.context.close();
   }
   
-  private sendMetricsBatch(): void {
-    // Send metrics to analytics service
-    const batchToSend = [...this.metrics];
-    this.metrics = [];
+  async test5GTo4GTransition() {
+    // Start with 5G connection
+    await this.page.route('**/*', route => {
+      // Simulate 5G speed (1 Gbps)
+      setTimeout(() => route.continue(), 10);
+    });
     
-    // Implementation of sending metrics to server
+    await this.page.goto('/mobile-app');
+    
+    // Perform data-intensive operation
+    await this.page.click('[data-testid="sync-data"]');
+    
+    // Switch to 4G during operation
+    await this.page.route('**/*', route => {
+      // Simulate 4G speed (100 Mbps)
+      setTimeout(() => route.continue(), 50);
+    });
+    
+    // Verify smooth transition
+    await expect(this.page.locator('[data-testid="sync-status"]')).toContainText('Syncing');
+    
+    // Wait for completion
+    await expect(this.page.locator('[data-testid="sync-status"]')).toContainText('Completed', {
+      timeout: 30000
+    });
+  }
+  
+  async testWiFiToOfflineTransition() {
+    // Start with WiFi
+    await this.page.goto('/mobile-app');
+    
+    // Load some data
+    await this.page.click('[data-testid="load-documents"]');
+    await this.page.waitForSelector('[data-testid="document-list"]');
+    
+    // Go offline
+    await this.context.setOffline(true);
+    
+    // Try to create new document offline
+    await this.page.click('[data-testid="create-document"]');
+    await this.page.fill('[data-testid="document-title"]', 'Offline Document');
+    await this.page.click('[data-testid="save-document"]');
+    
+    // Verify offline indicator
+    await expect(this.page.locator('[data-testid="offline-indicator"]')).toBeVisible();
+    
+    // Verify document queued for sync
+    await expect(this.page.locator('[data-testid="pending-sync"]')).toContainText('1 item');
+    
+    // Go back online
+    await this.context.setOffline(false);
+    
+    // Verify auto-sync
+    await expect(this.page.locator('[data-testid="sync-status"]')).toContainText('Syncing');
+    await expect(this.page.locator('[data-testid="pending-sync"]')).toContainText('0 items', {
+      timeout: 15000
+    });
+  }
+  
+  async testIntermittentConnectivity() {
+    await this.page.goto('/mobile-app');
+    
+    // Simulate intermittent connectivity
+    let isOnline = true;
+    const toggleConnection = setInterval(async () => {
+      isOnline = !isOnline;
+      await this.context.setOffline(!isOnline);
+    }, 2000); // Toggle every 2 seconds
+    
+    // Perform operations during intermittent connectivity
+    for (let i = 0; i < 10; i++) {
+      await this.page.click('[data-testid="refresh-data"]');
+      await this.page.waitForTimeout(1000);
+    }
+    
+    clearInterval(toggleConnection);
+    
+    // Ensure stable connection
+    await this.context.setOffline(false);
+    
+    // Verify data integrity
+    await expect(this.page.locator('[data-testid="error-count"]')).toContainText('0');
   }
 }
 ```
 
-### Complex Mobile Data Operations
+## Load Testing Automation and CI/CD Integration
 
-#### Large Dataset Synchronization
-**Scenario**: Initial sync of large dataset to mobile device
-- **Setup**:
-  - New app installation
-  - 1GB initial data sync requirement
-  - Variable network conditions
-- **Operations**:
-  - Progressive data loading
-  - Background sync processes
-  - Priority-based synchronization
-  - Resume capability
-- **Success Criteria**:
-  - App usability during sync > 90%
-  - Complete sync success rate > 95%
-  - Efficient resume after interruption
-  - Memory usage within device constraints
+### Automated Load Testing Pipeline
 
-## Edge Load Testing Scenarios
+```yaml
+# GitHub Actions Load Testing Workflow
+name: Load Testing Pipeline
 
-### CDN and Edge Caching
+on:
+  schedule:
+    - cron: '0 2 * * *'  # Daily at 2 AM
+  workflow_dispatch:
+    inputs:
+      test_type:
+        description: 'Type of load test to run'
+        required: true
+        default: 'standard'
+        type: choice
+        options:
+          - standard
+          - peak
+          - stress
+          - endurance
+          - multi-tenant
+      duration:
+        description: 'Test duration in minutes'
+        required: true
+        default: '30'
 
-#### Cache Invalidation Storm
-**Scenario**: Mass cache invalidation across global CDN
-- **Setup**:
-  - Global CDN with 50+ edge locations
-  - 1TB of cached content
-  - 100,000 cache entries
-- **Operations**:
-  - Invalidate 50% of cache entries within 5 minutes
-  - Continue serving traffic during invalidation
-  - Repopulate cache with new content
-- **Success Criteria**:
-  - Zero service disruption
-  - Cache hit rate recovers within 15 minutes
-  - Origin server load spike < 300%
-  - No stale content served after invalidation
-
-#### Edge Function Performance
-**Scenario**: High-volume edge function processing
-- **Setup**:
-  - Edge functions deployed globally
-  - Function types:
-    - Request transformation
-    - Authentication verification
-    - Content personalization
-    - A/B testing logic
-- **Load Pattern**:
-  - 10,000 requests per second
-  - Sustained for 1 hour
-- **Success Criteria**:
-  - Cold start time < 100ms
-  - Function execution time < 50ms
-  - Error rate < 0.1%
-  - No function timeout occurrences
+jobs:
+  load-test:
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        test-scenario:
+          - financial-transactions
+          - healthcare-shift-change
+          - ecommerce-flash-sale
+          - multi-tenant-isolation
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          
+      - name: Install dependencies
+        run: |
+          npm install -g k6
+          npm install -g artillery
+          npm install
+          
+      - name: Setup test environment
+        run: |
+          docker-compose -f docker-compose.test.yml up -d
+          ./scripts/wait-for-services.sh
+          
+      - name: Prepare test data
+        run: |
+          npm run test:data:setup
+          
+      - name: Run load test
+        env:
+          TEST_TYPE: ${{ github.event.inputs.test_type || 'standard' }}
+          DURATION: ${{ github.event.inputs.duration || '30' }}
+          TARGET_URL: ${{ secrets.LOAD_TEST_TARGET_URL }}
+        run: |
+          case "${{ matrix.test-scenario }}" in
+            "financial-transactions")
+              k6 run --duration ${DURATION}m tests/load/financial-transactions.js
+              ;;
+            "healthcare-shift-change")
+              artillery run tests/load/healthcare-shift-change.yml
+              ;;
+            "ecommerce-flash-sale")
+              artillery run tests/load/ecommerce-flash-sale.yml
+              ;;
+            "multi-tenant-isolation")
+              node tests/load/multi-tenant-isolation.js
+              ;;
+          esac
+          
+      - name: Collect performance metrics
+        run: |
+          ./scripts/collect-metrics.sh
+          
+      - name: Generate load test report
+        run: |
+          npm run test:report:generate
+          
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        with:
+          name: load-test-results-${{ matrix.test-scenario }}
+          path: |
+            test-results/
+            performance-reports/
+            
+      - name: Performance regression check
+        run: |
+          npm run test:regression:check
+          
+      - name: Cleanup test environment
+        if: always()
+        run: |
+          docker-compose -f docker-compose.test.yml down
+          npm run test:data:cleanup
+```
 
 ## Related Documentation
 
-- **[LOAD_TESTING_SCENARIOS.md](src/docs/testing/LOAD_TESTING_SCENARIOS.md)**: Base load testing scenarios
-- **[PERFORMANCE_TESTING.md](src/docs/testing/PERFORMANCE_TESTING.md)**: Performance testing approach
-- **[../PERFORMANCE_STANDARDS.md](src/docs/PERFORMANCE_STANDARDS.md)**: Performance standards and benchmarks
-- **[SECURITY_TESTING.md](src/docs/testing/SECURITY_TESTING.md)**: Security aspects of load testing
-- **[../mobile/TESTING.md](src/docs/mobile/TESTING.md)**: Mobile-specific testing strategy
+- **[LOAD_TESTING_SCENARIOS.md](LOAD_TESTING_SCENARIOS.md)**: Base load testing scenarios
+- **[PERFORMANCE_TESTING.md](PERFORMANCE_TESTING.md)**: Performance testing approach
+- **[../PERFORMANCE_STANDARDS.md](../PERFORMANCE_STANDARDS.md)**: Performance standards and benchmarks
+- **[SECURITY_TESTING.md](SECURITY_TESTING.md)**: Security aspects of load testing
+- **[../mobile/TESTING.md](../mobile/TESTING.md)**: Mobile-specific testing strategy
 
 ## Version History
 
+- **2.0.0**: Enhanced with comprehensive detailed scenarios, specific implementation code, and automation examples (2025-05-23)
 - **1.0.0**: Initial detailed load testing scenarios document (2025-05-23)
