@@ -1,719 +1,702 @@
 
-# Multi-tenant Testing Strategy
+# Multi-tenant Integration Testing
 
 > **Version**: 1.0.0  
-> **Last Updated**: 2025-05-22
+> **Last Updated**: 2025-05-23
 
 ## Overview
 
-This document defines a comprehensive testing strategy for multi-tenant scenarios, ensuring that data isolation, permission boundaries, and tenant-specific customizations function correctly across the system.
+This document outlines the specific integration testing approaches for multi-tenant scenarios, focusing on data isolation, tenant context management, and cross-tenant interactions.
 
-## Testing Principles
+## Core Multi-tenant Testing Concerns
 
-Multi-tenant testing follows these core principles:
+### 1. Tenant Data Isolation
 
-1. **Complete Tenant Isolation**: Verify that tenants cannot access or modify each other's data
-2. **Tenant Context Preservation**: Ensure tenant context is maintained throughout all operations
-3. **Cross-Tenant Boundary Testing**: Test boundary conditions and edge cases for tenant isolation
-4. **Performance Under Multi-Tenant Load**: Verify system performance with multiple active tenants
-
-## Test Categories
-
-### 1. Data Isolation Tests
-
-#### Database-Level Isolation
+Test that data is properly isolated between tenants:
 
 ```typescript
-describe('Database-Level Tenant Isolation', () => {
-  let tenant1Id, tenant2Id, user1Id, user2Id, resource1Id;
+// Example: Tenant data isolation test
+describe('Tenant Data Isolation', () => {
+  let tenant1Id: string;
+  let tenant2Id: string;
+  let user1Id: string;
+  let user2Id: string;
   
-  beforeAll(async () => {
-    // Set up test tenants and users
-    tenant1Id = await createTestTenant('Tenant 1');
-    tenant2Id = await createTestTenant('Tenant 2');
-    user1Id = await createTestUser({ tenantId: tenant1Id });
-    user2Id = await createTestUser({ tenantId: tenant2Id });
+  beforeEach(async () => {
+    // Create test tenants and users
+    tenant1Id = await tenantService.createTenant('Test Tenant 1');
+    tenant2Id = await tenantService.createTenant('Test Tenant 2');
     
-    // Create test resource in tenant 1
-    resource1Id = await createTestResource({ 
-      tenantId: tenant1Id,
-      name: 'Test Resource',
-      ownerId: user1Id
-    });
-  });
-  
-  test('Tenant 1 user can access own tenant resources', async () => {
-    // Set tenant context to tenant 1
-    await setTenantContext(tenant1Id);
-    
-    // Attempt to access resource as tenant 1 user
-    const resource = await getResourceById(resource1Id);
-    
-    // Expect resource to be accessible
-    expect(resource).not.toBeNull();
-    expect(resource.id).toBe(resource1Id);
-  });
-  
-  test('Tenant 2 user cannot access Tenant 1 resources', async () => {
-    // Set tenant context to tenant 2
-    await setTenantContext(tenant2Id);
-    
-    // Attempt to access resource as tenant 2 user
-    const resource = await getResourceById(resource1Id);
-    
-    // Expect resource to be inaccessible
-    expect(resource).toBeNull();
-  });
-  
-  test('Direct database query respects tenant isolation', async () => {
-    // Set tenant context to tenant 2
-    await setTenantContext(tenant2Id);
-    
-    // Attempt direct database query
-    const result = await db.query(
-      'SELECT * FROM resources WHERE id = $1',
-      [resource1Id]
-    );
-    
-    // Expect no results due to RLS policies
-    expect(result.rows).toHaveLength(0);
-  });
-});
-```
-
-#### API-Level Isolation
-
-```typescript
-describe('API-Level Tenant Isolation', () => {
-  let tenant1Token, tenant2Token, resource1Id;
-  
-  beforeAll(async () => {
-    // Create test tenants and authentication tokens
-    const tenant1 = await createTestTenant('API Tenant 1');
-    const tenant2 = await createTestTenant('API Tenant 2');
-    
-    tenant1Token = await generateAuthToken({ tenantId: tenant1.id });
-    tenant2Token = await generateAuthToken({ tenantId: tenant2.id });
-    
-    // Create test resource in tenant 1
-    const createResponse = await request(app)
-      .post('/api/resources')
-      .set('Authorization', `Bearer ${tenant1Token}`)
-      .send({ name: 'API Test Resource' });
-      
-    resource1Id = createResponse.body.id;
-  });
-  
-  test('Tenant 1 can access own resources via API', async () => {
-    const response = await request(app)
-      .get(`/api/resources/${resource1Id}`)
-      .set('Authorization', `Bearer ${tenant1Token}`);
-      
-    expect(response.status).toBe(200);
-    expect(response.body.id).toBe(resource1Id);
-  });
-  
-  test('Tenant 2 cannot access Tenant 1 resources via API', async () => {
-    const response = await request(app)
-      .get(`/api/resources/${resource1Id}`)
-      .set('Authorization', `Bearer ${tenant2Token}`);
-      
-    expect(response.status).toBe(404);
-  });
-  
-  test('Tenant 2 cannot modify Tenant 1 resources via API', async () => {
-    const response = await request(app)
-      .put(`/api/resources/${resource1Id}`)
-      .set('Authorization', `Bearer ${tenant2Token}`)
-      .send({ name: 'Modified By Tenant 2' });
-      
-    expect(response.status).toBe(404);
-  });
-});
-```
-
-### 2. Permission Boundary Tests
-
-Test how permissions and roles function across tenant boundaries:
-
-```typescript
-describe('Multi-tenant Permission Boundaries', () => {
-  let globalAdmin, tenant1Admin, tenant1User, tenant2Admin;
-  let tenant1Id, tenant2Id, tenant1Resource;
-  
-  beforeAll(async () => {
-    // Set up test environment
-    globalAdmin = await createGlobalAdmin();
-    
-    tenant1Id = await createTestTenant('Tenant 1');
-    tenant2Id = await createTestTenant('Tenant 2');
-    
-    tenant1Admin = await createTenantAdmin(tenant1Id);
-    tenant1User = await createTenantUser(tenant1Id);
-    tenant2Admin = await createTenantAdmin(tenant2Id);
-    
-    // Create test resource in tenant 1
-    tenant1Resource = await createTestResource({
-      tenantId: tenant1Id,
-      name: 'Permission Test Resource'
-    });
-  });
-  
-  test('Tenant admin can manage own tenant resources', async () => {
-    await setUserAndTenant(tenant1Admin.id, tenant1Id);
-    
-    const canView = await checkPermission(
-      tenant1Admin.id, 
-      'view', 
-      'resources',
-      tenant1Resource.id
-    );
-    
-    const canUpdate = await checkPermission(
-      tenant1Admin.id, 
-      'update', 
-      'resources',
-      tenant1Resource.id
-    );
-    
-    expect(canView).toBe(true);
-    expect(canUpdate).toBe(true);
-  });
-  
-  test('Tenant admin cannot manage other tenant resources', async () => {
-    await setUserAndTenant(tenant2Admin.id, tenant2Id);
-    
-    const canView = await checkPermission(
-      tenant2Admin.id, 
-      'view', 
-      'resources',
-      tenant1Resource.id
-    );
-    
-    const canUpdate = await checkPermission(
-      tenant2Admin.id, 
-      'update', 
-      'resources',
-      tenant1Resource.id
-    );
-    
-    expect(canView).toBe(false);
-    expect(canUpdate).toBe(false);
-  });
-  
-  test('Global admin can manage all tenant resources', async () => {
-    await setUserAndTenant(globalAdmin.id, tenant1Id);
-    
-    const canView = await checkPermission(
-      globalAdmin.id, 
-      'view', 
-      'resources',
-      tenant1Resource.id
-    );
-    
-    const canUpdate = await checkPermission(
-      globalAdmin.id, 
-      'update', 
-      'resources',
-      tenant1Resource.id
-    );
-    
-    expect(canView).toBe(true);
-    expect(canUpdate).toBe(true);
-    
-    // Change tenant context
-    await setUserAndTenant(globalAdmin.id, tenant2Id);
-    
-    // Global admin should still have access when in tenant 2 context
-    const canStillView = await checkPermission(
-      globalAdmin.id, 
-      'view', 
-      'resources',
-      tenant1Resource.id
-    );
-    
-    expect(canStillView).toBe(true);
-  });
-});
-```
-
-### 3. Tenant Context Switching Tests
-
-Test proper handling of tenant context switching:
-
-```typescript
-describe('Tenant Context Switching', () => {
-  let multiTenantUser, tenant1Id, tenant2Id;
-  let tenant1Resource, tenant2Resource;
-  
-  beforeAll(async () => {
-    // Create tenants
-    tenant1Id = await createTestTenant('Switch Tenant 1');
-    tenant2Id = await createTestTenant('Switch Tenant 2');
-    
-    // Create user with access to both tenants
-    multiTenantUser = await createMultiTenantUser([tenant1Id, tenant2Id]);
-    
-    // Create tenant-specific resources
-    tenant1Resource = await createTestResource({
-      tenantId: tenant1Id,
-      name: 'Tenant 1 Resource'
+    user1Id = await userService.createUser({
+      email: 'user1@example.com',
+      password: 'password123'
     });
     
-    tenant2Resource = await createTestResource({
+    user2Id = await userService.createUser({
+      email: 'user2@example.com',
+      password: 'password123'
+    });
+    
+    // Assign users to tenants
+    await tenantService.addUserToTenant(user1Id, tenant1Id);
+    await tenantService.addUserToTenant(user2Id, tenant2Id);
+    
+    // Create tenant-specific data
+    await documentService.createDocument({
+      title: 'Tenant 1 Document',
+      content: 'Content for tenant 1',
+      tenantId: tenant1Id,
+      createdBy: user1Id
+    });
+    
+    await documentService.createDocument({
+      title: 'Tenant 2 Document',
+      content: 'Content for tenant 2',
       tenantId: tenant2Id,
-      name: 'Tenant 2 Resource'
+      createdBy: user2Id
     });
   });
   
-  test('User sees appropriate resources when switching tenants', async () => {
-    // Set tenant context to tenant 1
-    await setUserAndTenant(multiTenantUser.id, tenant1Id);
+  test('should only return documents from correct tenant', async () => {
+    // Query as user 1 (in tenant 1)
+    const user1Docs = await documentService.listDocuments({
+      userId: user1Id,
+      tenantId: tenant1Id
+    });
     
-    // Get resources visible in tenant 1 context
-    const tenant1Resources = await getUserVisibleResources(multiTenantUser.id);
+    // Query as user 2 (in tenant 2)
+    const user2Docs = await documentService.listDocuments({
+      userId: user2Id,
+      tenantId: tenant2Id
+    });
     
-    expect(tenant1Resources).toContainEqual(
-      expect.objectContaining({ id: tenant1Resource.id })
-    );
-    expect(tenant1Resources).not.toContainEqual(
-      expect.objectContaining({ id: tenant2Resource.id })
-    );
+    // Verify correct tenant isolation
+    expect(user1Docs.length).toBe(1);
+    expect(user1Docs[0].title).toBe('Tenant 1 Document');
     
-    // Switch tenant context to tenant 2
-    await setUserAndTenant(multiTenantUser.id, tenant2Id);
-    
-    // Get resources visible in tenant 2 context
-    const tenant2Resources = await getUserVisibleResources(multiTenantUser.id);
-    
-    expect(tenant2Resources).toContainEqual(
-      expect.objectContaining({ id: tenant2Resource.id })
-    );
-    expect(tenant2Resources).not.toContainEqual(
-      expect.objectContaining({ id: tenant1Resource.id })
-    );
+    expect(user2Docs.length).toBe(1);
+    expect(user2Docs[0].title).toBe('Tenant 2 Document');
   });
   
-  test('Cache is properly invalidated on tenant switch', async () => {
-    // Set tenant context to tenant 1
-    await setUserAndTenant(multiTenantUser.id, tenant1Id);
+  test('should enforce row-level security with tenant context', async () => {
+    // Direct database query with tenant context set
+    await dbService.setTenantContext(tenant1Id);
     
-    // Prime the cache
-    await getUserPermissions(multiTenantUser.id);
+    const result1 = await dbService.query(
+      'SELECT * FROM documents'
+    );
     
-    // Verify cache contains tenant 1 context
-    const tenant1Cache = getPermissionCacheForUser(multiTenantUser.id);
-    expect(tenant1Cache.tenantId).toBe(tenant1Id);
+    expect(result1.length).toBe(1);
+    expect(result1[0].title).toBe('Tenant 1 Document');
     
-    // Switch tenant context to tenant 2
-    await setUserAndTenant(multiTenantUser.id, tenant2Id);
+    // Switch tenant context
+    await dbService.setTenantContext(tenant2Id);
     
-    // Verify cache was invalidated and repopulated with tenant 2 context
-    const tenant2Cache = getPermissionCacheForUser(multiTenantUser.id);
-    expect(tenant2Cache.tenantId).toBe(tenant2Id);
+    const result2 = await dbService.query(
+      'SELECT * FROM documents'
+    );
+    
+    expect(result2.length).toBe(1);
+    expect(result2[0].title).toBe('Tenant 2 Document');
+  });
+  
+  test('should prevent cross-tenant data access', async () => {
+    // Try to access tenant 2's data as user 1
+    const result = await documentService.listDocuments({
+      userId: user1Id,
+      tenantId: tenant2Id
+    });
+    
+    // Should return empty array (not error) due to tenant isolation
+    expect(result).toEqual([]);
   });
 });
 ```
 
-### 4. Tenant Configuration Tests
+### 2. Tenant Context Switching
 
-Test tenant-specific configuration and settings:
+Test that tenant context is properly managed and switched:
 
 ```typescript
-describe('Tenant-Specific Configuration', () => {
-  let tenant1Id, tenant2Id;
+// Example: Tenant context switching test
+describe('Tenant Context Switching', () => {
+  let user: any;
+  let tenant1: any;
+  let tenant2: any;
   
-  beforeAll(async () => {
-    // Create test tenants
-    tenant1Id = await createTestTenant('Config Tenant 1');
-    tenant2Id = await createTestTenant('Config Tenant 2');
+  beforeEach(async () => {
+    // Create multi-tenant user
+    const { userId } = await userService.createUser({
+      email: 'multi-tenant@example.com',
+      password: 'password123'
+    });
+    user = { id: userId };
     
-    // Set tenant-specific configurations
-    await setTenantConfig(tenant1Id, 'theme', 'light');
-    await setTenantConfig(tenant1Id, 'features', ['analytics', 'reports']);
+    // Create two tenants
+    tenant1 = await tenantService.createTenant('Tenant 1');
+    tenant2 = await tenantService.createTenant('Tenant 2');
     
-    await setTenantConfig(tenant2Id, 'theme', 'dark');
-    await setTenantConfig(tenant2Id, 'features', ['dashboard', 'calendar']);
+    // Add user to both tenants
+    await tenantService.addUserToTenant(user.id, tenant1.id);
+    await tenantService.addUserToTenant(user.id, tenant2.id);
   });
   
-  test('Tenant-specific configuration is correctly retrieved', async () => {
-    // Set context to tenant 1
-    await setTenantContext(tenant1Id);
-    
-    // Get config for tenant 1
-    const tenant1Theme = await getTenantConfig('theme');
-    const tenant1Features = await getTenantConfig('features');
-    
-    expect(tenant1Theme).toBe('light');
-    expect(tenant1Features).toEqual(['analytics', 'reports']);
+  test('should switch context and maintain isolation', async () => {
+    // Create data in tenant 1
+    await tenantService.setCurrentTenant(user.id, tenant1.id);
+    const doc1 = await documentService.createDocument({
+      title: 'Tenant 1 Doc',
+      content: 'Content 1',
+      userId: user.id
+    });
     
     // Switch to tenant 2
-    await setTenantContext(tenant2Id);
-    
-    // Get config for tenant 2
-    const tenant2Theme = await getTenantConfig('theme');
-    const tenant2Features = await getTenantConfig('features');
-    
-    expect(tenant2Theme).toBe('dark');
-    expect(tenant2Features).toEqual(['dashboard', 'calendar']);
-  });
-  
-  test('Default configuration applies when tenant-specific not set', async () => {
-    // Set context to tenant 1
-    await setTenantContext(tenant1Id);
-    
-    // Get config that isn't explicitly set for tenant 1
-    const notSetConfig = await getTenantConfig('notifications');
-    
-    // Should fall back to system defaults
-    expect(notSetConfig).toBe(true); // Assuming true is the default
-  });
-});
-```
-
-### 5. Cross-Tenant Operation Tests
-
-Test operations that legitimately span multiple tenants:
-
-```typescript
-describe('Cross-Tenant Operations', () => {
-  let superAdminId, tenant1Id, tenant2Id;
-  
-  beforeAll(async () => {
-    // Create test environment
-    superAdminId = await createSuperAdmin();
-    tenant1Id = await createTestTenant('Cross Op Tenant 1');
-    tenant2Id = await createTestTenant('Cross Op Tenant 2');
-  });
-  
-  test('Super admin can perform tenant management operations', async () => {
-    // Login as super admin
-    await loginAsSuperAdmin(superAdminId);
-    
-    // List all tenants
-    const tenants = await listAllTenants();
-    
-    // Verify super admin can see all tenants
-    expect(tenants.map(t => t.id)).toContain(tenant1Id);
-    expect(tenants.map(t => t.id)).toContain(tenant2Id);
-    
-    // Update tenant configuration
-    const updateResult = await updateTenantConfiguration(tenant1Id, {
-      maxUsers: 50
+    await tenantService.setCurrentTenant(user.id, tenant2.id);
+    const doc2 = await documentService.createDocument({
+      title: 'Tenant 2 Doc',
+      content: 'Content 2',
+      userId: user.id
     });
     
-    expect(updateResult.success).toBe(true);
-  });
-  
-  test('Tenant metrics collection spans all tenants', async () => {
-    // Set up test data in both tenants
-    await setTenantContext(tenant1Id);
-    await createTestActivity('login', { userId: 'user1' });
-    
-    await setTenantContext(tenant2Id);
-    await createTestActivity('login', { userId: 'user2' });
-    
-    // Run system-wide metrics collection (should span all tenants)
-    const metrics = await collectSystemMetrics('login_activity');
-    
-    // Verify metrics include data from all tenants
-    expect(metrics.totalCount).toBeGreaterThanOrEqual(2);
-    expect(metrics.byTenant[tenant1Id]).toBeDefined();
-    expect(metrics.byTenant[tenant2Id]).toBeDefined();
-  });
-});
-```
-
-### 6. Performance Tests
-
-Test system performance under multi-tenant load:
-
-```typescript
-describe('Multi-tenant Performance Tests', () => {
-  // These tests may be skipped in regular test runs due to duration
-  const NUM_TENANTS = 10;
-  const OPERATIONS_PER_TENANT = 100;
-  let tenantIds = [];
-  
-  beforeAll(async () => {
-    // Create test tenants
-    for (let i = 0; i < NUM_TENANTS; i++) {
-      const tenantId = await createTestTenant(`Perf Tenant ${i+1}`);
-      tenantIds.push(tenantId);
-      
-      // Create test data for each tenant
-      await createTestDataForTenant(tenantId, OPERATIONS_PER_TENANT);
-    }
-  });
-  
-  test('Query performance remains consistent with multiple tenants', async () => {
-    const results = [];
-    
-    // Test query performance for each tenant
-    for (const tenantId of tenantIds) {
-      await setTenantContext(tenantId);
-      
-      const startTime = performance.now();
-      await getAllResources(); // Standard query that should use tenant isolation
-      const endTime = performance.now();
-      
-      results.push({
-        tenantId,
-        duration: endTime - startTime
-      });
-    }
-    
-    // Calculate statistics
-    const durations = results.map(r => r.duration);
-    const avgDuration = durations.reduce((sum, d) => sum + d, 0) / durations.length;
-    const maxDuration = Math.max(...durations);
-    
-    // Assert performance expectations
-    expect(avgDuration).toBeLessThan(100); // Less than 100ms average
-    expect(maxDuration).toBeLessThan(200); // No single query over 200ms
-  });
-  
-  test('Permission resolution scales with number of tenants', async () => {
-    // Create user with access to all test tenants
-    const userId = await createMultiTenantUser(tenantIds);
-    
-    // Measure permission resolution time across tenants
-    const results = [];
-    
-    for (const tenantId of tenantIds) {
-      await setUserAndTenant(userId, tenantId);
-      
-      const startTime = performance.now();
-      await getUserPermissionsInContext(userId, tenantId);
-      const endTime = performance.now();
-      
-      results.push({
-        tenantId,
-        duration: endTime - startTime
-      });
-    }
-    
-    // Calculate statistics
-    const durations = results.map(r => r.duration);
-    const avgDuration = durations.reduce((sum, d) => sum + d, 0) / durations.length;
-    
-    // Assert performance expectations for permission resolution
-    expect(avgDuration).toBeLessThan(50); // Less than 50ms average for permission resolution
-  });
-});
-```
-
-## Testing Infrastructure
-
-### 1. Multi-tenant Test Environment Setup
-
-```typescript
-/**
- * Creates a complete test environment with multiple tenants,
- * users, and resources for comprehensive multi-tenant testing
- */
-async function setupMultiTenantTestEnvironment(options = {}) {
-  const {
-    numTenants = 3,
-    usersPerTenant = 2,
-    resourcesPerTenant = 5,
-    createSuperAdmin = true
-  } = options;
-  
-  const env = {
-    tenants: [],
-    users: {},
-    resources: {},
-    superAdmin: null
-  };
-  
-  // Create super admin if requested
-  if (createSuperAdmin) {
-    env.superAdmin = await createTestSuperAdmin();
-  }
-  
-  // Create tenants
-  for (let i = 0; i < numTenants; i++) {
-    const tenantId = await createTestTenant(`Test Tenant ${i+1}`);
-    env.tenants.push(tenantId);
-    env.users[tenantId] = [];
-    env.resources[tenantId] = [];
-    
-    // Create users for this tenant
-    for (let j = 0; j < usersPerTenant; j++) {
-      const isAdmin = j === 0; // First user is admin
-      const user = await createTestUser({
-        tenantId,
-        isAdmin,
-        email: `user_${i}_${j}@example.com`,
-        name: `User ${j} of Tenant ${i+1}`
-      });
-      env.users[tenantId].push(user);
-    }
-    
-    // Create resources for this tenant
-    await setTenantContext(tenantId);
-    for (let k = 0; k < resourcesPerTenant; k++) {
-      const resource = await createTestResource({
-        tenantId,
-        name: `Resource ${k} of Tenant ${i+1}`,
-        ownerId: env.users[tenantId][0].id
-      });
-      env.resources[tenantId].push(resource);
-    }
-  }
-  
-  return env;
-}
-```
-
-### 2. Tenant Isolation Test Helpers
-
-```typescript
-/**
- * Tests that a user can only access resources from their assigned tenant
- */
-async function testTenantIsolation(user, userTenantId, allTenants) {
-  const results = {
-    ownTenantAccess: false,
-    crossTenantAccess: []
-  };
-  
-  // Test access to own tenant
-  await setUserAndTenant(user.id, userTenantId);
-  const ownResources = await getUserVisibleResources(user.id);
-  results.ownTenantAccess = ownResources.length > 0;
-  
-  // Test attempted access to other tenants
-  for (const tenantId of allTenants) {
-    if (tenantId === userTenantId) continue;
-    
-    await setUserAndTenant(user.id, tenantId);
-    const otherResources = await getUserVisibleResources(user.id);
-    
-    results.crossTenantAccess.push({
-      tenantId,
-      hasAccess: otherResources.length > 0
+    // Query in tenant 2 context
+    const tenant2Docs = await documentService.listDocuments({
+      userId: user.id
     });
-  }
-  
-  return results;
-}
-```
-
-## Test Data Generation
-
-### 1. Tenant Factory
-
-```typescript
-/**
- * Creates a test tenant with configurable properties
- */
-async function createTestTenant(name, options = {}) {
-  const {
-    features = ['dashboard', 'reports', 'users'],
-    theme = 'default',
-    isActive = true,
-    customDomain = null
-  } = options;
-  
-  const tenant = {
-    name,
-    slug: name.toLowerCase().replace(/[^a-z0-9]/g, '-'),
-    features,
-    theme,
-    isActive,
-    customDomain,
-    createdAt: new Date(),
-    updatedAt: new Date()
-  };
-  
-  const result = await db.query(
-    'INSERT INTO tenants (name, slug, features, theme, is_active, custom_domain, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id',
-    [tenant.name, tenant.slug, JSON.stringify(tenant.features), tenant.theme, tenant.isActive, tenant.customDomain, tenant.createdAt, tenant.updatedAt]
-  );
-  
-  return result.rows[0].id;
-}
-```
-
-### 2. User Factory
-
-```typescript
-/**
- * Creates a test user with configurable properties
- */
-async function createTestUser(options = {}) {
-  const {
-    tenantId,
-    email = `user_${Math.random().toString(36).substring(2)}@example.com`,
-    name = 'Test User',
-    isAdmin = false,
-    isActive = true
-  } = options;
-  
-  // Create auth user
-  const password = 'Test@password123';
-  const { user } = await auth.createUser({
-    email,
-    password,
-    user_metadata: { name }
+    
+    expect(tenant2Docs.length).toBe(1);
+    expect(tenant2Docs[0].id).toBe(doc2.id);
+    expect(tenant2Docs[0].title).toBe('Tenant 2 Doc');
+    
+    // Switch back to tenant 1
+    await tenantService.setCurrentTenant(user.id, tenant1.id);
+    const tenant1Docs = await documentService.listDocuments({
+      userId: user.id
+    });
+    
+    expect(tenant1Docs.length).toBe(1);
+    expect(tenant1Docs[0].id).toBe(doc1.id);
+    expect(tenant1Docs[0].title).toBe('Tenant 1 Doc');
   });
   
-  // Create user record
-  await db.query(
-    'INSERT INTO users (id, email, full_name, is_active) VALUES ($1, $2, $3, $4)',
-    [user.id, email, name, isActive]
-  );
+  test('should maintain tenant context across service boundaries', async () => {
+    // Set tenant context
+    await tenantService.setCurrentTenant(user.id, tenant1.id);
+    
+    // Create document through document service
+    const doc = await documentService.createDocument({
+      title: 'Cross-Service Test',
+      content: 'Testing context across services',
+      userId: user.id
+    });
+    
+    // Verify tenant context was maintained in document
+    expect(doc.tenant_id).toBe(tenant1.id);
+    
+    // Use a different service with same user
+    const comment = await commentService.createComment({
+      documentId: doc.id,
+      content: 'Test comment',
+      userId: user.id
+    });
+    
+    // Verify tenant context was maintained across services
+    expect(comment.tenant_id).toBe(tenant1.id);
+  });
+});
+```
+
+### 3. Cross-tenant User Management
+
+Test handling of users that belong to multiple tenants:
+
+```typescript
+// Example: Cross-tenant user management test
+describe('Multi-tenant User Management', () => {
+  let adminUser: any;
+  let regularUser: any;
+  let tenant1: any;
+  let tenant2: any;
   
-  // Assign to tenant if specified
-  if (tenantId) {
-    const roleId = isAdmin 
-      ? await getTenantAdminRoleId()
-      : await getTenantUserRoleId();
-      
-    await db.query(
-      'INSERT INTO user_tenants (user_id, tenant_id, role_id) VALUES ($1, $2, $3)',
-      [user.id, tenantId, roleId]
+  beforeEach(async () => {
+    // Create test users
+    adminUser = await userService.createUser({
+      email: 'admin@example.com',
+      password: 'password123',
+      isSystemAdmin: true
+    });
+    
+    regularUser = await userService.createUser({
+      email: 'user@example.com',
+      password: 'password123'
+    });
+    
+    // Create tenants
+    tenant1 = await tenantService.createTenant('Tenant 1');
+    tenant2 = await tenantService.createTenant('Tenant 2');
+  });
+  
+  test('should allow user to be added to multiple tenants', async () => {
+    // Add regular user to both tenants
+    await tenantService.addUserToTenant(regularUser.id, tenant1.id);
+    await tenantService.addUserToTenant(regularUser.id, tenant2.id);
+    
+    // Get user's tenants
+    const userTenants = await tenantService.getUserTenants(regularUser.id);
+    
+    expect(userTenants.length).toBe(2);
+    expect(userTenants.map(t => t.id)).toContain(tenant1.id);
+    expect(userTenants.map(t => t.id)).toContain(tenant2.id);
+  });
+  
+  test('should handle different roles in different tenants', async () => {
+    // Add regular user to both tenants with different roles
+    await tenantService.addUserToTenant(regularUser.id, tenant1.id, 'admin');
+    await tenantService.addUserToTenant(regularUser.id, tenant2.id, 'viewer');
+    
+    // Check roles in tenant 1
+    await tenantService.setCurrentTenant(regularUser.id, tenant1.id);
+    const isAdmin1 = await rbacService.userHasRole(regularUser.id, 'admin');
+    const isViewer1 = await rbacService.userHasRole(regularUser.id, 'viewer');
+    
+    expect(isAdmin1).toBe(true);
+    expect(isViewer1).toBe(false);
+    
+    // Check roles in tenant 2
+    await tenantService.setCurrentTenant(regularUser.id, tenant2.id);
+    const isAdmin2 = await rbacService.userHasRole(regularUser.id, 'admin');
+    const isViewer2 = await rbacService.userHasRole(regularUser.id, 'viewer');
+    
+    expect(isAdmin2).toBe(false);
+    expect(isViewer2).toBe(true);
+  });
+  
+  test('should handle user removal from tenant', async () => {
+    // Add user to both tenants
+    await tenantService.addUserToTenant(regularUser.id, tenant1.id);
+    await tenantService.addUserToTenant(regularUser.id, tenant2.id);
+    
+    // Remove from tenant 1
+    await tenantService.removeUserFromTenant(regularUser.id, tenant1.id);
+    
+    // Check remaining tenants
+    const userTenants = await tenantService.getUserTenants(regularUser.id);
+    expect(userTenants.length).toBe(1);
+    expect(userTenants[0].id).toBe(tenant2.id);
+    
+    // Verify tenant 1 access removed
+    const canAccess = await tenantService.userCanAccessTenant(regularUser.id, tenant1.id);
+    expect(canAccess).toBe(false);
+  });
+});
+```
+
+### 4. Tenant-aware API Integration
+
+Test that API endpoints properly respect tenant context:
+
+```typescript
+// Example: Tenant-aware API integration test
+describe('Tenant-aware API Integration', () => {
+  let apiClient: any;
+  let user: any;
+  let tenant1: any;
+  let tenant2: any;
+  
+  beforeEach(async () => {
+    // Create test user and tenants
+    user = await userService.createUser({
+      email: 'api-test@example.com',
+      password: 'password123'
+    });
+    
+    tenant1 = await tenantService.createTenant('API Tenant 1');
+    tenant2 = await tenantService.createTenant('API Tenant 2');
+    
+    // Add user to both tenants
+    await tenantService.addUserToTenant(user.id, tenant1.id);
+    await tenantService.addUserToTenant(user.id, tenant2.id);
+    
+    // Create API client
+    apiClient = createTestApiClient();
+    
+    // Login to get auth token
+    const { token } = await apiClient.login({
+      email: 'api-test@example.com',
+      password: 'password123'
+    });
+    
+    // Set auth token for subsequent requests
+    apiClient.setToken(token);
+  });
+  
+  test('should respect tenant header in API requests', async () => {
+    // Create data in each tenant
+    await tenantService.setCurrentTenant(user.id, tenant1.id);
+    const doc1 = await documentService.createDocument({
+      title: 'Tenant 1 API Doc',
+      content: 'API test content',
+      userId: user.id
+    });
+    
+    await tenantService.setCurrentTenant(user.id, tenant2.id);
+    const doc2 = await documentService.createDocument({
+      title: 'Tenant 2 API Doc',
+      content: 'API test content',
+      userId: user.id
+    });
+    
+    // API request with tenant 1 context
+    const response1 = await apiClient.get('/api/documents', {
+      headers: { 'X-Tenant-ID': tenant1.id }
+    });
+    
+    expect(response1.status).toBe(200);
+    expect(response1.data.length).toBe(1);
+    expect(response1.data[0].title).toBe('Tenant 1 API Doc');
+    
+    // API request with tenant 2 context
+    const response2 = await apiClient.get('/api/documents', {
+      headers: { 'X-Tenant-ID': tenant2.id }
+    });
+    
+    expect(response2.status).toBe(200);
+    expect(response2.data.length).toBe(1);
+    expect(response2.data[0].title).toBe('Tenant 2 API Doc');
+  });
+  
+  test('should reject API requests without tenant context', async () => {
+    // Request without tenant header
+    const response = await apiClient.get('/api/documents');
+    
+    // Should request tenant ID
+    expect(response.status).toBe(400);
+    expect(response.data.error).toContain('tenant');
+  });
+  
+  test('should reject API requests with invalid tenant', async () => {
+    // Request with invalid tenant
+    const response = await apiClient.get('/api/documents', {
+      headers: { 'X-Tenant-ID': 'invalid-tenant-id' }
+    });
+    
+    expect(response.status).toBe(403);
+  });
+});
+```
+
+### 5. Tenant Creation and Management
+
+Test tenant lifecycle management:
+
+```typescript
+// Example: Tenant lifecycle management test
+describe('Tenant Lifecycle Management', () => {
+  let adminUser: any;
+  let regularUser: any;
+  
+  beforeEach(async () => {
+    // Create admin and regular users
+    adminUser = await userService.createUser({
+      email: 'tenant-admin@example.com',
+      password: 'password123',
+      isSystemAdmin: true
+    });
+    
+    regularUser = await userService.createUser({
+      email: 'tenant-user@example.com',
+      password: 'password123'
+    });
+  });
+  
+  test('should create tenant and assign owner role', async () => {
+    // Create tenant with owner
+    const tenant = await tenantService.createTenant('New Tenant', {
+      ownerId: regularUser.id
+    });
+    
+    // Verify tenant exists
+    expect(tenant.id).toBeDefined();
+    expect(tenant.name).toBe('New Tenant');
+    
+    // Verify user has owner role
+    const hasOwnerRole = await rbacService.userHasRole(
+      regularUser.id,
+      'owner',
+      tenant.id
     );
-  }
+    expect(hasOwnerRole).toBe(true);
+    
+    // Verify tenant shows in user's tenants
+    const userTenants = await tenantService.getUserTenants(regularUser.id);
+    expect(userTenants.length).toBe(1);
+    expect(userTenants[0].id).toBe(tenant.id);
+  });
   
-  return {
-    id: user.id,
-    email,
-    name,
-    isAdmin,
-    password // Include for testing login functionality
-  };
-}
+  test('should implement tenant usage limits', async () => {
+    // Create tenant with usage limits
+    const tenant = await tenantService.createTenant('Limited Tenant', {
+      ownerId: regularUser.id,
+      limits: {
+        maxUsers: 5,
+        maxStorage: 1024 * 1024 * 100 // 100 MB
+      }
+    });
+    
+    // Add users up to limit
+    for (let i = 0; i < 4; i++) {
+      const user = await userService.createUser({
+        email: `user${i}@example.com`,
+        password: 'password123'
+      });
+      await tenantService.addUserToTenant(user.id, tenant.id);
+    }
+    
+    // Verify user count
+    const tenantUsers = await tenantService.getTenantUsers(tenant.id);
+    expect(tenantUsers.length).toBe(5); // 4 added + owner
+    
+    // Try to add one more (should fail)
+    const extraUser = await userService.createUser({
+      email: 'extra@example.com',
+      password: 'password123'
+    });
+    
+    await expect(
+      tenantService.addUserToTenant(extraUser.id, tenant.id)
+    ).rejects.toThrow(/limit exceeded/i);
+  });
+  
+  test('should archive tenant properly', async () => {
+    // Create tenant
+    const tenant = await tenantService.createTenant('Archived Tenant', {
+      ownerId: regularUser.id
+    });
+    
+    // Archive tenant
+    await tenantService.archiveTenant(tenant.id);
+    
+    // Verify tenant is archived
+    const archivedTenant = await tenantService.getTenant(tenant.id);
+    expect(archivedTenant.status).toBe('archived');
+    
+    // Verify data access is blocked
+    await tenantService.setCurrentTenant(regularUser.id, tenant.id);
+    
+    await expect(
+      documentService.createDocument({
+        title: 'Should Fail',
+        content: 'Content',
+        userId: regularUser.id
+      })
+    ).rejects.toThrow(/archived/i);
+  });
+});
 ```
 
-## Test Coverage Requirements
+## Testing Multi-tenant Edge Cases
 
-Multi-tenant testing must achieve these coverage targets:
+### 1. Shared Resources Between Tenants
 
-1. **Database Operations**: 100% coverage of tenant-filtered database operations
-2. **Permission Checks**: 100% coverage of multi-tenant permission checks
-3. **Tenant Switching**: 100% coverage of tenant context switching logic
-4. **Edge Cases**: 100% coverage of boundary conditions and special cases
+Test handling of resources that can be shared across tenants:
 
-## Integration with CI/CD Pipeline
+```typescript
+// Example: Shared resources test
+describe('Shared Resource Management', () => {
+  let systemAdmin: any;
+  let tenant1: any;
+  let tenant2: any;
+  let sharedResourceId: string;
+  
+  beforeEach(async () => {
+    // Setup system admin
+    systemAdmin = await userService.createUser({
+      email: 'sys-admin@example.com',
+      password: 'password123',
+      isSystemAdmin: true
+    });
+    
+    // Create tenants
+    tenant1 = await tenantService.createTenant('Tenant 1');
+    tenant2 = await tenantService.createTenant('Tenant 2');
+    
+    // Create shared resource
+    const sharedResource = await sharedResourceService.createSharedResource({
+      name: 'Shared Template',
+      type: 'template',
+      content: 'Shared content',
+      createdBy: systemAdmin.id,
+      isGlobal: true
+    });
+    
+    sharedResourceId = sharedResource.id;
+  });
+  
+  test('should allow access to shared resources from all tenants', async () => {
+    // Create users in each tenant
+    const user1 = await userService.createUser({
+      email: 'user1@example.com',
+      password: 'password123'
+    });
+    await tenantService.addUserToTenant(user1.id, tenant1.id);
+    
+    const user2 = await userService.createUser({
+      email: 'user2@example.com',
+      password: 'password123'
+    });
+    await tenantService.addUserToTenant(user2.id, tenant2.id);
+    
+    // Check access from tenant 1
+    await tenantService.setCurrentTenant(user1.id, tenant1.id);
+    const resource1 = await sharedResourceService.getSharedResource(sharedResourceId);
+    expect(resource1).toBeDefined();
+    expect(resource1.name).toBe('Shared Template');
+    
+    // Check access from tenant 2
+    await tenantService.setCurrentTenant(user2.id, tenant2.id);
+    const resource2 = await sharedResourceService.getSharedResource(sharedResourceId);
+    expect(resource2).toBeDefined();
+    expect(resource2.name).toBe('Shared Template');
+  });
+  
+  test('should correctly handle tenant-specific customizations of shared resources', async () => {
+    // Create user in tenant 1
+    const user1 = await userService.createUser({
+      email: 'customizer@example.com',
+      password: 'password123'
+    });
+    await tenantService.addUserToTenant(user1.id, tenant1.id);
+    
+    // Customize shared resource for tenant 1
+    await tenantService.setCurrentTenant(user1.id, tenant1.id);
+    
+    const customization = await sharedResourceService.customizeSharedResource({
+      sharedResourceId,
+      tenantId: tenant1.id,
+      customizations: {
+        title: 'Tenant 1 Custom Title',
+        theme: 'dark'
+      }
+    });
+    
+    // Get customized resource in tenant 1 context
+    const customized = await sharedResourceService.getSharedResourceWithCustomizations(
+      sharedResourceId,
+      tenant1.id
+    );
+    
+    expect(customized.name).toBe('Shared Template'); // Base property
+    expect(customized.customizations.title).toBe('Tenant 1 Custom Title'); // Tenant-specific
+    expect(customized.customizations.theme).toBe('dark'); // Tenant-specific
+    
+    // Check same resource in tenant 2 has no customizations
+    const uncustomized = await sharedResourceService.getSharedResourceWithCustomizations(
+      sharedResourceId,
+      tenant2.id
+    );
+    
+    expect(uncustomized.name).toBe('Shared Template'); // Base property
+    expect(uncustomized.customizations).toEqual({}); // No tenant customizations
+  });
+});
+```
 
-Multi-tenant tests should be integrated into the CI/CD pipeline:
+### 2. Tenant-specific Configurations
 
-1. **Automated Runs**: All multi-tenant tests run on every PR
-2. **Separate Test Suite**: Multi-tenant tests run as a dedicated suite
-3. **Performance Tracking**: Performance test results tracked over time
-4. **Test Reports**: Dedicated reports for multi-tenant test coverage
+Test tenant-specific configuration handling:
+
+```typescript
+// Example: Tenant configuration test
+describe('Tenant Configuration Management', () => {
+  let tenant1: any;
+  let tenant2: any;
+  
+  beforeEach(async () => {
+    // Create tenants
+    tenant1 = await tenantService.createTenant('Config Tenant 1');
+    tenant2 = await tenantService.createTenant('Config Tenant 2');
+    
+    // Set different configurations
+    await configService.setTenantConfig(tenant1.id, 'theme', {
+      primaryColor: '#ff0000',
+      secondaryColor: '#00ff00',
+      darkMode: true
+    });
+    
+    await configService.setTenantConfig(tenant2.id, 'theme', {
+      primaryColor: '#0000ff',
+      secondaryColor: '#ffff00',
+      darkMode: false
+    });
+  });
+  
+  test('should apply tenant-specific configurations', async () => {
+    // Create users in each tenant
+    const user1 = await userService.createUser({ email: 'config1@example.com' });
+    const user2 = await userService.createUser({ email: 'config2@example.com' });
+    
+    await tenantService.addUserToTenant(user1.id, tenant1.id);
+    await tenantService.addUserToTenant(user2.id, tenant2.id);
+    
+    // Get configurations in tenant 1 context
+    await tenantService.setCurrentTenant(user1.id, tenant1.id);
+    const config1 = await configService.getTenantConfig('theme');
+    
+    expect(config1.primaryColor).toBe('#ff0000');
+    expect(config1.darkMode).toBe(true);
+    
+    // Get configurations in tenant 2 context
+    await tenantService.setCurrentTenant(user2.id, tenant2.id);
+    const config2 = await configService.getTenantConfig('theme');
+    
+    expect(config2.primaryColor).toBe('#0000ff');
+    expect(config2.darkMode).toBe(false);
+  });
+  
+  test('should fall back to default configurations when tenant-specific not found', async () => {
+    // Set system default
+    await configService.setDefaultConfig('notifications', {
+      emailEnabled: true,
+      pushEnabled: false
+    });
+    
+    // Override in tenant 1 only
+    await configService.setTenantConfig(tenant1.id, 'notifications', {
+      emailEnabled: false,
+      pushEnabled: true
+    });
+    
+    // Create users in each tenant
+    const user1 = await userService.createUser({ email: 'notify1@example.com' });
+    const user2 = await userService.createUser({ email: 'notify2@example.com' });
+    
+    await tenantService.addUserToTenant(user1.id, tenant1.id);
+    await tenantService.addUserToTenant(user2.id, tenant2.id);
+    
+    // Get configurations in tenant 1 context (overridden)
+    await tenantService.setCurrentTenant(user1.id, tenant1.id);
+    const config1 = await configService.getTenantConfig('notifications');
+    
+    expect(config1.emailEnabled).toBe(false);
+    expect(config1.pushEnabled).toBe(true);
+    
+    // Get configurations in tenant 2 context (default)
+    await tenantService.setCurrentTenant(user2.id, tenant2.id);
+    const config2 = await configService.getTenantConfig('notifications');
+    
+    expect(config2.emailEnabled).toBe(true);
+    expect(config2.pushEnabled).toBe(false);
+  });
+});
+```
 
 ## Related Documentation
 
-- **[../TEST_FRAMEWORK.md](../TEST_FRAMEWORK.md)**: Main testing framework documentation
-- **[../multitenancy/DATA_ISOLATION.md](../multitenancy/DATA_ISOLATION.md)**: Multi-tenant data isolation principles
-- **[../multitenancy/DATABASE_QUERY_PATTERNS.md](../multitenancy/DATABASE_QUERY_PATTERNS.md)**: Multi-tenant database query patterns
-- **[../rbac/ENTITY_BOUNDARIES.md](../rbac/ENTITY_BOUNDARIES.md)**: Entity boundary implementation
-- **[../security/MULTI_TENANT_ROLES.md](../security/MULTI_TENANT_ROLES.md)**: Multi-tenant role management
+- **[INTEGRATION_TESTING.md](INTEGRATION_TESTING.md)**: Comprehensive integration testing strategy
+- **[COMPONENT_INTEGRATION_MAP.md](COMPONENT_INTEGRATION_MAP.md)**: Component integration mapping
+- **[../implementation/INTEGRATION_TEST_STRATEGY.md](../implementation/INTEGRATION_TEST_STRATEGY.md)**: Implementation guide
+- **[../multitenancy/DATA_ISOLATION.md](../multitenancy/DATA_ISOLATION.md)**: Multi-tenant data isolation patterns
+- **[../TEST_FRAMEWORK.md](../TEST_FRAMEWORK.md)**: Overall testing framework
 
 ## Version History
 
-- **1.0.0**: Initial document creation (2025-05-22)
+- **1.0.0**: Initial multi-tenant integration testing document (2025-05-23)
