@@ -1,6 +1,6 @@
 # Core Architecture Documentation Map
 
-> **Version**: 1.2.0  
+> **Version**: 1.3.0  
 > **Last Updated**: 2025-05-23
 
 This document provides a visual guide to the core architecture documentation files in the project plan.
@@ -18,14 +18,29 @@ This document provides a visual guide to the core architecture documentation fil
 ├── TEST_FRAMEWORK.md             # Testing strategy and framework
 └── ui/                           # Comprehensive UI implementation documentation
     ├── README.md                 # UI documentation overview
-    ├── COMPONENT_ARCHITECTURE.md # Component design patterns
+    ├── COMPONENT_ARCHITECTURE.md # Component architecture overview
     ├── DESIGN_SYSTEM.md          # Design system implementation
-    ├── RESPONSIVE_DESIGN.md      # Responsive design guidelines
+    ├── RESPONSIVE_DESIGN.md      # Responsive design overview
     ├── ACCESSIBILITY.md          # Accessibility standards
     ├── PERFORMANCE.md            # UI performance optimization
     ├── TESTING.md               # UI testing strategies
     ├── ANIMATION_STANDARDS.md   # Animation guidelines
-    └── IMPLEMENTATION_EXAMPLES.md # Concrete UI examples
+    ├── IMPLEMENTATION_EXAMPLES.md # Implementation examples overview
+    ├── architecture/            # Component architecture details
+    │   ├── COMPOSITION_PATTERNS.md
+    │   ├── TYPESCRIPT_INTERFACES.md
+    │   ├── STATE_MANAGEMENT.md
+    │   └── INTEGRATION_PATTERNS.md
+    ├── responsive/              # Responsive design details
+    │   ├── BREAKPOINT_STRATEGY.md
+    │   ├── RESPONSIVE_COMPONENTS.md
+    │   ├── RESPONSIVE_TYPOGRAPHY.md
+    │   └── PERFORMANCE_CONSIDERATIONS.md
+    └── examples/                # Concrete implementation examples
+        ├── FORM_EXAMPLES.md
+        ├── TABLE_EXAMPLES.md
+        ├── MODAL_EXAMPLES.md
+        └── LOADING_EXAMPLES.md
 ```
 
 ## Document Relationships
@@ -48,6 +63,24 @@ graph TD
     UI_README --> UI_TEST["ui/TESTING.md"]
     UI_README --> UI_ANIM["ui/ANIMATION_STANDARDS.md"]
     UI_README --> UI_EXAMPLES["ui/IMPLEMENTATION_EXAMPLES.md"]
+
+    UI_COMP --> UI_ARCH_README["ui/architecture/README.md"]
+    UI_ARCH_README --> UI_COMP_PAT["ui/architecture/COMPOSITION_PATTERNS.md"]
+    UI_ARCH_README --> UI_TS_INT["ui/architecture/TYPESCRIPT_INTERFACES.md"]
+    UI_ARCH_README --> UI_STATE_MGMT["ui/architecture/STATE_MANAGEMENT.md"]
+    UI_ARCH_README --> UI_INT_PAT["ui/architecture/INTEGRATION_PATTERNS.md"]
+
+    UI_RESP --> UI_RESP_README["ui/responsive/README.md"]
+    UI_RESP_README --> UI_BRKPT["ui/responsive/BREAKPOINT_STRATEGY.md"]
+    UI_RESP_README --> UI_RESP_COMP["ui/responsive/RESPONSIVE_COMPONENTS.md"]
+    UI_RESP_README --> UI_RESP_TYP["ui/responsive/RESPONSIVE_TYPOGRAPHY.md"]
+    UI_RESP_README --> UI_RESP_PERF["ui/responsive/PERFORMANCE_CONSIDERATIONS.md"]
+
+    UI_EXAMPLES --> UI_EX_README["ui/examples/README.md"]
+    UI_EX_README --> UI_EX_FORM["ui/examples/FORM_EXAMPLES.md"]
+    UI_EX_README --> UI_EX_TABLE["ui/examples/TABLE_EXAMPLES.md"]
+    UI_EX_README --> UI_EX_MODAL["ui/examples/MODAL_EXAMPLES.md"]
+    UI_EX_README --> UI_EX_LOAD["ui/examples/LOADING_EXAMPLES.md"]
     
     IMPL --> PHASE1["implementation/PHASE1_FOUNDATION.md"]
     IMPL --> PHASE2["implementation/PHASE2_CORE.md"]
@@ -106,7 +139,11 @@ graph TD
 2. Explore **TECHNOLOGIES.md** for technology stack details
 3. Review **IMPLEMENTATION_PLAN.md** for implementation phases
 4. Check **UI_STANDARDS.md** for UI design and implementation guidelines
-5. Refer to specialized documents based on concerns:
+5. Dive into **ui/** subdirectories for detailed implementation guidance:
+   - **architecture/** for component design patterns
+   - **responsive/** for responsive design strategies
+   - **examples/** for concrete implementation examples
+6. Refer to specialized documents based on concerns:
    - For security, see **security/** documents
    - For RBAC, see **rbac/** documents
    - For multi-tenancy, see **multitenancy/** documents
@@ -123,6 +160,7 @@ graph TD
 
 ## Version History
 
+- **1.3.0**: Updated UI documentation structure with organized subdirectories (2025-05-23)
 - **1.2.0**: Added comprehensive UI documentation structure and relationships (2025-05-23)
 - **1.1.0**: Enhanced with implementation maps and testing integration (2025-05-23)
 - **1.0.0**: Initial core architecture documentation map (2025-05-22)
