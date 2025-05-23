@@ -1,166 +1,87 @@
+
 # Core Architecture Documentation Map
 
-> **Version**: 1.3.0  
+> **Version**: 2.0.0  
 > **Last Updated**: 2025-05-23
 
-This document provides a visual guide to the core architecture documentation files in the project plan.
+## Document Structure
 
-## Core Architecture Structure
+### Primary Architecture Documents
+- **[../CORE_ARCHITECTURE.md](../CORE_ARCHITECTURE.md)**: System architecture overview
+- **[../DEVELOPMENT_ROADMAP.md](../DEVELOPMENT_ROADMAP.md)**: Implementation timeline and phases
+- **[../RBAC_SYSTEM.md](../RBAC_SYSTEM.md)**: Role-based access control overview
+- **[../SECURITY_IMPLEMENTATION.md](../SECURITY_IMPLEMENTATION.md)**: Security system overview
+- **[../TEST_FRAMEWORK.md](../TEST_FRAMEWORK.md)**: Testing framework overview
 
-```
-/
-├── CORE_ARCHITECTURE.md           # Main architecture overview
-├── TECHNOLOGIES.md                # Technology stack and decisions
-├── IMPLEMENTATION_PLAN.md         # Implementation strategy and phases
-├── DEVELOPMENT_ROADMAP.md         # Development timeline and milestones
-├── UI_STANDARDS.md               # UI design and implementation standards
-├── GLOSSARY.md                   # Terminology and definitions
-├── TEST_FRAMEWORK.md             # Testing strategy and framework
-└── ui/                           # Comprehensive UI implementation documentation
-    ├── README.md                 # UI documentation overview
-    ├── COMPONENT_ARCHITECTURE.md # Component architecture overview
-    ├── DESIGN_SYSTEM.md          # Design system implementation
-    ├── RESPONSIVE_DESIGN.md      # Responsive design overview
-    ├── ACCESSIBILITY.md          # Accessibility standards
-    ├── PERFORMANCE.md            # UI performance optimization
-    ├── TESTING.md               # UI testing strategies
-    ├── ANIMATION_STANDARDS.md   # Animation guidelines
-    ├── IMPLEMENTATION_EXAMPLES.md # Implementation examples overview
-    ├── architecture/            # Component architecture details
-    │   ├── COMPOSITION_PATTERNS.md
-    │   ├── TYPESCRIPT_INTERFACES.md
-    │   ├── STATE_MANAGEMENT.md
-    │   └── INTEGRATION_PATTERNS.md
-    ├── responsive/              # Responsive design details
-    │   ├── BREAKPOINT_STRATEGY.md
-    │   ├── RESPONSIVE_COMPONENTS.md
-    │   ├── RESPONSIVE_TYPOGRAPHY.md
-    │   └── PERFORMANCE_CONSIDERATIONS.md
-    └── examples/                # Concrete implementation examples
-        ├── FORM_EXAMPLES.md
-        ├── TABLE_EXAMPLES.md
-        ├── MODAL_EXAMPLES.md
-        └── LOADING_EXAMPLES.md
-```
+### Foundation Documents
+- **[../data-model/DATABASE_SCHEMA.md](../data-model/DATABASE_SCHEMA.md)**: Database schema design
+- **[../data-model/ENTITY_RELATIONSHIPS.md](../data-model/ENTITY_RELATIONSHIPS.md)**: Entity relationship model
+- **[../TECHNOLOGIES.md](../TECHNOLOGIES.md)**: Technology stack decisions
 
-## Document Relationships
+### Integration Documents
+- **[../integration/OVERVIEW.md](../integration/OVERVIEW.md)**: System integration overview
+- **[../integration/EVENT_ARCHITECTURE.md](../integration/EVENT_ARCHITECTURE.md)**: Event-driven architecture
+- **[../integration/API_CONTRACTS.md](../integration/API_CONTRACTS.md)**: API contracts and standards
 
-```mermaid
-graph TD
-    CORE["CORE_ARCHITECTURE.md"] --> TECH["TECHNOLOGIES.md"]
-    CORE --> IMPL["IMPLEMENTATION_PLAN.md"]
-    CORE --> ROADMAP["DEVELOPMENT_ROADMAP.md"]
-    CORE --> UI["UI_STANDARDS.md"]
-    CORE --> GLOSSARY["GLOSSARY.md"]
-    CORE --> TEST["TEST_FRAMEWORK.md"]
-    
-    UI --> UI_README["ui/README.md"]
-    UI_README --> UI_COMP["ui/COMPONENT_ARCHITECTURE.md"]
-    UI_README --> UI_DESIGN["ui/DESIGN_SYSTEM.md"]
-    UI_README --> UI_RESP["ui/RESPONSIVE_DESIGN.md"]
-    UI_README --> UI_A11Y["ui/ACCESSIBILITY.md"]
-    UI_README --> UI_PERF["ui/PERFORMANCE.md"]
-    UI_README --> UI_TEST["ui/TESTING.md"]
-    UI_README --> UI_ANIM["ui/ANIMATION_STANDARDS.md"]
-    UI_README --> UI_EXAMPLES["ui/IMPLEMENTATION_EXAMPLES.md"]
+## Navigation Sequence
 
-    UI_COMP --> UI_ARCH_README["ui/architecture/README.md"]
-    UI_ARCH_README --> UI_COMP_PAT["ui/architecture/COMPOSITION_PATTERNS.md"]
-    UI_ARCH_README --> UI_TS_INT["ui/architecture/TYPESCRIPT_INTERFACES.md"]
-    UI_ARCH_README --> UI_STATE_MGMT["ui/architecture/STATE_MANAGEMENT.md"]
-    UI_ARCH_README --> UI_INT_PAT["ui/architecture/INTEGRATION_PATTERNS.md"]
+### For System Understanding
+1. **Start**: [CORE_ARCHITECTURE.md](../CORE_ARCHITECTURE.md) - Get high-level system overview
+2. **Technology**: [TECHNOLOGIES.md](../TECHNOLOGIES.md) - Understand technology choices
+3. **Data Model**: [DATABASE_SCHEMA.md](../data-model/DATABASE_SCHEMA.md) - Review data structure
+4. **Timeline**: [DEVELOPMENT_ROADMAP.md](../DEVELOPMENT_ROADMAP.md) - See implementation phases
 
-    UI_RESP --> UI_RESP_README["ui/responsive/README.md"]
-    UI_RESP_README --> UI_BRKPT["ui/responsive/BREAKPOINT_STRATEGY.md"]
-    UI_RESP_README --> UI_RESP_COMP["ui/responsive/RESPONSIVE_COMPONENTS.md"]
-    UI_RESP_README --> UI_RESP_TYP["ui/responsive/RESPONSIVE_TYPOGRAPHY.md"]
-    UI_RESP_README --> UI_RESP_PERF["ui/responsive/PERFORMANCE_CONSIDERATIONS.md"]
+### For Implementation Planning
+1. **Foundation**: [CORE_ARCHITECTURE.md](../CORE_ARCHITECTURE.md) - Architecture principles
+2. **Integration**: [EVENT_ARCHITECTURE.md](../integration/EVENT_ARCHITECTURE.md) - Integration patterns
+3. **Testing**: [TEST_FRAMEWORK.md](../TEST_FRAMEWORK.md) - Testing approach
+4. **Security**: [SECURITY_IMPLEMENTATION.md](../SECURITY_IMPLEMENTATION.md) - Security overview
 
-    UI_EXAMPLES --> UI_EX_README["ui/examples/README.md"]
-    UI_EX_README --> UI_EX_FORM["ui/examples/FORM_EXAMPLES.md"]
-    UI_EX_README --> UI_EX_TABLE["ui/examples/TABLE_EXAMPLES.md"]
-    UI_EX_README --> UI_EX_MODAL["ui/examples/MODAL_EXAMPLES.md"]
-    UI_EX_README --> UI_EX_LOAD["ui/examples/LOADING_EXAMPLES.md"]
-    
-    IMPL --> PHASE1["implementation/PHASE1_FOUNDATION.md"]
-    IMPL --> PHASE2["implementation/PHASE2_CORE.md"]
-    IMPL --> PHASE3["implementation/PHASE3_FEATURES.md"]
-    IMPL --> PHASE4["implementation/PHASE4_POLISH.md"]
-    
-    TEST --> RBAC_TEST["rbac/TESTING_STRATEGY.md"]
-    TEST --> SEC_TEST["security/SECURITY_TESTING.md"]
-    TEST --> MOBILE_TEST["mobile/TESTING.md"]
-    
-    UI_COMP -.-> RBAC_UI["rbac/permission-resolution/UI_INTEGRATION.md"]
-    UI_DESIGN -.-> SEC_THEME["security/THEME_SECURITY.md"]
-    UI_RESP -.-> MOBILE_UI["mobile/UI_UX.md"]
-```
+### For Component Development
+1. **Overview**: [CORE_ARCHITECTURE.md](../CORE_ARCHITECTURE.md) - System context
+2. **RBAC**: [RBAC_SYSTEM.md](../RBAC_SYSTEM.md) - Permission system
+3. **Integration**: [API_CONTRACTS.md](../integration/API_CONTRACTS.md) - API standards
+4. **Data**: [ENTITY_RELATIONSHIPS.md](../data-model/ENTITY_RELATIONSHIPS.md) - Data relationships
 
-## Integration with Other Systems
+## Integration Points
 
-```mermaid
-graph TD
-    TECH --> SEC["security/README.md"]
-    TECH --> RBAC["rbac/README.md"]
-    TECH --> MT["multitenancy/README.md"]
-    TECH --> MOBILE["mobile/README.md"]
-    
-    SEC -.-> AUTH["security/AUTH_SYSTEM.md"]
-    SEC -.-> COMSEC["security/COMMUNICATION_SECURITY.md"]
-    SEC -.-> DATASEC["security/DATA_SECURITY.md"]
-    SEC -.-> THEME_SEC["security/THEME_SECURITY.md"]
-    
-    RBAC -.-> RBAC_ARCH["rbac/ROLE_ARCHITECTURE.md"]
-    RBAC -.-> RBAC_PERM["rbac/PERMISSION_TYPES.md"]
-    RBAC -.-> RBAC_RES["rbac/PERMISSION_RESOLUTION.md"]
-    RBAC -.-> RBAC_ENT["rbac/ENTITY_BOUNDARIES.md"]
-    
-    MT -.-> MT_DATA["multitenancy/DATA_ISOLATION.md"]
-    MT -.-> MT_DB["multitenancy/DATABASE_QUERY_PATTERNS.md"]
-    MT -.-> MT_PERF["multitenancy/DATABASE_PERFORMANCE.md"]
-    
-    MOBILE -.-> MOBILE_OVERVIEW["mobile/OVERVIEW.md"]
-    MOBILE -.-> MOBILE_UIUX["mobile/UI_UX.md"]
-    MOBILE -.-> MOBILE_SEC["mobile/SECURITY.md"]
-```
+### With Component Maps
+- **RBAC System**: Use [RBAC_SYSTEM_MAP.md](RBAC_SYSTEM_MAP.md) for detailed RBAC navigation
+- **Security System**: Use [SECURITY_SYSTEM_MAP.md](SECURITY_SYSTEM_MAP.md) for security details
+- **Multi-Tenant**: Use [MULTI_TENANT_MAP.md](MULTI_TENANT_MAP.md) for tenant architecture
+- **Implementation**: Use [IMPLEMENTATION_MAP.md](IMPLEMENTATION_MAP.md) for phase-specific guidance
 
-## Key Architectural Components
+### With External Systems
+- **Database**: All documents reference database schema and design
+- **API Layer**: Integration documents define API contracts
+- **Security Layer**: Security implementation spans multiple components
+- **Audit Layer**: Logging and monitoring integrated throughout
 
-- **Core Modules**: Authentication, authorization, data management, and UI
-- **Technology Stack**: React, Node.js, PostgreSQL, and cloud services
-- **Security**: Authentication, authorization, data protection, and communication security
-- **RBAC**: Role-based access control with permission management
-- **Multi-Tenancy**: Data isolation, resource management, and tenant context
-- **Mobile**: Responsive design, native apps, and offline capabilities
+## Usage Guidelines
 
-## How to Use This Map
+### For Architects
+- Start with CORE_ARCHITECTURE.md for system overview
+- Review technology decisions in TECHNOLOGIES.md
+- Use integration documents for system boundaries
 
-1. Start with **CORE_ARCHITECTURE.md** for a high-level overview
-2. Explore **TECHNOLOGIES.md** for technology stack details
-3. Review **IMPLEMENTATION_PLAN.md** for implementation phases
-4. Check **UI_STANDARDS.md** for UI design and implementation guidelines
-5. Dive into **ui/** subdirectories for detailed implementation guidance:
-   - **architecture/** for component design patterns
-   - **responsive/** for responsive design strategies
-   - **examples/** for concrete implementation examples
-6. Refer to specialized documents based on concerns:
-   - For security, see **security/** documents
-   - For RBAC, see **rbac/** documents
-   - For multi-tenancy, see **multitenancy/** documents
-   - For mobile, see **mobile/** documents
+### For Developers
+- Begin with component-specific documents (RBAC, Security)
+- Reference API contracts for integration requirements
+- Follow testing framework for quality assurance
+
+### For Project Managers
+- Use DEVELOPMENT_ROADMAP.md for timeline planning
+- Reference CORE_ARCHITECTURE.md for scope understanding
+- Check integration points for dependency management
 
 ## Related Maps
 
-- [RBAC System Map](RBAC_SYSTEM_MAP.md)
-- [Security System Map](SECURITY_SYSTEM_MAP.md)
-- [Multi-Tenant Map](MULTI_TENANT_MAP.md)
-- [Integration Map](INTEGRATION_MAP.md)
-- [Implementation Map](IMPLEMENTATION_MAP.md)
-- [Testing Map](TESTING_MAP.md)
+- **[IMPLEMENTATION_MAP.md](IMPLEMENTATION_MAP.md)**: Phase-specific implementation guidance
+- **[INTEGRATION_MAP.md](INTEGRATION_MAP.md)**: System integration patterns
+- **[RBAC_SYSTEM_MAP.md](RBAC_SYSTEM_MAP.md)**: RBAC system details
+- **[SECURITY_SYSTEM_MAP.md](SECURITY_SYSTEM_MAP.md)**: Security system details
 
 ## Version History
 
-- **1.3.0**: Updated UI documentation structure with organized subdirectories (2025-05-23)
-- **1.2.0**: Added comprehensive UI documentation structure and relationships (2025-05-23)
-- **1.1.0**: Enhanced with implementation maps and testing integration (2025-05-23)
-- **1.0.0**: Initial core architecture documentation map (2025-05-22)
+- **2.0.0**: Standardized format with consistent navigation structure (2025-05-23)
+- **1.0.0**: Initial core architecture map (2025-05-22)

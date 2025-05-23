@@ -1,88 +1,109 @@
 
 # Mobile Documentation Map
 
-> **Version**: 1.0.0  
-> **Last Updated**: 2025-05-22
+> **Version**: 2.0.0  
+> **Last Updated**: 2025-05-23
 
-This document provides a visual guide to the mobile application documentation files in the project plan.
+## Document Structure
 
-## Mobile Documentation Structure
+### Core Mobile Documents
+- **[../mobile/README.md](../mobile/README.md)**: Mobile application entry point and overview
+- **[../mobile/OVERVIEW.md](../mobile/OVERVIEW.md)**: Mobile implementation approach and strategy
+- **[../mobile/UI_UX.md](../mobile/UI_UX.md)**: Mobile UI/UX considerations and design
+- **[../mobile/INTEGRATION.md](../mobile/INTEGRATION.md)**: Integration with core platform
 
-```
-mobile/
-├── README.md                  # Entry point and overview
-├── OVERVIEW.md                # Mobile implementation approach
-├── SECURITY.md                # Mobile-specific security
-├── UI_UX.md                   # Mobile UI/UX considerations
-├── OFFLINE.md                 # Offline functionality
-├── INTEGRATION.md             # Integration with core platform
-└── TESTING.md                 # Mobile testing strategy
-```
+### Mobile Security and Data
+- **[../mobile/SECURITY.md](../mobile/SECURITY.md)**: Mobile-specific security implementation
+- **[../mobile/OFFLINE.md](../mobile/OFFLINE.md)**: Offline functionality and data synchronization
+- **[../mobile/TESTING.md](../mobile/TESTING.md)**: Mobile testing strategy and approach
 
-## Document Relationships
+## Navigation Sequence
 
-```mermaid
-graph TD
-    MOB["README.md"] --> OVERVIEW["OVERVIEW.md"]
-    MOB --> SECURITY["SECURITY.md"]
-    MOB --> UI_UX["UI_UX.md"]
-    MOB --> OFFLINE["OFFLINE.md"]
-    MOB --> INTEGRATION["INTEGRATION.md"]
-    MOB --> TESTING["TESTING.md"]
-    
-    SECURITY --> MOB_SEC["../security/MOBILE_SECURITY.md"]
-    MOB_SEC --> SECURITY
-    
-    SEC_AUTH["../security/AUTH_SYSTEM.md"] --> SECURITY
-    SEC_COMP["../security/SECURITY_COMPONENTS.md"] --> MOB_SEC
-    
-    OFFLINE --> MT_DATA["../multitenancy/DATA_ISOLATION.md"]
-    OFFLINE --> RBAC_ENT["../rbac/ENTITY_BOUNDARIES.md"]
-    
-    INTEGRATION --> API["../integration/API_CONTRACTS.md"]
-    INTEGRATION --> EVENT["../integration/EVENT_ARCHITECTURE.md"]
-    
-    TESTING --> TEST["../testing/SECURITY_TESTING.md"]
-    TESTING --> PERF["../testing/PERFORMANCE_TESTING.md"]
-```
+### For Mobile Application Overview
+1. **Overview**: [OVERVIEW.md](../mobile/OVERVIEW.md) - Mobile implementation strategy
+2. **UI/UX**: [UI_UX.md](../mobile/UI_UX.md) - Mobile design considerations
+3. **Integration**: [INTEGRATION.md](../mobile/INTEGRATION.md) - Platform integration
+4. **Security**: [SECURITY.md](../mobile/SECURITY.md) - Mobile security implementation
 
-## Key Mobile Features
+### For Mobile Security Implementation
+1. **Security**: [SECURITY.md](../mobile/SECURITY.md) - Mobile security specifics
+2. **Core Security**: [../security/AUTH_SYSTEM.md](../security/AUTH_SYSTEM.md) - Authentication integration
+3. **Data Protection**: [../security/DATA_PROTECTION.md](../security/DATA_PROTECTION.md) - Data security measures
+4. **Offline Security**: [OFFLINE.md](../mobile/OFFLINE.md) - Offline security considerations
 
-### Security Implementation
-- Biometric authentication
-- Secure credential storage
-- Encrypted local storage
-- Offline permission caching
+### For Mobile Development
+1. **UI/UX**: [UI_UX.md](../mobile/UI_UX.md) - Mobile interface design
+2. **Integration**: [INTEGRATION.md](../mobile/INTEGRATION.md) - API and service integration
+3. **Testing**: [TESTING.md](../mobile/TESTING.md) - Mobile testing approach
+4. **Offline**: [OFFLINE.md](../mobile/OFFLINE.md) - Offline functionality
 
-### Offline Functionality
-- Data synchronization
-- Conflict resolution
-- Permission enforcement offline
-- Audit logging queue
+### For Mobile Testing
+1. **Testing**: [TESTING.md](../mobile/TESTING.md) - Mobile testing strategy
+2. **Security Testing**: [../testing/SECURITY_TESTING.md](../testing/SECURITY_TESTING.md) - Security testing integration
+3. **Performance Testing**: [../testing/PERFORMANCE_TESTING.md](../testing/PERFORMANCE_TESTING.md) - Mobile performance testing
+4. **Integration Testing**: Cross-platform integration testing
 
-### Integration with Core Platform
-- API integration
-- Event-based synchronization
-- Entity boundary preservation
-- Permission synchronization
+## Integration Points
 
-## How to Use This Map
+### With Security System
+- **Authentication**: Mobile authentication with biometric and secure storage
+- **Data Protection**: Mobile data encryption and secure credential storage
+- **Session Management**: Secure mobile session handling and token management
+- **Offline Security**: Offline permission caching and security enforcement
 
-1. Start with **README.md** for a mobile application overview
-2. Review **OVERVIEW.md** for implementation approach
-3. Explore specialized documents based on mobile concerns:
-   - For security, see **SECURITY.md**
-   - For offline functionality, see **OFFLINE.md**
-   - For integration, see **INTEGRATION.md**
+### With RBAC System
+- **Permission Caching**: Offline permission storage and synchronization
+- **Role Management**: Mobile role assignment and permission resolution
+- **Entity Boundaries**: Tenant boundary enforcement in mobile context
+- **Access Control**: Mobile access control and permission enforcement
+
+### With Multi-tenant System
+- **Tenant Context**: Mobile tenant switching and context management
+- **Data Isolation**: Mobile tenant data isolation and synchronization
+- **Offline Isolation**: Tenant data isolation in offline scenarios
+- **Cross-tenant Access**: Mobile cross-tenant operation handling
+
+### With Core Platform
+- **API Integration**: Mobile API consumption and data synchronization
+- **Event Handling**: Mobile event processing and offline queue management
+- **Data Sync**: Mobile-platform data synchronization and conflict resolution
+- **Real-time Updates**: Mobile real-time update handling and notification
+
+## Usage Guidelines
+
+### For Mobile Architects
+- Start with OVERVIEW.md for mobile strategy understanding
+- Use INTEGRATION.md for platform integration design
+- Reference SECURITY.md for mobile security architecture
+- Check UI_UX.md for mobile design considerations
+
+### For Mobile Developers
+- Follow UI_UX.md for mobile interface development
+- Use INTEGRATION.md for API and service integration
+- Reference SECURITY.md for security implementation
+- Check OFFLINE.md for offline functionality development
+
+### For Mobile Security Developers
+- Use SECURITY.md for mobile-specific security implementation
+- Reference core security documents for integration patterns
+- Check offline security considerations in OFFLINE.md
+- Follow testing guidelines in TESTING.md for security validation
+
+### For Mobile Testing Teams
+- Use TESTING.md for mobile testing strategy
+- Reference core testing documents for integration testing
+- Check security testing integration for mobile security validation
+- Use performance testing guidelines for mobile optimization
 
 ## Related Maps
 
-- [Core Architecture Map](CORE_ARCHITECTURE_MAP.md)
-- [Security System Map](SECURITY_SYSTEM_MAP.md)
-- [RBAC System Map](RBAC_SYSTEM_MAP.md)
-- [Integration Map](INTEGRATION_MAP.md)
+- **[SECURITY_SYSTEM_MAP.md](SECURITY_SYSTEM_MAP.md)**: Security integration with mobile
+- **[RBAC_SYSTEM_MAP.md](RBAC_SYSTEM_MAP.md)**: RBAC integration with mobile
+- **[MULTI_TENANT_MAP.md](MULTI_TENANT_MAP.md)**: Multi-tenant mobile integration
+- **[INTEGRATION_MAP.md](INTEGRATION_MAP.md)**: Cross-system mobile integration
+- **[CORE_ARCHITECTURE_MAP.md](CORE_ARCHITECTURE_MAP.md)**: Core platform integration
 
 ## Version History
 
+- **2.0.0**: Standardized format with consistent navigation structure (2025-05-23)
 - **1.0.0**: Initial mobile documentation map (2025-05-22)
-

@@ -1,134 +1,123 @@
 
 # RBAC System Documentation Map
 
-> **Version**: 1.2.0  
+> **Version**: 2.0.0  
 > **Last Updated**: 2025-05-23
 
-This document provides a visual guide to the Role-Based Access Control (RBAC) documentation files using the direct permission assignment model.
+## Document Structure
 
-## RBAC Documentation Structure
+### Core RBAC Documents
+- **[../rbac/README.md](../rbac/README.md)**: RBAC system entry point and overview
+- **[../rbac/AI_PERMISSION_IMPLEMENTATION_GUIDE.md](../rbac/AI_PERMISSION_IMPLEMENTATION_GUIDE.md)**: **START HERE** - Simplified AI implementation guide
+- **[../rbac/ROLE_ARCHITECTURE.md](../rbac/ROLE_ARCHITECTURE.md)**: Direct role definition and flat structure
+- **[../rbac/PERMISSION_TYPES.md](../rbac/PERMISSION_TYPES.md)**: Permission taxonomy and implementation
+- **[../rbac/PERMISSION_RESOLUTION.md](../rbac/PERMISSION_RESOLUTION.md)**: Permission resolution overview
+- **[../rbac/PERMISSION_DEPENDENCIES.md](../rbac/PERMISSION_DEPENDENCIES.md)**: Functional dependencies between permissions
 
-```
-rbac/
-├── README.md                      # Entry point and overview
-├── ROLE_ARCHITECTURE.md           # Direct role definition and flat structure
-├── PERMISSION_TYPES.md            # Permission taxonomy and implementation
-├── PERMISSION_RESOLUTION.md       # How permissions are resolved for users
-├── PERMISSION_DEPENDENCIES.md     # Functional dependencies between permission types
-├── ENTITY_BOUNDARIES.md           # Canonical entity boundary implementation
-├── CACHING_STRATEGY.md            # Multi-level caching approach
-├── DATABASE_OPTIMIZATION.md       # Database design for permissions
-├── PERMISSION_QUERY_OPTIMIZATION.md # Query optimization strategies
-├── PERFORMANCE_OPTIMIZATION.md    # Performance techniques
-├── MONITORING_ANALYTICS.md        # Monitoring and analytics
-├── entity-boundaries/             # Detailed entity boundary documentation
-│   ├── README.md                  # Entity boundaries overview
-│   ├── CORE_PRINCIPLES.md         # Core principles of entity boundaries
-│   └── IMPLEMENTATION_PATTERNS.md # Implementation patterns for entity boundaries
-└── permission-resolution/         # Detailed permission resolution documentation
-    ├── README.md                  # Permission resolution overview
-    ├── PERMISSION_MODEL.md        # Direct permission model details
-    ├── RESOLUTION_ALGORITHM.md    # Resolution algorithm details
-    ├── CORE_ALGORITHM.md          # Core algorithm implementation
-    ├── DATABASE_QUERIES.md        # Direct permission SQL queries
-    ├── HIERARCHICAL.md            # Direct assignment implementation (replaces hierarchy)
-    ├── ENTITY_BOUNDARIES.md       # Entity boundaries in permission resolution
-    └── IMPLEMENTATION.md          # Implementation details
-```
+### Isolation and Boundaries
+- **[../rbac/ENTITY_BOUNDARIES.md](../rbac/ENTITY_BOUNDARIES.md)**: Canonical entity boundary implementation
+- **[../rbac/entity-boundaries/README.md](../rbac/entity-boundaries/README.md)**: Entity boundaries detailed overview
+- **[../rbac/entity-boundaries/CORE_PRINCIPLES.md](../rbac/entity-boundaries/CORE_PRINCIPLES.md)**: Core boundary principles
+- **[../rbac/entity-boundaries/IMPLEMENTATION_PATTERNS.md](../rbac/entity-boundaries/IMPLEMENTATION_PATTERNS.md)**: Boundary implementation patterns
 
-## Document Relationships
+### Performance and Optimization
+- **[../rbac/CACHING_STRATEGY.md](../rbac/CACHING_STRATEGY.md)**: Multi-level caching approach
+- **[../rbac/DATABASE_OPTIMIZATION.md](../rbac/DATABASE_OPTIMIZATION.md)**: Database design optimization
+- **[../rbac/PERMISSION_QUERY_OPTIMIZATION.md](../rbac/PERMISSION_QUERY_OPTIMIZATION.md)**: Query optimization strategies
+- **[../rbac/PERFORMANCE_OPTIMIZATION.md](../rbac/PERFORMANCE_OPTIMIZATION.md)**: Overall performance techniques
 
-```mermaid
-graph TD
-    README["README.md"] --> ROLE["ROLE_ARCHITECTURE.md"]
-    README --> PERM["PERMISSION_TYPES.md"]
-    README --> RES["PERMISSION_RESOLUTION.md"]
-    README --> PERMDEP["PERMISSION_DEPENDENCIES.md"]
-    README --> ENT["ENTITY_BOUNDARIES.md"]
-    README --> CACHE["CACHING_STRATEGY.md"]
-    README --> DB["DATABASE_OPTIMIZATION.md"]
-    README --> QUERY["PERMISSION_QUERY_OPTIMIZATION.md"]
-    README --> PERF["PERFORMANCE_OPTIMIZATION.md"]
-    README --> MON["MONITORING_ANALYTICS.md"]
-    README --> DIAG["diagrams/README.md"]
-    
-    ENT --> ENT_README["entity-boundaries/README.md"]
-    ENT_README --> ENT_CORE["entity-boundaries/CORE_PRINCIPLES.md"]
-    ENT_README --> ENT_IMP["entity-boundaries/IMPLEMENTATION_PATTERNS.md"]
-    
-    RES --> RES_README["permission-resolution/README.md"]
-    RES_README --> RES_MODEL["permission-resolution/PERMISSION_MODEL.md"]
-    RES_README --> RES_ALG["permission-resolution/RESOLUTION_ALGORITHM.md"]
-    RES_README --> RES_CORE["permission-resolution/CORE_ALGORITHM.md"]
-    RES_README --> RES_DB["permission-resolution/DATABASE_QUERIES.md"]
-    RES_README --> RES_DIRECT["permission-resolution/HIERARCHICAL.md"]
-    RES_README --> RES_ENT["permission-resolution/ENTITY_BOUNDARIES.md"]
-    RES_README --> RES_IMP["permission-resolution/IMPLEMENTATION.md"]
-    
-    ENT -.-> RES_ENT
-    ENT -.-> ENT_IMP
-    
-    PERMDEP -.-> RES
-    PERMDEP -.-> PERM
-    DIAG --> FLOW["diagrams/PERMISSION_RESOLUTION_FLOW.md"]
-    QUERY -.-> DB
-    QUERY -.-> CACHE
-    QUERY -.-> PERF
-    
-    RES_DIRECT -.-> RES_MODEL
-    RES_DIRECT -.-> RES_CORE
-```
+### Detailed Implementation
+- **[../rbac/permission-resolution/README.md](../rbac/permission-resolution/README.md)**: Permission resolution detailed overview
+- **[../rbac/permission-resolution/CORE_ALGORITHM.md](../rbac/permission-resolution/CORE_ALGORITHM.md)**: Core resolution algorithm
+- **[../rbac/permission-resolution/DATABASE_QUERIES.md](../rbac/permission-resolution/DATABASE_QUERIES.md)**: Direct permission SQL queries
+- **[../rbac/MONITORING_ANALYTICS.md](../rbac/MONITORING_ANALYTICS.md)**: Monitoring and analytics
 
-## Integration with Other Systems
+## Navigation Sequence
 
-```mermaid
-graph TD
-    README["README.md"] --> SEC["../security/README.md"]
-    README --> AUDIT["../audit/README.md"]
-    README --> MOB["../mobile/README.md"]
-    README --> CORE["../CORE_ARCHITECTURE.md"]
-    README --> DOC["../DOCUMENTATION_MAP.md"]
-    
-    SEC -.-> TENANT["../security/MULTI_TENANT_ROLES.md"]
-    TENANT -.-> ENT["ENTITY_BOUNDARIES.md"]
-    
-    ENT -.-> MT_DATA["../multitenancy/DATA_ISOLATION.md"]
-    ENT -.-> MT_IMPL["../multitenancy/IMPLEMENTATION_EXAMPLES.md"]
-    
-    AUDIT -.-> SEC_INT["../audit/SECURITY_INTEGRATION.md"]
-    SEC_INT -.-> MON["MONITORING_ANALYTICS.md"]
-    
-    MOB -.-> MOB_SEC["../mobile/SECURITY.md"]
-```
+### For AI Implementation (Recommended)
+1. **Start**: [AI_PERMISSION_IMPLEMENTATION_GUIDE.md](../rbac/AI_PERMISSION_IMPLEMENTATION_GUIDE.md) - Everything in one document
+2. **Testing**: Implement and test basic permission checks
+3. **Advanced**: Reference detailed documents only for complex scenarios
+4. **Integration**: Use integration maps for cross-system connections
 
-## Key Implementation Details
+### For Comprehensive Understanding
+1. **Overview**: [README.md](../rbac/README.md) - RBAC system overview
+2. **Architecture**: [ROLE_ARCHITECTURE.md](../rbac/ROLE_ARCHITECTURE.md) - Role structure
+3. **Permissions**: [PERMISSION_TYPES.md](../rbac/PERMISSION_TYPES.md) - Permission taxonomy
+4. **Resolution**: [PERMISSION_RESOLUTION.md](../rbac/PERMISSION_RESOLUTION.md) - Resolution process
+5. **Boundaries**: [ENTITY_BOUNDARIES.md](../rbac/ENTITY_BOUNDARIES.md) - Multi-tenant isolation
+6. **Performance**: [CACHING_STRATEGY.md](../rbac/CACHING_STRATEGY.md) - Optimization strategies
 
-- **Direct permission assignment model** with no role hierarchy or inheritance
-- Functional dependencies between permissions for logical consistency
-- Entity boundaries for multi-tenant isolation
-- Multi-level caching for performance optimization
-- Optimized permission queries with monitoring and analytics
+### For Performance Optimization
+1. **Caching**: [CACHING_STRATEGY.md](../rbac/CACHING_STRATEGY.md) - Multi-level caching
+2. **Database**: [DATABASE_OPTIMIZATION.md](../rbac/DATABASE_OPTIMIZATION.md) - Database design
+3. **Queries**: [PERMISSION_QUERY_OPTIMIZATION.md](../rbac/PERMISSION_QUERY_OPTIMIZATION.md) - Query patterns
+4. **Algorithm**: [CORE_ALGORITHM.md](../rbac/permission-resolution/CORE_ALGORITHM.md) - Core algorithm
+5. **Monitoring**: [MONITORING_ANALYTICS.md](../rbac/MONITORING_ANALYTICS.md) - Performance tracking
 
-## How to Use This Map
+### For Entity Boundary Implementation
+1. **Overview**: [ENTITY_BOUNDARIES.md](../rbac/ENTITY_BOUNDARIES.md) - Canonical implementation
+2. **Principles**: [CORE_PRINCIPLES.md](../rbac/entity-boundaries/CORE_PRINCIPLES.md) - Boundary principles
+3. **Patterns**: [IMPLEMENTATION_PATTERNS.md](../rbac/entity-boundaries/IMPLEMENTATION_PATTERNS.md) - Implementation patterns
+4. **Integration**: Multi-tenant integration with other systems
 
-1. Start with **README.md** for a high-level overview of the direct permission assignment RBAC system
-2. For **role management**, continue to **ROLE_ARCHITECTURE.md** (flat structure)
-3. For **permission types**, see **PERMISSION_TYPES.md**
-4. For **permission resolution**, refer to **PERMISSION_RESOLUTION.md** and **PERMISSION_DEPENDENCIES.md**
-5. For **multi-tenant boundaries**, check **ENTITY_BOUNDARIES.md** (canonical implementation) 
-6. For **performance and optimization**, explore the caching and optimization documents
-7. For **implementation examples**, see **../multitenancy/IMPLEMENTATION_EXAMPLES.md**
+## Integration Points
+
+### With Security System
+- **Authentication**: User identity establishment for permission resolution
+- **Session Management**: Tenant context preservation for permission scoping
+- **Error Handling**: Standardized permission denial responses
+- **Audit Logging**: Permission check and change event logging
+
+### With Multi-tenant System
+- **Entity Boundaries**: Tenant isolation enforcement in permission resolution
+- **Data Isolation**: Permission scoping to tenant contexts
+- **Session Context**: Tenant-aware permission caching and resolution
+- **Query Patterns**: Optimized multi-tenant permission queries
+
+### With Audit System
+- **Permission Changes**: Role and permission modification logging
+- **Access Events**: Permission check result logging
+- **Security Events**: Permission violation and attempt logging
+- **Performance Metrics**: Permission system performance tracking
+
+### With User Management
+- **Role Assignment**: User-role relationship management
+- **Profile Integration**: User profile and permission correlation
+- **Identity Context**: User identity in permission resolution
+- **Multi-tenant Users**: Cross-tenant user permission management
+
+## Usage Guidelines
+
+### For New Implementations
+- **Always start** with AI_PERMISSION_IMPLEMENTATION_GUIDE.md
+- **Use minimal documents** (1-3 max) per implementation session
+- **Reference detailed docs** only when needed for edge cases
+- **Follow testing patterns** provided in the AI guide
+
+### For Advanced Features
+- Use detailed implementation documents for complex scenarios
+- Reference performance optimization for high-load systems
+- Check entity boundaries for multi-tenant requirements
+- Use monitoring documents for production systems
+
+### For Troubleshooting
+- Check permission resolution algorithm for logic issues
+- Review caching strategy for performance problems
+- Verify entity boundaries for isolation violations
+- Use monitoring analytics for system diagnostics
 
 ## Related Maps
 
-- [Core Architecture Map](CORE_ARCHITECTURE_MAP.md)
-- [Security System Map](SECURITY_SYSTEM_MAP.md)
-- [Multi-Tenant Map](MULTI_TENANT_MAP.md)
-- [Integration Map](INTEGRATION_MAP.md)
-- [Implementation Map](IMPLEMENTATION_MAP.md)
+- **[SECURITY_SYSTEM_MAP.md](SECURITY_SYSTEM_MAP.md)**: Security integration details
+- **[MULTI_TENANT_MAP.md](MULTI_TENANT_MAP.md)**: Multi-tenant integration
+- **[AUDIT_SYSTEM_MAP.md](AUDIT_SYSTEM_MAP.md)**: Audit integration details
+- **[INTEGRATION_MAP.md](INTEGRATION_MAP.md)**: Cross-system integration patterns
+- **[USER_MANAGEMENT_MAP.md](USER_MANAGEMENT_MAP.md)**: User management integration
 
 ## Version History
 
-- **1.2.0**: Updated to align with direct permission assignment model throughout (2025-05-23)
-- **1.1.0**: Updated document relationships to show entity boundaries as canonical reference, added implementation examples (2025-05-23)
+- **2.0.0**: Standardized format with consistent navigation structure and added AI implementation guide (2025-05-23)
+- **1.2.0**: Updated entity boundaries references to canonical source (2025-05-23)
+- **1.1.0**: Added permission dependencies and query optimization (2025-05-22)
 - **1.0.0**: Initial RBAC system documentation map (2025-05-22)
