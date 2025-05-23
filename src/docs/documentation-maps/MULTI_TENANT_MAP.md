@@ -1,7 +1,7 @@
 
 # Multi-Tenant System Documentation Map
 
-> **Version**: 1.2.0  
+> **Version**: 1.3.0  
 > **Last Updated**: 2025-05-23
 
 This document provides a visual guide to the multi-tenant implementation documentation files in the project plan.
@@ -51,7 +51,7 @@ graph TD
 
 ## Integration with Other Systems
 
-- **RBAC System**: Entity boundaries enforce tenant isolation in permissions
+- **RBAC System**: Entity boundaries enforce tenant isolation in permissions (see [../rbac/ENTITY_BOUNDARIES.md](../rbac/ENTITY_BOUNDARIES.md))
 - **Security System**: Multi-tenant roles and session context
 - **Data Model**: Schema design supports tenant isolation
 - **User Management**: User identity and profiles across tenants
@@ -82,9 +82,11 @@ graph TD
 - [Security System Map](SECURITY_SYSTEM_MAP.md)
 - [Integration Map](INTEGRATION_MAP.md)
 - [User Management Map](USER_MANAGEMENT_MAP.md)
+- [Implementation Map](IMPLEMENTATION_MAP.md)
 
 ## Version History
 
+- **1.3.0**: Updated entity boundaries references to use canonical source (2025-05-23)
 - **1.2.0**: Added connection to user management integration and enhanced document relationships (2025-05-23)
 - **1.1.0**: Added implementation examples document to the map (2025-05-23)
 - **1.0.0**: Initial multi-tenant system documentation map (2025-05-22)

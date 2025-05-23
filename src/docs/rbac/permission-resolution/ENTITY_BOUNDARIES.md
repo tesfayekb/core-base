@@ -1,8 +1,8 @@
 
 # Entity Boundaries in Permission Resolution
 
-> **Version**: 1.0.0  
-> **Last Updated**: 2025-05-22
+> **Version**: 1.1.0  
+> **Last Updated**: 2025-05-23
 
 ## Overview
 
@@ -229,6 +229,13 @@ Users can switch between entity contexts if they have access to multiple entitie
    }
    ```
 
+## Implementation Examples
+
+For concrete implementation examples, see:
+
+- [../../multitenancy/IMPLEMENTATION_EXAMPLES.md#integration-with-rbac-system](../../multitenancy/IMPLEMENTATION_EXAMPLES.md#integration-with-rbac-system) - RBAC integration examples
+- [../../multitenancy/IMPLEMENTATION_EXAMPLES.md#database-query-layer-examples](../../multitenancy/IMPLEMENTATION_EXAMPLES.md#database-query-layer-examples) - Database-level enforcement
+
 ## Entity Boundary Testing
 
 The permission system includes comprehensive tests for entity boundaries:
@@ -248,9 +255,11 @@ The permission system includes comprehensive tests for entity boundaries:
 - **[PERMISSION_MODEL.md](PERMISSION_MODEL.md)**: Core permission model
 - **[RESOLUTION_ALGORITHM.md](RESOLUTION_ALGORITHM.md)**: Permission resolution algorithm
 - **[IMPLEMENTATION.md](IMPLEMENTATION.md)**: Implementation details
-- **[../ENTITY_BOUNDARIES.md](../ENTITY_BOUNDARIES.md)**: Broader entity boundary documentation
+- **[../ENTITY_BOUNDARIES.md](../ENTITY_BOUNDARIES.md)**: Canonical entity boundary documentation
 - **[../../multitenancy/DATA_ISOLATION.md](../../multitenancy/DATA_ISOLATION.md)**: Tenant data isolation
+- **[../../multitenancy/IMPLEMENTATION_EXAMPLES.md](../../multitenancy/IMPLEMENTATION_EXAMPLES.md)**: Concrete implementation examples
 
 ## Version History
 
+- **1.1.0**: Added implementation examples references and aligned with canonical entity boundary documentation (2025-05-23)
 - **1.0.0**: Initial document creation from permission resolution refactoring (2025-05-22)

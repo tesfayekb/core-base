@@ -1,10 +1,10 @@
 
 # Entity Boundary Core Principles
 
-> **Version**: 1.0.0  
-> **Last Updated**: 2025-05-22
+> **Version**: 1.1.0  
+> **Last Updated**: 2025-05-23
 
-This document details the core principles of entity permission boundaries within the RBAC system.
+This document details the core principles of entity permission boundaries within the RBAC system, complementing the canonical implementation defined in [../ENTITY_BOUNDARIES.md](../ENTITY_BOUNDARIES.md).
 
 ## Hierarchical Boundary Enforcement
 
@@ -103,13 +103,22 @@ Entity boundaries are enforced at multiple system layers:
    - Permission-based rendering
    - Entity switching with context reset
 
+## Implementation Examples
+
+For concrete examples of these principles in action, see:
+- [../../multitenancy/IMPLEMENTATION_EXAMPLES.md#integration-with-rbac-system](../../multitenancy/IMPLEMENTATION_EXAMPLES.md#integration-with-rbac-system)
+- [../../multitenancy/IMPLEMENTATION_EXAMPLES.md#tenant-isolation-in-apis](../../multitenancy/IMPLEMENTATION_EXAMPLES.md#tenant-isolation-in-apis)
+
 ## Related Documentation
 
 - **[README.md](README.md)**: Entity boundaries overview
+- **[../ENTITY_BOUNDARIES.md](../ENTITY_BOUNDARIES.md)**: Canonical entity boundary implementation
 - **[IMPLEMENTATION_PATTERNS.md](IMPLEMENTATION_PATTERNS.md)**: Implementation patterns for these principles
 - **[../../multitenancy/DATA_ISOLATION.md](../../multitenancy/DATA_ISOLATION.md)**: Tenant data isolation principles
 - **[../../security/MULTI_TENANT_ROLES.md](../../security/MULTI_TENANT_ROLES.md)**: Multi-tenant role management
+- **[../../multitenancy/IMPLEMENTATION_EXAMPLES.md](../../multitenancy/IMPLEMENTATION_EXAMPLES.md)**: Concrete implementation examples
 
 ## Version History
 
+- **1.1.0**: Added references to implementation examples and updated links to canonical documentation (2025-05-23)
 - **1.0.0**: Initial entity boundary core principles (2025-05-22)

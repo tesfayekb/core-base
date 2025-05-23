@@ -1,7 +1,7 @@
 
 # Tenant Data Isolation
 
-> **Version**: 1.1.0  
+> **Version**: 1.2.0  
 > **Last Updated**: 2025-05-23
 
 ## Overview
@@ -106,29 +106,24 @@ Data migration between tenants requires special handling:
 Tenant isolation aligns with entity boundaries in the RBAC system:
 
 1. **Tenant as Entity Root**: Each tenant represents a top-level entity boundary
-2. **Consistent Boundary Enforcement**: Entity boundaries and tenant isolation use consistent mechanisms
-3. **Permission Alignment**: Tenant-specific permissions align with entity permission boundaries
+2. **Permission Alignment**: Tenant isolation policies align with entity boundary enforcement
+3. **Boundary Consistency**: Entity boundaries for permissions follow the canonical patterns defined in [../rbac/ENTITY_BOUNDARIES.md](../rbac/ENTITY_BOUNDARIES.md)
+4. **Implementation Consistency**: Database-level enforcement uses consistent approaches
 
-For details on integration with the RBAC system, see [../rbac/ENTITY_BOUNDARIES.md](../rbac/ENTITY_BOUNDARIES.md).
-
-## Testing and Validation
-
-All tenant isolation mechanisms have comprehensive testing:
-
-1. **Isolation Tests**: Verify data cannot be accessed across tenant boundaries
-2. **Performance Tests**: Ensure isolation doesn't significantly impact performance
-3. **Stress Tests**: Validate isolation under load and high concurrency
-4. **Penetration Tests**: Verify isolation can't be circumvented
+For concrete implementation examples of entity boundary integration with tenant isolation, see [IMPLEMENTATION_EXAMPLES.md#integration-with-rbac-system](IMPLEMENTATION_EXAMPLES.md#integration-with-rbac-system).
 
 ## Related Documentation
 
-- **[DATABASE_QUERY_PATTERNS.md](DATABASE_QUERY_PATTERNS.md)**: Standardized multi-tenant query patterns
+- **[README.md](README.md)**: Multi-tenant architecture overview
+- **[DATABASE_QUERY_PATTERNS.md](DATABASE_QUERY_PATTERNS.md)**: Multi-tenant database query patterns
+- **[SESSION_MANAGEMENT.md](SESSION_MANAGEMENT.md)**: Multi-tenant session management
 - **[IMPLEMENTATION_EXAMPLES.md](IMPLEMENTATION_EXAMPLES.md)**: Concrete implementation examples
-- **[../rbac/ENTITY_BOUNDARIES.md](../rbac/ENTITY_BOUNDARIES.md)**: Entity boundary implementation
+- **[../rbac/ENTITY_BOUNDARIES.md](../rbac/ENTITY_BOUNDARIES.md)**: Canonical entity boundary definition
 - **[../security/MULTI_TENANT_ROLES.md](../security/MULTI_TENANT_ROLES.md)**: Multi-tenant role management
-- **[../data-model/entity-relationships/MULTI_TENANT_MODEL.md](../data-model/entity-relationships/MULTI_TENANT_MODEL.md)**: Multi-tenant data model
+- **[../data-model/entity-relationships/MULTI_TENANT_MODEL.md](../data-model/entity-relationships/MULTI_TENANT_MODEL.md)**: Multi-tenant entity relationships
 
 ## Version History
 
-- **1.1.0**: Added references to implementation examples document (2025-05-23)
-- **1.0.0**: Initial tenant data isolation documentation
+- **1.2.0**: Updated entity boundary references for consistency and added links to implementation examples (2025-05-23)
+- **1.1.0**: Added reference to concrete implementation examples (2025-05-23)
+- **1.0.0**: Initial multi-tenant data isolation overview

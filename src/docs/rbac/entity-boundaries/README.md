@@ -1,12 +1,12 @@
 
 # Entity Permission Boundaries
 
-> **Version**: 1.0.0  
-> **Last Updated**: 2025-05-22
+> **Version**: 1.1.0  
+> **Last Updated**: 2025-05-23
 
 ## Overview
 
-This document defines the canonical implementation of entity permission boundaries across the system, establishing how permissions are granted and enforced within and across entity boundaries.
+This document provides detailed information about entity permission boundaries, supplementing the canonical implementation defined in [../ENTITY_BOUNDARIES.md](../ENTITY_BOUNDARIES.md).
 
 For detailed implementation and patterns, see:
 
@@ -30,6 +30,13 @@ For detailed implementation and patterns, see:
    - Permission grants are validated against the grantor's permissions
    - System enforces principle of least privilege
 
+## Implementation Examples
+
+For concrete implementation examples of entity boundary concepts, see:
+
+- [../../multitenancy/IMPLEMENTATION_EXAMPLES.md#integration-with-rbac-system](../../multitenancy/IMPLEMENTATION_EXAMPLES.md#integration-with-rbac-system) - RBAC integration examples
+- [../../multitenancy/IMPLEMENTATION_EXAMPLES.md#database-query-layer-examples](../../multitenancy/IMPLEMENTATION_EXAMPLES.md#database-query-layer-examples) - Database-level boundary enforcement
+
 ## Integration with Other Systems
 
 - **RBAC System**: Entity boundaries enforce permission isolation
@@ -39,10 +46,13 @@ For detailed implementation and patterns, see:
 ## Related Documentation
 
 - **[../README.md](../README.md)**: RBAC system overview
+- **[../ENTITY_BOUNDARIES.md](../ENTITY_BOUNDARIES.md)**: Canonical entity boundary implementation
 - **[../PERMISSION_RESOLUTION.md](../PERMISSION_RESOLUTION.md)**: How permissions are resolved
 - **[../../multitenancy/DATABASE_QUERY_PATTERNS.md](../../multitenancy/DATABASE_QUERY_PATTERNS.md)**: Canonical multi-tenant query patterns
 - **[../../security/MULTI_TENANT_ROLES.md](../../security/MULTI_TENANT_ROLES.md)**: Multi-tenant role management
+- **[../../multitenancy/IMPLEMENTATION_EXAMPLES.md](../../multitenancy/IMPLEMENTATION_EXAMPLES.md)**: Concrete implementation examples
 
 ## Version History
 
-- **1.0.0**: Refactored entity boundaries documentation (2025-05-22)
+- **1.1.0**: Added references to implementation examples and updated links to canonical documentation (2025-05-23)
+- **1.0.0**: Initial entity boundaries documentation (2025-05-22)

@@ -1,8 +1,8 @@
 
 # Entity Permission Boundaries
 
-> **Version**: 1.0.0  
-> **Last Updated**: 2025-05-22
+> **Version**: 1.1.0  
+> **Last Updated**: 2025-05-23
 
 ## Overview
 
@@ -209,6 +209,10 @@ async function logCrossEntityAccess(
 }
 ```
 
+## Implementation Examples
+
+For concrete implementation examples of entity boundary enforcement and cross-entity operations, see [../multitenancy/IMPLEMENTATION_EXAMPLES.md#integration-with-rbac-system](../multitenancy/IMPLEMENTATION_EXAMPLES.md#integration-with-rbac-system).
+
 ## Related Documentation
 
 - **[README.md](README.md)**: RBAC system overview
@@ -216,7 +220,9 @@ async function logCrossEntityAccess(
 - **[../multitenancy/DATABASE_QUERY_PATTERNS.md](../multitenancy/DATABASE_QUERY_PATTERNS.md)**: Canonical multi-tenant query patterns
 - **[../integration/EVENT_ARCHITECTURE.md](../integration/EVENT_ARCHITECTURE.md)**: Canonical event architecture
 - **[../security/MULTI_TENANT_ROLES.md](../security/MULTI_TENANT_ROLES.md)**: Multi-tenant role management
+- **[../multitenancy/IMPLEMENTATION_EXAMPLES.md](../multitenancy/IMPLEMENTATION_EXAMPLES.md)**: Concrete implementation examples
 
 ## Version History
 
-- **1.0.0**: Initial entity boundaries canonical document
+- **1.1.0**: Added reference to implementation examples and updated links for consistency (2025-05-23)
+- **1.0.0**: Initial entity boundaries canonical document (2025-05-22)

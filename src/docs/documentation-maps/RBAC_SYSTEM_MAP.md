@@ -1,8 +1,8 @@
 
 # RBAC System Documentation Map
 
-> **Version**: 1.0.0  
-> **Last Updated**: 2025-05-22
+> **Version**: 1.1.0  
+> **Last Updated**: 2025-05-23
 
 This document provides a visual guide to the Role-Based Access Control (RBAC) documentation files in the project plan.
 
@@ -15,15 +15,22 @@ rbac/
 ├── PERMISSION_TYPES.md            # Permission taxonomy and implementation
 ├── PERMISSION_RESOLUTION.md       # How permissions are resolved for users
 ├── PERMISSION_DEPENDENCIES.md     # Functional dependencies between permission types
-├── ENTITY_BOUNDARIES.md           # Entity-level permission isolation
+├── ENTITY_BOUNDARIES.md           # Canonical entity boundary implementation
 ├── CACHING_STRATEGY.md            # Multi-level caching approach
 ├── DATABASE_OPTIMIZATION.md       # Database design for permissions
 ├── PERMISSION_QUERY_OPTIMIZATION.md # Query optimization strategies
 ├── PERFORMANCE_OPTIMIZATION.md    # Performance techniques
 ├── MONITORING_ANALYTICS.md        # Monitoring and analytics
-└── diagrams/
-    ├── README.md                  # Diagrams overview
-    └── PERMISSION_RESOLUTION_FLOW.md # Visual diagram of permission resolution
+├── entity-boundaries/             # Detailed entity boundary documentation
+│   ├── README.md                  # Entity boundaries overview
+│   ├── CORE_PRINCIPLES.md         # Core principles of entity boundaries
+│   └── IMPLEMENTATION_PATTERNS.md # Implementation patterns for entity boundaries
+└── permission-resolution/         # Detailed permission resolution documentation
+    ├── README.md                  # Permission resolution overview
+    ├── PERMISSION_MODEL.md        # Permission model details
+    ├── RESOLUTION_ALGORITHM.md    # Resolution algorithm details
+    ├── ENTITY_BOUNDARIES.md       # Entity boundaries in permission resolution
+    └── IMPLEMENTATION.md          # Implementation details
 ```
 
 ## Document Relationships
@@ -41,6 +48,19 @@ graph TD
     README --> PERF["PERFORMANCE_OPTIMIZATION.md"]
     README --> MON["MONITORING_ANALYTICS.md"]
     README --> DIAG["diagrams/README.md"]
+    
+    ENT --> ENT_README["entity-boundaries/README.md"]
+    ENT_README --> ENT_CORE["entity-boundaries/CORE_PRINCIPLES.md"]
+    ENT_README --> ENT_IMP["entity-boundaries/IMPLEMENTATION_PATTERNS.md"]
+    
+    RES --> RES_README["permission-resolution/README.md"]
+    RES_README --> RES_MODEL["permission-resolution/PERMISSION_MODEL.md"]
+    RES_README --> RES_ALG["permission-resolution/RESOLUTION_ALGORITHM.md"]
+    RES_README --> RES_ENT["permission-resolution/ENTITY_BOUNDARIES.md"]
+    RES_README --> RES_IMP["permission-resolution/IMPLEMENTATION.md"]
+    
+    ENT -.-> RES_ENT
+    ENT -.-> ENT_IMP
     
     PERMDEP -.-> RES
     PERMDEP -.-> PERM
@@ -63,6 +83,9 @@ graph TD
     SEC -.-> TENANT["../security/MULTI_TENANT_ROLES.md"]
     TENANT -.-> ENT["ENTITY_BOUNDARIES.md"]
     
+    ENT -.-> MT_DATA["../multitenancy/DATA_ISOLATION.md"]
+    ENT -.-> MT_IMPL["../multitenancy/IMPLEMENTATION_EXAMPLES.md"]
+    
     AUDIT -.-> SEC_INT["../audit/SECURITY_INTEGRATION.md"]
     SEC_INT -.-> MON["MONITORING_ANALYTICS.md"]
     
@@ -83,8 +106,9 @@ graph TD
 2. For **role management**, continue to **ROLE_ARCHITECTURE.md**
 3. For **permission types**, see **PERMISSION_TYPES.md**
 4. For **permission resolution**, refer to **PERMISSION_RESOLUTION.md** and **PERMISSION_DEPENDENCIES.md**
-5. For **multi-tenant boundaries**, check **ENTITY_BOUNDARIES.md**
+5. For **multi-tenant boundaries**, check **ENTITY_BOUNDARIES.md** (canonical implementation) 
 6. For **performance and optimization**, explore the caching and optimization documents
+7. For **implementation examples**, see **../multitenancy/IMPLEMENTATION_EXAMPLES.md**
 
 ## Related Maps
 
@@ -92,7 +116,9 @@ graph TD
 - [Security System Map](SECURITY_SYSTEM_MAP.md)
 - [Multi-Tenant Map](MULTI_TENANT_MAP.md)
 - [Integration Map](INTEGRATION_MAP.md)
+- [Implementation Map](IMPLEMENTATION_MAP.md)
 
 ## Version History
 
+- **1.1.0**: Updated document relationships to show entity boundaries as canonical reference, added implementation examples (2025-05-23)
 - **1.0.0**: Initial RBAC system documentation map (2025-05-22)

@@ -1,10 +1,10 @@
 
 # Entity Boundary Implementation Patterns
 
-> **Version**: 1.0.0  
-> **Last Updated**: 2025-05-22
+> **Version**: 1.1.0  
+> **Last Updated**: 2025-05-23
 
-This document provides the implementation patterns for entity permission boundaries across the system.
+This document provides the implementation patterns for entity permission boundaries across the system, following the canonical implementation defined in [../ENTITY_BOUNDARIES.md](../ENTITY_BOUNDARIES.md).
 
 ## Boundary Implementation
 
@@ -190,13 +190,23 @@ async function logCrossEntityAccess(
 }
 ```
 
+## Implementation Examples
+
+For concrete implementation examples of entity boundary patterns, see:
+
+- [../../multitenancy/IMPLEMENTATION_EXAMPLES.md#integration-with-rbac-system](../../multitenancy/IMPLEMENTATION_EXAMPLES.md#integration-with-rbac-system)
+- [../../multitenancy/IMPLEMENTATION_EXAMPLES.md#database-query-layer-examples](../../multitenancy/IMPLEMENTATION_EXAMPLES.md#database-query-layer-examples)
+
 ## Related Documentation
 
 - **[README.md](README.md)**: Entity boundaries overview
+- **[../ENTITY_BOUNDARIES.md](../ENTITY_BOUNDARIES.md)**: Canonical entity boundary implementation 
 - **[../../multitenancy/DATABASE_QUERY_PATTERNS.md](../../multitenancy/DATABASE_QUERY_PATTERNS.md)**: Canonical multi-tenant query patterns
 - **[../../integration/EVENT_ARCHITECTURE.md](../../integration/EVENT_ARCHITECTURE.md)**: Canonical event architecture
 - **[../PERMISSION_RESOLUTION.md](../PERMISSION_RESOLUTION.md)**: How permissions are resolved for users
+- **[../../multitenancy/IMPLEMENTATION_EXAMPLES.md](../../multitenancy/IMPLEMENTATION_EXAMPLES.md)**: Concrete implementation examples
 
 ## Version History
 
+- **1.1.0**: Added references to implementation examples and updated links to canonical documentation (2025-05-23)
 - **1.0.0**: Initial entity boundary implementation patterns (2025-05-22)

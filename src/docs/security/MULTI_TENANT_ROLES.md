@@ -1,8 +1,8 @@
 
 # Multi-Tenant Role Management Architecture
 
-> **Version**: 1.4.0  
-> **Last Updated**: 2025-05-22
+> **Version**: 1.5.0  
+> **Last Updated**: 2025-05-23
 
 This document outlines the architectural approach for implementing entity-specific role management within the system.
 
@@ -121,7 +121,7 @@ The multi-tenant architecture implements scope control through:
 
 ## Permission Boundary Enforcement
 
-The system enforces the principle that entity administrators can only grant permissions they themselves possess through several mechanisms:
+The system enforces the principle that entity administrators can only grant permissions they themselves possess through several mechanisms, following the canonical implementation defined in [../rbac/ENTITY_BOUNDARIES.md](../rbac/ENTITY_BOUNDARIES.md):
 
 ### 1. Technical Enforcement Layers
 
@@ -310,6 +310,13 @@ To ensure consistent entity boundary enforcement across the system, the multi-te
    - Entity context propagation throughout system interactions
    - See [../rbac/ENTITY_BOUNDARIES.md](../rbac/ENTITY_BOUNDARIES.md) for definitive implementation
 
+## Implementation Examples
+
+For concrete examples of how multi-tenant role management integrates with entity boundaries, see:
+
+- **[../multitenancy/IMPLEMENTATION_EXAMPLES.md#integration-with-rbac-system](../multitenancy/IMPLEMENTATION_EXAMPLES.md#integration-with-rbac-system)**: RBAC integration examples
+- **[../multitenancy/IMPLEMENTATION_EXAMPLES.md#tenant-provisioning-examples](../multitenancy/IMPLEMENTATION_EXAMPLES.md#tenant-provisioning-examples)**: Tenant provisioning with role setup
+
 ## Related Documentation
 
 - **[../RBAC_SYSTEM.md](../RBAC_SYSTEM.md)**: Overall RBAC architecture with direct permission assignment model
@@ -317,13 +324,15 @@ To ensure consistent entity boundary enforcement across the system, the multi-te
 - **[AUTH_SYSTEM.md](AUTH_SYSTEM.md)**: Authentication system integration
 - **[../audit/SECURITY_INTEGRATION.md](../audit/SECURITY_INTEGRATION.md)**: Audit logging integration with entity boundaries
 - **[../CORE_ARCHITECTURE.md](../CORE_ARCHITECTURE.md)**: System-wide architectural integration
-- **[../DOCUMENTATION_MAP.md](../DOCUMENTATION_MAP.md)**: Visual guide to documentation relationships
+- **[../documentation-maps/RBAC_SYSTEM_MAP.md](../documentation-maps/RBAC_SYSTEM_MAP.md)**: Visual guide to RBAC documentation
+- **[../multitenancy/IMPLEMENTATION_EXAMPLES.md](../multitenancy/IMPLEMENTATION_EXAMPLES.md)**: Concrete implementation examples
 - **[../rbac/diagrams/README.md](../rbac/diagrams/README.md)**: Visual diagrams illustrating RBAC concepts
 
 ## Version History
 
+- **1.5.0**: Added implementation examples references and aligned with canonical entity boundary documentation (2025-05-23)
 - **1.4.0**: Added detailed standardized cross-tenant permission model (2025-05-22)
-- **1.3.0**: Added entity boundary integration with audit system
-- **1.2.0**: Added references to new visual diagrams for better understanding
-- **1.1.0**: Added comprehensive permission boundary enforcement section with technical details
-- **1.0.0**: Initial document defining multi-tenant role architecture
+- **1.3.0**: Added entity boundary integration with audit system (2025-05-22)
+- **1.2.0**: Added references to new visual diagrams for better understanding (2025-05-22)
+- **1.1.0**: Added comprehensive permission boundary enforcement section with technical details (2025-05-22)
+- **1.0.0**: Initial document defining multi-tenant role architecture (2025-05-22)
