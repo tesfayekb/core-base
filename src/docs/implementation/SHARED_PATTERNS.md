@@ -1,87 +1,27 @@
-
 # Shared Implementation Patterns
 
-> **Version**: 1.0.0  
+> **Version**: 2.0.0  
 > **Last Updated**: 2025-05-23
 
 ## Overview
 
-**CRITICAL**: This document defines patterns that MUST be used consistently across ALL phases. Any implementation that deviates from these patterns will cause integration failures.
+**MANDATORY**: All implementations across ALL phases MUST use these shared patterns. **Never deviate from these patterns** - they ensure consistency, security, and performance across the entire system.
 
-## Tenant Isolation Pattern (ALL PHASES)
+## CRITICAL: Performance Measurement Requirement
 
-### Database Query Pattern
+**ALL shared patterns MUST include performance measurement** using the [PERFORMANCE_MEASUREMENT_INFRASTRUCTURE.md](PERFORMANCE_MEASUREMENT_INFRASTRUCTURE.md).
+
 ```typescript
-// MANDATORY: Use this exact pattern for ALL tenant-aware queries
-async function executeTenantQuery<T>(
-  tableName: string,
-  operation: 'select' | 'insert' | 'update' | 'delete',
-  data?: any,
-  filters?: Record<string, any>
-): Promise<StandardResult<T>> {
-  try {
-    // 1. ALWAYS verify tenant context first
-    const tenantId = await getCurrentTenantId();
-    if (!tenantId) {
-      return { success: false, error: 'No tenant context', code: 'NO_TENANT_CONTEXT' };
-    }
-
-    // 2. ALWAYS set tenant context in database session
-    await supabase.rpc('set_tenant_context', { tenant_id: tenantId });
-
-    // 3. Execute operation with tenant filter
-    let query = supabase.from(tableName);
-    
-    switch (operation) {
-      case 'select':
-        query = query.select('*').eq('tenant_id', tenantId);
-        if (filters) {
-          Object.entries(filters).forEach(([key, value]) => {
-            query = query.eq(key, value);
-          });
-        }
-        break;
-        
-      case 'insert':
-        query = query.insert({ ...data, tenant_id: tenantId });
-        break;
-        
-      case 'update':
-        query = query.update(data).eq('tenant_id', tenantId);
-        if (filters) {
-          Object.entries(filters).forEach(([key, value]) => {
-            query = query.eq(key, value);
-          });
-        }
-        break;
-        
-      case 'delete':
-        query = query.delete().eq('tenant_id', tenantId);
-        if (filters) {
-          Object.entries(filters).forEach(([key, value]) => {
-            query = query.eq(key, value);
-          });
-        }
-        break;
-    }
-
-    const { data: result, error } = await query;
-    
-    if (error) {
-      return { success: false, error: error.message, code: 'DATABASE_ERROR' };
-    }
-    
-    return { success: true, data: result as T };
-  } catch (error) {
-    console.error('Tenant query error:', error);
-    return { success: false, error: 'Query execution failed', code: 'EXECUTION_ERROR' };
-  }
-}
+import { measureTenantQuery, measurePermissionQuery, measureAuditWrite } from './performance/DATABASE_MEASUREMENT_UTILITIES';
 ```
 
-### Tenant Context Service (SHARED ACROSS ALL PHASES)
+## 1. Tenant Context Management (MANDATORY)
+
+**Pattern**: `SharedTenantContextService`
+**Target**: All operations under 20ms for tenant isolation
+
 ```typescript
-// MANDATORY: Single tenant context service used by ALL components
+// MANDATORY: Use this service for ALL tenant operations
 export class SharedTenantContextService {
   private static instance: SharedTenantContextService;
   private currentTenantId: string | null = null;
@@ -93,326 +33,341 @@ export class SharedTenantContextService {
     return SharedTenantContextService.instance;
   }
   
-  async getCurrentTenantId(): Promise<string | null> {
-    if (this.currentTenantId) return this.currentTenantId;
-    
-    // Check session storage
-    const stored = sessionStorage.getItem('current_tenant_id');
-    if (stored) {
-      this.currentTenantId = stored;
-      return stored;
-    }
-    
-    // Check user metadata
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user?.user_metadata?.tenant_id) {
-      this.currentTenantId = user.user_metadata.tenant_id;
-      return this.currentTenantId;
-    }
-    
-    return null;
-  }
-  
-  async setCurrentTenant(tenantId: string): Promise<boolean> {
-    try {
-      // Set in session
-      sessionStorage.setItem('current_tenant_id', tenantId);
+  // MANDATORY: Performance measured tenant context switching
+  async setTenantContext(tenantId: string): Promise<void> {
+    await measureTenantQuery('set_tenant_context', async () => {
       this.currentTenantId = tenantId;
       
-      // Set database context
+      // Set database context for RLS
       await supabase.rpc('set_tenant_context', { tenant_id: tenantId });
       
-      // Notify components
-      window.dispatchEvent(new CustomEvent('tenantChanged', { detail: tenantId }));
+      return { success: true };
+    });
+  }
+  
+  // MANDATORY: Performance measured tenant validation
+  async validateTenantAccess(userId: string, tenantId: string): Promise<boolean> {
+    return await measureTenantQuery('validate_tenant_access', async () => {
+      const { data, error } = await supabase
+        .from('user_tenants')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('tenant_id', tenantId)
+        .single();
       
-      return true;
-    } catch (error) {
-      console.error('Failed to set tenant context:', error);
-      return false;
-    }
+      return !error && !!data;
+    });
+  }
+  
+  getCurrentTenantId(): string | null {
+    return this.currentTenantId;
   }
 }
-
-// MANDATORY: Use this function everywhere tenant ID is needed
-export const getCurrentTenantId = async (): Promise<string | null> => {
-  return SharedTenantContextService.getInstance().getCurrentTenantId();
-};
 ```
 
-## Permission Check Pattern (ALL PHASES)
+## 2. Database Query Pattern (MANDATORY)
 
-### Unified Permission Check
+**Pattern**: `executeTenantQuery`
+**Targets**: Simple queries <10ms, Complex queries <50ms
+
 ```typescript
-// MANDATORY: Use this exact pattern for ALL permission checks
+// MANDATORY: Use for ALL database operations with performance measurement
+export async function executeTenantQuery<T>(
+  table: string,
+  operation: 'select' | 'insert' | 'update' | 'delete',
+  data?: any,
+  filters?: Record<string, any>
+): Promise<StandardResult<T>> {
+  const queryType = operation === 'select' && filters && Object.keys(filters).length > 2 ? 'complex' : 'simple';
+  
+  return await measureTenantQuery(`${table}_${operation}`, async () => {
+    try {
+      const tenantService = SharedTenantContextService.getInstance();
+      const tenantId = tenantService.getCurrentTenantId();
+      
+      if (!tenantId) {
+        return { success: false, error: 'No tenant context set', code: 'NO_TENANT_CONTEXT' };
+      }
+      
+      let query = supabase.from(table);
+      
+      // Add tenant filter to all operations
+      const tenantFilter = { tenant_id: tenantId, ...filters };
+      
+      switch (operation) {
+        case 'select':
+          const { data: selectData, error: selectError } = await query
+            .select(data || '*')
+            .match(tenantFilter);
+          
+          if (selectError) {
+            return { success: false, error: selectError.message, code: 'DB_ERROR' };
+          }
+          
+          return { success: true, data: selectData as T };
+          
+        case 'insert':
+          const insertData = { ...data, tenant_id: tenantId };
+          const { data: insertResult, error: insertError } = await query
+            .insert(insertData)
+            .select();
+          
+          if (insertError) {
+            return { success: false, error: insertError.message, code: 'DB_ERROR' };
+          }
+          
+          return { success: true, data: insertResult as T };
+          
+        case 'update':
+          const { data: updateResult, error: updateError } = await query
+            .update(data)
+            .match(tenantFilter)
+            .select();
+          
+          if (updateError) {
+            return { success: false, error: updateError.message, code: 'DB_ERROR' };
+          }
+          
+          return { success: true, data: updateResult as T };
+          
+        case 'delete':
+          const { data: deleteResult, error: deleteError } = await query
+            .delete()
+            .match(tenantFilter)
+            .select();
+          
+          if (deleteError) {
+            return { success: false, error: deleteError.message, code: 'DB_ERROR' };
+          }
+          
+          return { success: true, data: deleteResult as T };
+          
+        default:
+          return { success: false, error: 'Invalid operation', code: 'INVALID_OPERATION' };
+      }
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        code: 'UNEXPECTED_ERROR'
+      };
+    }
+  });
+}
+```
+
+## 3. Permission Check Pattern (MANDATORY)
+
+**Pattern**: `checkPermission`
+**Target**: <15ms for permission resolution
+
+```typescript
+// MANDATORY: Use for ALL permission checks with performance measurement
 export async function checkPermission(
   userId: string,
   action: string,
   resource: string,
   resourceId?: string
 ): Promise<boolean> {
-  try {
-    // 1. Get tenant context
-    const tenantId = await getCurrentTenantId();
-    if (!tenantId) return false;
-    
-    // 2. Check cache first
-    const cacheKey = `perm:${userId}:${tenantId}:${resource}:${action}:${resourceId || 'any'}`;
-    const cached = permissionCache.get(cacheKey);
-    if (cached !== undefined) return cached;
-    
-    // 3. Check SuperAdmin
-    const { data: isSuperAdmin } = await supabase.rpc('is_super_admin', {
-      user_id: userId
-    });
-    
-    if (isSuperAdmin) {
-      permissionCache.set(cacheKey, true, 300);
-      return true;
+  return await measurePermissionQuery(`${resource}_${action}_permission`, async () => {
+    try {
+      // Use cached permission check for performance
+      const cacheKey = `permission:${userId}:${action}:${resource}:${resourceId || 'any'}`;
+      const cached = await getCachedPermission(cacheKey);
+      
+      if (cached !== null) {
+        return cached;
+      }
+      
+      // Database permission check
+      const { data, error } = await supabase.rpc('check_user_permission', {
+        p_user_id: userId,
+        p_action: action,
+        p_resource: resource,
+        p_resource_id: resourceId
+      });
+      
+      if (error) {
+        console.error('Permission check error:', error);
+        return false;
+      }
+      
+      const hasPermission = !!data;
+      
+      // Cache result for 5 minutes
+      await setCachedPermission(cacheKey, hasPermission, 300);
+      
+      return hasPermission;
+    } catch (error) {
+      console.error('Permission check failed:', error);
+      return false;
     }
-    
-    // 4. Set tenant context and check permission
-    await supabase.rpc('set_tenant_context', { tenant_id: tenantId });
-    
-    const { data: hasPermission } = await supabase.rpc('check_user_permission', {
-      user_id: userId,
-      resource_type: resource,
-      action_name: action,
-      resource_id: resourceId
-    });
-    
-    const result = hasPermission === true;
-    permissionCache.set(cacheKey, result, 300);
-    
-    return result;
-  } catch (error) {
-    console.error('Permission check error:', error);
-    return false; // Fail closed
-  }
+  });
 }
 ```
 
-## Authentication Integration Pattern (ALL PHASES)
+## 4. Authentication Pattern (MANDATORY)
 
-### Standard Auth Flow
+**Pattern**: `authenticateWithTenant`
+**Target**: <200ms for authentication operations
+
 ```typescript
-// MANDATORY: Use this exact authentication pattern
+// MANDATORY: Use for ALL authentication with performance measurement
 export async function authenticateWithTenant(
   email: string,
   password: string,
   tenantId?: string
-): Promise<StandardResult<AuthResult>> {
-  try {
-    // 1. Authenticate user
-    const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-      email,
-      password
-    });
-    
-    if (authError) {
-      return { success: false, error: authError.message, code: 'AUTH_FAILED' };
-    }
-    
-    // 2. Determine tenant context
-    const targetTenantId = tenantId || await getDefaultTenant(authData.user.id);
-    if (!targetTenantId) {
-      return { success: false, error: 'No tenant access', code: 'NO_TENANT_ACCESS' };
-    }
-    
-    // 3. Set tenant context
-    const tenantService = SharedTenantContextService.getInstance();
-    const success = await tenantService.setCurrentTenant(targetTenantId);
-    if (!success) {
-      return { success: false, error: 'Failed to set tenant context', code: 'TENANT_CONTEXT_FAILED' };
-    }
-    
-    // 4. Load permissions
-    const permissions = await loadUserPermissions(authData.user.id, targetTenantId);
-    
-    return {
-      success: true,
-      data: {
-        user: authData.user,
-        session: authData.session,
-        tenantId: targetTenantId,
-        permissions
+): Promise<StandardResult<AuthenticatedUser>> {
+  return await measureAPICall('authentication', async () => {
+    try {
+      // Authenticate user
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
+      
+      if (authError || !authData.user) {
+        return { success: false, error: 'Authentication failed', code: 'AUTH_FAILED' };
       }
-    };
-  } catch (error) {
-    console.error('Authentication error:', error);
-    return { success: false, error: 'Authentication failed', code: 'EXECUTION_ERROR' };
-  }
-}
-```
-
-## Audit Logging Pattern (ALL PHASES)
-
-### Standard Audit Event
-```typescript
-// MANDATORY: Use this exact pattern for ALL audit logging
-interface StandardAuditEvent {
-  eventType: string;
-  userId: string;
-  tenantId: string;
-  resource?: string;
-  resourceId?: string;
-  action?: string;
-  status: 'success' | 'failed' | 'error';
-  metadata?: Record<string, any>;
-}
-
-export async function logAuditEvent(
-  eventType: string,
-  data: Omit<StandardAuditEvent, 'eventType'>
-): Promise<void> {
-  try {
-    // ALWAYS include tenant context in audit logs
-    const tenantId = data.tenantId || await getCurrentTenantId();
-    if (!tenantId) {
-      console.error('Cannot log audit event without tenant context');
-      return;
-    }
-    
-    const auditEvent: StandardAuditEvent = {
-      eventType,
-      tenantId,
-      ...data,
-      metadata: {
-        timestamp: new Date().toISOString(),
-        source: 'application',
-        ...data.metadata
+      
+      // Set tenant context if provided
+      if (tenantId) {
+        const tenantService = SharedTenantContextService.getInstance();
+        const hasAccess = await tenantService.validateTenantAccess(authData.user.id, tenantId);
+        
+        if (!hasAccess) {
+          return { success: false, error: 'No access to tenant', code: 'TENANT_ACCESS_DENIED' };
+        }
+        
+        await tenantService.setTenantContext(tenantId);
       }
-    };
-    
-    // Log to audit table
-    await supabase.from('audit_logs').insert({
-      event_type: auditEvent.eventType,
-      user_id: auditEvent.userId,
-      tenant_id: auditEvent.tenantId,
-      resource_type: auditEvent.resource,
-      resource_id: auditEvent.resourceId,
-      action: auditEvent.action,
-      status: auditEvent.status,
-      metadata: auditEvent.metadata,
-      created_at: new Date().toISOString()
-    });
-  } catch (error) {
-    // NEVER let audit logging break the main flow
-    console.error('Audit logging error:', error);
-  }
-}
-```
-
-## Error Handling Pattern (ALL PHASES)
-
-### Standard Error Response
-```typescript
-// MANDATORY: Use this exact error structure everywhere
-export interface StandardError {
-  success: false;
-  error: string;
-  code: string;
-  details?: Record<string, any>;
-}
-
-export interface StandardSuccess<T> {
-  success: true;
-  data: T;
-}
-
-export type StandardResult<T> = StandardSuccess<T> | StandardError;
-
-// MANDATORY: Use this for all async operations
-export async function withStandardErrorHandling<T>(
-  operation: () => Promise<T>,
-  operationName: string
-): Promise<StandardResult<T>> {
-  try {
-    const result = await operation();
-    return { success: true, data: result };
-  } catch (error) {
-    console.error(`${operationName} error:`, error);
-    
-    if (error instanceof Error) {
+      
+      return {
+        success: true,
+        data: {
+          user: authData.user,
+          session: authData.session,
+          tenantId
+        }
+      };
+    } catch (error) {
       return {
         success: false,
-        error: error.message,
-        code: 'OPERATION_ERROR'
+        error: error instanceof Error ? error.message : 'Authentication error',
+        code: 'AUTH_ERROR'
       };
     }
-    
-    return {
-      success: false,
-      error: 'Unknown error occurred',
-      code: 'UNKNOWN_ERROR'
-    };
-  }
+  });
 }
 ```
 
-## Database Schema Patterns (ALL PHASES)
+## 5. Audit Logging Pattern (MANDATORY)
 
-### Required Database Functions
-```sql
--- MANDATORY: These functions MUST exist for all phases
-CREATE OR REPLACE FUNCTION current_tenant_id()
-RETURNS UUID AS $$
-BEGIN
-  RETURN nullif(current_setting('app.current_tenant_id', true), '')::UUID;
-END;
-$$ LANGUAGE plpgsql STABLE;
+**Pattern**: `logAuditEvent`
+**Target**: <5ms for audit log writes
 
-CREATE OR REPLACE FUNCTION set_tenant_context(tenant_id UUID)
-RETURNS VOID AS $$
-BEGIN
-  PERFORM set_config('app.current_tenant_id', tenant_id::text, false);
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
--- MANDATORY: All tenant-scoped tables MUST have this policy
-CREATE POLICY tenant_isolation_policy ON {table_name}
-  FOR ALL
-  USING (tenant_id = current_tenant_id());
+```typescript
+// MANDATORY: Use for ALL audit logging with performance measurement
+export async function logAuditEvent(
+  eventType: string,
+  eventData: AuditEventData
+): Promise<void> {
+  await measureAuditWrite(`audit_${eventType}`, async () => {
+    try {
+      const tenantService = SharedTenantContextService.getInstance();
+      const tenantId = tenantService.getCurrentTenantId();
+      
+      const auditEntry = {
+        tenant_id: tenantId,
+        user_id: eventData.userId,
+        event_type: eventType,
+        action: eventData.action,
+        resource_type: eventData.resourceType,
+        resource_id: eventData.resourceId,
+        metadata: eventData.metadata || {},
+        timestamp: new Date().toISOString(),
+        ip_address: eventData.ipAddress,
+        user_agent: eventData.userAgent
+      };
+      
+      // Asynchronous audit logging for performance
+      supabase.from('audit_logs').insert(auditEntry);
+      
+      return { success: true };
+    } catch (error) {
+      console.error('Audit logging failed:', error);
+      return { success: false };
+    }
+  });
+}
 ```
 
-## Critical Implementation Rules
+## 6. Standard Result Pattern (MANDATORY)
 
-1. **NEVER bypass tenant context** - All operations MUST include tenant validation
-2. **ALWAYS use SharedTenantContextService** - No direct tenant ID access
-3. **ALWAYS use checkPermission function** - No inline permission logic
-4. **ALWAYS use StandardResult<T>** - No raw error throwing
-5. **ALWAYS log audit events** - No operations without audit trail
-6. **ALWAYS set database tenant context** - Before any database operation
+**Pattern**: `StandardResult<T>`
+**Target**: Consistent error handling
 
-## Phase-Specific Usage
+```typescript
+// MANDATORY: Use this for ALL async operations
+export interface StandardResult<T> {
+  success: boolean;
+  data?: T;
+  error?: string;
+  code?: string;
+}
+```
 
-### Phase 1: Foundation
-- Implement SharedTenantContextService
-- Create basic permission checking
-- Establish database functions
-- Set up audit logging foundation
+## 7. Error Handling Pattern (MANDATORY)
 
-### Phase 2: Core Features
-- Use established patterns for advanced RBAC
-- Extend audit logging with more event types
-- Add tenant-aware user management
+**Pattern**: `handleError`
+**Target**: Consistent error reporting
 
-### Phase 3: Advanced Features
-- Apply patterns to dashboard and monitoring
-- Use audit patterns for security events
-- Maintain consistency in UI components
+```typescript
+// MANDATORY: Use this for ALL error handling
+export function handleError(error: any, message: string = 'An unexpected error occurred'): StandardResult<null> {
+  console.error(message, error);
+  
+  let errorMessage = message;
+  if (error instanceof Error) {
+    errorMessage = error.message;
+  } else if (typeof error === 'string') {
+    errorMessage = error;
+  }
+  
+  return {
+    success: false,
+    error: errorMessage,
+    code: 'UNEXPECTED_ERROR'
+  };
+}
+```
 
-### Phase 4: Production
-- Ensure all patterns are optimized
-- Add monitoring for pattern compliance
-- Document any pattern deviations
+## Performance Integration Requirements
 
-## Validation
+**ALL shared patterns MUST**:
+1. Use performance measurement utilities
+2. Meet the specific performance targets
+3. Provide performance feedback during development
+4. Integrate with automated performance validation
 
-Before any phase implementation, verify:
-- [ ] SharedTenantContextService is implemented
-- [ ] Database functions exist
-- [ ] Permission check function works
-- [ ] Audit logging is functional
-- [ ] Error handling follows StandardResult pattern
+**Failure to meet performance targets will block phase progression.**
 
-This ensures consistent implementation across all phases and prevents integration failures.
+## Pattern Validation Checklist
+
+Before using any shared pattern, verify:
+- [ ] Performance measurement is included
+- [ ] Target response times are met
+- [ ] Error handling follows StandardResult<T>
+- [ ] Tenant isolation is maintained
+- [ ] Audit logging is included where required
+
+## Related Documentation
+
+- **[PERFORMANCE_MEASUREMENT_INFRASTRUCTURE.md](PERFORMANCE_MEASUREMENT_INFRASTRUCTURE.md)**: Performance measurement system
+- **[performance/DATABASE_MEASUREMENT_UTILITIES.md](performance/DATABASE_MEASUREMENT_UTILITIES.md)**: Database performance utilities
+- **[../PERFORMANCE_STANDARDS.md](../PERFORMANCE_STANDARDS.md)**: Performance targets
+
+## Version History
+
+- **2.0.0**: Added mandatory performance measurement integration (2025-05-23)
+- **1.0.0**: Initial shared patterns for cross-phase consistency (2025-05-23)
