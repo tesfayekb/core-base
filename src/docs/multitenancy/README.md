@@ -1,7 +1,7 @@
 
 # Multi-Tenant Architecture
 
-> **Version**: 1.2.0  
+> **Version**: 1.3.0  
 > **Last Updated**: 2025-05-23
 
 ## Overview
@@ -53,6 +53,13 @@ The multi-tenant architecture is implemented through these key components:
 6. **[PERFORMANCE_OPTIMIZATION.md](PERFORMANCE_OPTIMIZATION.md)**: System-wide optimization strategies for multi-tenant operations
 7. **[IMPLEMENTATION_EXAMPLES.md](IMPLEMENTATION_EXAMPLES.md)**: Concrete code examples for implementing multi-tenant features
 
+## Advanced Multi-Tenant Capabilities
+
+### Tenant Management and Operations
+8. **[TENANT_PROVISIONING_AUTOMATION.md](TENANT_PROVISIONING_AUTOMATION.md)**: Automated tenant provisioning, configuration, and lifecycle management
+9. **[CROSS_TENANT_MONITORING.md](CROSS_TENANT_MONITORING.md)**: Comprehensive monitoring of cross-tenant operations, security, and compliance
+10. **[RESOURCE_USAGE_TRACKING.md](RESOURCE_USAGE_TRACKING.md)**: Detailed resource usage tracking, quota management, and billing integration
+
 ## Integration with Other Systems
 
 The multi-tenant architecture integrates with:
@@ -93,6 +100,7 @@ For concrete implementation examples of multi-tenant features, see:
 
 ## Version History
 
+- **1.3.0**: Added advanced multi-tenant capabilities including provisioning automation, cross-tenant monitoring, and resource usage tracking (2025-05-23)
 - **1.2.0**: Added centralized implementation checklist for simplified multi-tenant development (2025-05-23)
 - **1.1.0**: Added reference to concrete implementation examples (2025-05-23)
 - **1.0.0**: Initial multi-tenant architecture overview

@@ -1,7 +1,7 @@
 
 # Multi-Tenant System Documentation Map
 
-> **Version**: 2.0.0  
+> **Version**: 2.1.0  
 > **Last Updated**: 2025-05-23
 
 ## Document Structure
@@ -20,6 +20,11 @@
 ### Implementation and Examples
 - **[../multitenancy/IMPLEMENTATION_EXAMPLES.md](../multitenancy/IMPLEMENTATION_EXAMPLES.md)**: Concrete implementation examples and patterns
 
+### Advanced Multi-Tenant Capabilities
+- **[../multitenancy/TENANT_PROVISIONING_AUTOMATION.md](../multitenancy/TENANT_PROVISIONING_AUTOMATION.md)**: Automated tenant provisioning and lifecycle management
+- **[../multitenancy/CROSS_TENANT_MONITORING.md](../multitenancy/CROSS_TENANT_MONITORING.md)**: Cross-tenant operation monitoring and security
+- **[../multitenancy/RESOURCE_USAGE_TRACKING.md](../multitenancy/RESOURCE_USAGE_TRACKING.md)**: Resource usage tracking, quotas, and billing
+
 ## Navigation Sequence
 
 ### For Multi-Tenant Implementation (Recommended)
@@ -33,6 +38,12 @@
 2. **Data Isolation**: [DATA_ISOLATION.md](../multitenancy/DATA_ISOLATION.md) - Isolation strategies
 3. **Session Management**: [SESSION_MANAGEMENT.md](../multitenancy/SESSION_MANAGEMENT.md) - Session handling
 4. **Performance**: [PERFORMANCE_OPTIMIZATION.md](../multitenancy/PERFORMANCE_OPTIMIZATION.md) - Optimization strategies
+
+### For Advanced Multi-Tenant Features
+1. **Provisioning**: [TENANT_PROVISIONING_AUTOMATION.md](../multitenancy/TENANT_PROVISIONING_AUTOMATION.md) - Automated tenant provisioning
+2. **Monitoring**: [CROSS_TENANT_MONITORING.md](../multitenancy/CROSS_TENANT_MONITORING.md) - Cross-tenant operation monitoring
+3. **Resource Tracking**: [RESOURCE_USAGE_TRACKING.md](../multitenancy/RESOURCE_USAGE_TRACKING.md) - Usage tracking and billing
+4. **Implementation**: [IMPLEMENTATION_EXAMPLES.md](../multitenancy/IMPLEMENTATION_EXAMPLES.md) - Advanced implementation patterns
 
 ### For Database Implementation
 1. **Query Patterns**: [DATABASE_QUERY_PATTERNS.md](../multitenancy/DATABASE_QUERY_PATTERNS.md) - Standard query patterns
@@ -86,6 +97,12 @@
 - Check integration points for cross-system tenant boundaries
 - Use performance documents for scalability planning
 
+### For Advanced Features Implementation
+- Start with TENANT_PROVISIONING_AUTOMATION.md for tenant management
+- Use CROSS_TENANT_MONITORING.md for security and compliance monitoring
+- Reference RESOURCE_USAGE_TRACKING.md for billing and quota management
+- Check advanced examples in IMPLEMENTATION_EXAMPLES.md
+
 ### For Database Design
 - Follow DATABASE_QUERY_PATTERNS.md for standard query patterns
 - Use DATABASE_PERFORMANCE.md for optimization strategies
@@ -108,6 +125,7 @@
 
 ## Version History
 
+- **2.1.0**: Added advanced multi-tenant capabilities including provisioning automation, cross-tenant monitoring, and resource usage tracking (2025-05-23)
 - **2.0.0**: Standardized format with consistent navigation structure and added implementation checklist (2025-05-23)
 - **1.3.0**: Updated entity boundaries references to canonical source (2025-05-23)
 - **1.2.0**: Added user management integration and enhanced document relationships (2025-05-23)
