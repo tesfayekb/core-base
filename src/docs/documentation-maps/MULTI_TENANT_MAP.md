@@ -1,7 +1,7 @@
 
 # Multi-Tenant System Documentation Map
 
-> **Version**: 1.1.0  
+> **Version**: 1.2.0  
 > **Last Updated**: 2025-05-23
 
 This document provides a visual guide to the multi-tenant implementation documentation files in the project plan.
@@ -16,7 +16,7 @@ multitenancy/
 ├── DATABASE_PERFORMANCE.md       # Multi-tenant database performance
 ├── SESSION_MANAGEMENT.md         # Multi-tenant session management
 ├── PERFORMANCE_OPTIMIZATION.md   # Performance optimization strategies
-└── IMPLEMENTATION_EXAMPLES.md    # Concrete implementation examples
+├── IMPLEMENTATION_EXAMPLES.md    # Concrete implementation examples
 ```
 
 ## Document Relationships
@@ -45,6 +45,8 @@ graph TD
     MT_EXAMPLES --> MT_DB
     MT_EXAMPLES --> MT_SESSION
     MT_EXAMPLES --> RBAC_ENT
+    
+    MT_EXAMPLES -.-> UM_MT["../user-management/MULTITENANCY_INTEGRATION.md"]
 ```
 
 ## Integration with Other Systems
@@ -52,6 +54,7 @@ graph TD
 - **RBAC System**: Entity boundaries enforce tenant isolation in permissions
 - **Security System**: Multi-tenant roles and session context
 - **Data Model**: Schema design supports tenant isolation
+- **User Management**: User identity and profiles across tenants
 - **Audit System**: Logs maintain tenant context
 
 ## Key Multi-Tenant Features
@@ -66,11 +69,11 @@ graph TD
 
 1. Start with **README.md** for a multi-tenant system overview
 2. Review **DATA_ISOLATION.md** for core isolation principles
-3. Explore specialized documents based on multi-tenant concerns:
+3. For practical implementation guidance, see **IMPLEMENTATION_EXAMPLES.md**
+4. Explore specialized documents based on multi-tenant concerns:
    - For database queries, see **DATABASE_QUERY_PATTERNS.md**
    - For performance optimization, see **DATABASE_PERFORMANCE.md**
    - For session handling, see **SESSION_MANAGEMENT.md**
-   - For concrete implementation, see **IMPLEMENTATION_EXAMPLES.md**
 
 ## Related Maps
 
@@ -78,8 +81,10 @@ graph TD
 - [RBAC System Map](RBAC_SYSTEM_MAP.md)
 - [Security System Map](SECURITY_SYSTEM_MAP.md)
 - [Integration Map](INTEGRATION_MAP.md)
+- [User Management Map](USER_MANAGEMENT_MAP.md)
 
 ## Version History
 
+- **1.2.0**: Added connection to user management integration and enhanced document relationships (2025-05-23)
 - **1.1.0**: Added implementation examples document to the map (2025-05-23)
 - **1.0.0**: Initial multi-tenant system documentation map (2025-05-22)

@@ -1,8 +1,8 @@
 
 # Integration Documentation Map
 
-> **Version**: 1.3.0  
-> **Last Updated**: 2025-05-22
+> **Version**: 1.4.0  
+> **Last Updated**: 2025-05-23
 
 This document provides a navigational map for all integration documentation, showing the relationships between different integration components and their primary documentation sources.
 
@@ -41,6 +41,8 @@ This document provides a navigational map for all integration documentation, sho
 - **[../multitenancy/SESSION_MANAGEMENT.md](../multitenancy/SESSION_MANAGEMENT.md)**: Multi-tenant session management
 - **[../multitenancy/DATABASE_QUERY_PATTERNS.md](../multitenancy/DATABASE_QUERY_PATTERNS.md)**: Multi-tenant database query patterns
 - **[../multitenancy/DATABASE_PERFORMANCE.md](../multitenancy/DATABASE_PERFORMANCE.md)**: Multi-tenant database performance
+- **[../multitenancy/IMPLEMENTATION_EXAMPLES.md](../multitenancy/IMPLEMENTATION_EXAMPLES.md)**: Concrete implementation examples
+- **[../user-management/MULTITENANCY_INTEGRATION.md](../user-management/MULTITENANCY_INTEGRATION.md)**: User management multitenancy integration
 
 ## Error Handling Integration
 
@@ -59,6 +61,7 @@ This document provides a navigational map for all integration documentation, sho
 
 - **[../mobile/SECURITY.md](../mobile/SECURITY.md)**: Mobile security implementation
 - **[../mobile/INTEGRATION.md](../mobile/INTEGRATION.md)**: Mobile integration with core platform
+- **[../mobile/MOBILE_SECURITY_IMPLEMENTATION.md](../mobile/MOBILE_SECURITY_IMPLEMENTATION.md)**: Mobile security implementation details
 
 ## Integration Visualization
 
@@ -79,6 +82,8 @@ graph TD
     J --> K[Multi-tenant Data Isolation]
     K --> M[Database Query Patterns]
     M --> N[Database Performance]
+    K --> T[Implementation Examples]
+    T --> U[User Management Integration]
     H --> L
     G --> F
     F --> O[Log Format Standardization]
@@ -95,6 +100,7 @@ graph TD
 
 ## Version History
 
+- **1.4.0**: Added references to multi-tenant implementation examples and user management integration (2025-05-23)
 - **1.3.0**: Added references to new testing documents, user management error handling, and mobile integration (2025-05-22)
 - **1.2.0**: Added explicit error handling integration section and connections to log format standardization (2025-05-22)
 - **1.1.0**: Added references to ERROR_HANDLING.md, PERMISSION_DEPENDENCIES.md, and DATABASE_QUERY_PATTERNS.md (2025-05-22)

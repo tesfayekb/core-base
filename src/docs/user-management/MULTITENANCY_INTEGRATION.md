@@ -1,7 +1,7 @@
 # Multitenancy Integration
 
-> **Version**: 1.1.0  
-> **Last Updated**: 2025-05-22
+> **Version**: 1.2.0  
+> **Last Updated**: 2025-05-23
 
 ## Overview
 
@@ -111,6 +111,7 @@ The system allows tenants to extend user attributes:
    - Isolated data storage
    - Tenant-controlled schema
    - For complete implementation details, see [../multitenancy/DATA_ISOLATION.md#user-profiles-and-tenant-specific-settings](../multitenancy/DATA_ISOLATION.md#user-profiles-and-tenant-specific-settings)
+   - For concrete implementation examples, see [../multitenancy/IMPLEMENTATION_EXAMPLES.md#client-side-tenant-management](../multitenancy/IMPLEMENTATION_EXAMPLES.md#client-side-tenant-management)
 
 2. **Custom Fields Schema**:
    - Tenant-defined field definitions
@@ -287,6 +288,7 @@ Ensures isolation of user data between tenants:
    - Cross-tenant access prevention
    - Tenant boundary validation
    - Complete implementation details in [../multitenancy/DATA_ISOLATION.md#user-profiles-and-tenant-specific-settings](../multitenancy/DATA_ISOLATION.md#user-profiles-and-tenant-specific-settings)
+   - Working examples in [../multitenancy/IMPLEMENTATION_EXAMPLES.md#database-query-layer-examples](../multitenancy/IMPLEMENTATION_EXAMPLES.md#database-query-layer-examples)
 
 2. **Tenant-Specific Encryption**:
    - Separate encryption contexts
@@ -300,9 +302,11 @@ Ensures isolation of user data between tenants:
 - **[RBAC_INTEGRATION.md](RBAC_INTEGRATION.md)**: Role assignment architecture
 - **[../multitenancy/README.md](../multitenancy/README.md)**: Multitenancy architecture overview
 - **[../multitenancy/DATA_ISOLATION.md](../multitenancy/DATA_ISOLATION.md)**: Tenant data isolation with comprehensive user profile isolation
+- **[../multitenancy/IMPLEMENTATION_EXAMPLES.md](../multitenancy/IMPLEMENTATION_EXAMPLES.md)**: Concrete implementation examples for multi-tenant features
 - **[../data-model/entity-relationships/MULTI_TENANT_MODEL.md](../data-model/entity-relationships/MULTI_TENANT_MODEL.md)**: Multi-tenant entity relationships
 
 ## Version History
 
+- **1.2.0**: Added references to multi-tenant implementation examples (2025-05-23)
 - **1.1.0**: Added references to enhanced user profiles and tenant-specific settings documentation (2025-05-22)
 - **1.0.0**: Initial document created from user management refactoring (2025-05-22)
