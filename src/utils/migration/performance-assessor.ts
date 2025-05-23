@@ -1,359 +1,254 @@
 
-/**
- * Migration Performance Impact Assessment
- * Analyzes and predicts performance impact of large migrations
- */
-
-export interface PerformanceAssessment {
-  estimatedDuration: number; // in milliseconds
-  impactLevel: 'low' | 'medium' | 'high' | 'critical';
-  affectedTables: string[];
-  lockingConcerns: LockingConcern[];
-  recommendations: string[];
-  resourceRequirements: ResourceRequirements;
-  rollbackComplexity: 'simple' | 'moderate' | 'complex';
-}
-
-export interface LockingConcern {
-  operation: string;
-  lockType: 'shared' | 'exclusive' | 'access_exclusive';
-  duration: 'brief' | 'moderate' | 'extended';
-  impact: string;
-}
-
-export interface ResourceRequirements {
-  estimatedCPU: 'low' | 'medium' | 'high';
-  estimatedMemory: 'low' | 'medium' | 'high';
-  estimatedIO: 'low' | 'medium' | 'high';
-  temporaryDiskSpace: number; // in MB
-}
-
-export interface TableMetrics {
-  tableName: string;
-  rowCount: number;
-  sizeInMB: number;
-  indexCount: number;
-  hasConstraints: boolean;
-}
+import { MigrationPerformanceAssessment } from './types';
 
 export class MigrationPerformanceAssessor {
   /**
-   * Analyzes migration SQL and provides performance impact assessment
+   * Assesses the potential performance impact of a migration.
+   * 
+   * @param sql The SQL to assess
+   * @param getTableMetrics Function to get table metrics (size, row count, etc.)
+   * @returns Performance assessment
    */
   static async assessMigrationPerformance(
-    migrationSQL: string,
-    getTableMetrics: (tableName: string) => Promise<TableMetrics>
-  ): Promise<PerformanceAssessment> {
-    const operations = this.parseMigrationOperations(migrationSQL);
-    const affectedTables = this.extractAffectedTables(migrationSQL);
+    sql: string, 
+    getTableMetrics: (tableName: string) => Promise<any>
+  ): Promise<MigrationPerformanceAssessment> {
+    // Extract affected tables from SQL
+    const affectedTables = this.extractAffectedTables(sql);
     
-    // Gather metrics for affected tables
+    // Get metrics for affected tables
     const tableMetrics = await Promise.all(
-      affectedTables.map(async (tableName) => {
+      affectedTables.map(async table => {
         try {
-          return await getTableMetrics(tableName);
-        } catch (error) {
-          // Table might not exist yet (CREATE operations)
           return {
-            tableName,
-            rowCount: 0,
-            sizeInMB: 0,
-            indexCount: 0,
-            hasConstraints: false
+            name: table,
+            metrics: await getTableMetrics(table)
+          };
+        } catch (error) {
+          return {
+            name: table,
+            metrics: null, // Table might not exist yet
+            error: error instanceof Error ? error.message : 'Unknown error'
           };
         }
       })
     );
     
-    // Analyze each operation type
-    let estimatedDuration = 0;
-    const lockingConcerns: LockingConcern[] = [];
-    const recommendations: string[] = [];
-    let maxImpactLevel: 'low' | 'medium' | 'high' | 'critical' = 'low';
+    // Analyze SQL for performance impacts
+    const operationImpact = this.analyzeOperationImpact(sql);
     
-    for (const operation of operations) {
-      const assessment = this.assessOperation(operation, tableMetrics);
-      estimatedDuration += assessment.duration;
-      lockingConcerns.push(...assessment.lockingConcerns);
-      recommendations.push(...assessment.recommendations);
-      
-      if (this.getImpactWeight(assessment.impactLevel) > this.getImpactWeight(maxImpactLevel)) {
-        maxImpactLevel = assessment.impactLevel;
+    // Determine overall performance impact
+    let impact: 'low' | 'medium' | 'high' = 'low';
+    const recommendations: string[] = [];
+    
+    // Assess based on table size and operation type
+    const largeTableOperations = tableMetrics.filter(
+      table => table.metrics && (
+        table.metrics.rowCount > 1000000 ||
+        table.metrics.sizeBytes > 1000000000 // 1GB
+      )
+    );
+    
+    const indexOperations = operationImpact.createIndex || operationImpact.dropIndex;
+    const schemaChangeOnLargeTables = largeTableOperations.length > 0 && 
+      (operationImpact.alterTable || operationImpact.addColumn || operationImpact.dropColumn);
+    
+    if (operationImpact.fullTableScan || schemaChangeOnLargeTables) {
+      impact = 'high';
+      recommendations.push('Consider batching or off-peak execution for this migration');
+    } else if (largeTableOperations.length > 0 || indexOperations) {
+      impact = 'medium';
+      if (indexOperations) {
+        recommendations.push('Adding/removing indexes may temporarily block write operations');
       }
     }
     
-    const resourceRequirements = this.calculateResourceRequirements(operations, tableMetrics);
-    const rollbackComplexity = this.assessRollbackComplexity(operations);
-    
-    // Add general recommendations based on impact level
-    if (maxImpactLevel === 'high' || maxImpactLevel === 'critical') {
-      recommendations.push('Consider running during maintenance window');
-      recommendations.push('Monitor database performance during execution');
-      recommendations.push('Ensure adequate backup before execution');
+    // Add specific recommendations based on operation types
+    if (operationImpact.alterTable) {
+      recommendations.push('ALTER TABLE operations may lock the table');
     }
     
-    if (estimatedDuration > 60000) { // > 1 minute
-      recommendations.push('Consider breaking into smaller migrations');
-      recommendations.push('Implement progress monitoring');
+    if (operationImpact.createIndex) {
+      recommendations.push('Consider creating indexes concurrently to reduce blocking');
     }
+    
+    if (operationImpact.fullTableScan && largeTableOperations.length > 0) {
+      recommendations.push('Full table scan on large tables may cause performance issues');
+    }
+    
+    // Estimate duration based on table size and operation complexity
+    let estimatedDuration = 1000; // Base 1 second
+    
+    for (const table of tableMetrics) {
+      if (table.metrics) {
+        // Add time proportional to table size
+        if (table.metrics.rowCount) {
+          estimatedDuration += Math.log10(table.metrics.rowCount + 1) * 1000;
+        }
+        if (table.metrics.sizeBytes) {
+          estimatedDuration += Math.log10(table.metrics.sizeBytes + 1) * 500;
+        }
+      }
+    }
+    
+    // Multiply by operation complexity
+    if (operationImpact.alterTable) estimatedDuration *= 2;
+    if (operationImpact.createIndex) estimatedDuration *= 3;
+    if (operationImpact.fullTableScan) estimatedDuration *= 4;
     
     return {
-      estimatedDuration,
-      impactLevel: maxImpactLevel,
+      migration: 'unknown', // This will be set by the caller
+      impact,
       affectedTables,
-      lockingConcerns,
-      recommendations: [...new Set(recommendations)], // Remove duplicates
-      resourceRequirements,
-      rollbackComplexity
+      estimatedDuration,
+      recommendations: recommendations.length > 0 ? recommendations : undefined
     };
   }
   
   /**
-   * Parses migration SQL to identify operation types
-   */
-  private static parseMigrationOperations(sql: string): Array<{
-    type: string;
-    details: string;
-    table?: string;
-  }> {
-    const operations = [];
-    const lines = sql.split('\n').map(line => line.trim()).filter(line => line.length > 0);
-    
-    for (const line of lines) {
-      const upperLine = line.toUpperCase();
-      
-      if (upperLine.startsWith('CREATE TABLE')) {
-        const match = line.match(/CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?(\w+)/i);
-        operations.push({
-          type: 'CREATE_TABLE',
-          details: line,
-          table: match ? match[1] : undefined
-        });
-      } else if (upperLine.startsWith('ALTER TABLE')) {
-        const match = line.match(/ALTER\s+TABLE\s+(\w+)/i);
-        operations.push({
-          type: 'ALTER_TABLE',
-          details: line,
-          table: match ? match[1] : undefined
-        });
-      } else if (upperLine.startsWith('CREATE INDEX')) {
-        operations.push({
-          type: 'CREATE_INDEX',
-          details: line
-        });
-      } else if (upperLine.startsWith('DROP')) {
-        operations.push({
-          type: 'DROP',
-          details: line
-        });
-      } else if (upperLine.startsWith('INSERT') || upperLine.startsWith('UPDATE')) {
-        operations.push({
-          type: 'DATA_MODIFICATION',
-          details: line
-        });
-      }
-    }
-    
-    return operations;
-  }
-  
-  /**
-   * Assesses performance impact of a specific operation
-   */
-  private static assessOperation(
-    operation: { type: string; details: string; table?: string },
-    tableMetrics: TableMetrics[]
-  ): {
-    duration: number;
-    impactLevel: 'low' | 'medium' | 'high' | 'critical';
-    lockingConcerns: LockingConcern[];
-    recommendations: string[];
-  } {
-    const table = operation.table ? tableMetrics.find(t => t.tableName === operation.table) : null;
-    const recommendations: string[] = [];
-    let duration = 100; // Base duration in ms
-    let impactLevel: 'low' | 'medium' | 'high' | 'critical' = 'low';
-    const lockingConcerns: LockingConcern[] = [];
-    
-    switch (operation.type) {
-      case 'CREATE_TABLE':
-        duration = 500;
-        impactLevel = 'low';
-        lockingConcerns.push({
-          operation: 'CREATE TABLE',
-          lockType: 'access_exclusive',
-          duration: 'brief',
-          impact: 'No blocking on existing tables'
-        });
-        break;
-        
-      case 'ALTER_TABLE':
-        if (table) {
-          duration = Math.max(1000, table.rowCount * 0.01); // ~0.01ms per row
-          if (table.rowCount > 1000000) {
-            impactLevel = 'high';
-            recommendations.push('Consider using pg_repack or similar tools for large table alterations');
-          } else if (table.rowCount > 100000) {
-            impactLevel = 'medium';
-          }
-        }
-        
-        lockingConcerns.push({
-          operation: 'ALTER TABLE',
-          lockType: 'access_exclusive',
-          duration: table && table.rowCount > 100000 ? 'extended' : 'moderate',
-          impact: 'Blocks all access to table during operation'
-        });
-        break;
-        
-      case 'CREATE_INDEX':
-        if (table) {
-          duration = Math.max(2000, table.rowCount * 0.1); // ~0.1ms per row for index creation
-          if (table.rowCount > 1000000) {
-            impactLevel = 'high';
-            recommendations.push('Use CREATE INDEX CONCURRENTLY for large tables');
-          } else if (table.rowCount > 100000) {
-            impactLevel = 'medium';
-          }
-        }
-        
-        if (operation.details.toUpperCase().includes('CONCURRENTLY')) {
-          lockingConcerns.push({
-            operation: 'CREATE INDEX CONCURRENTLY',
-            lockType: 'shared',
-            duration: 'extended',
-            impact: 'Allows reads and writes but may impact performance'
-          });
-        } else {
-          lockingConcerns.push({
-            operation: 'CREATE INDEX',
-            lockType: 'shared',
-            duration: 'moderate',
-            impact: 'Blocks writes during creation'
-          });
-        }
-        break;
-        
-      case 'DROP':
-        duration = 200;
-        impactLevel = 'medium';
-        lockingConcerns.push({
-          operation: 'DROP',
-          lockType: 'access_exclusive',
-          duration: 'brief',
-          impact: 'Brief exclusive lock to drop object'
-        });
-        recommendations.push('Ensure no dependencies exist before dropping');
-        break;
-        
-      case 'DATA_MODIFICATION':
-        if (table) {
-          duration = Math.max(500, table.rowCount * 0.05); // ~0.05ms per row for data operations
-          if (table.rowCount > 500000) {
-            impactLevel = 'critical';
-            recommendations.push('Consider batching large data modifications');
-          } else if (table.rowCount > 100000) {
-            impactLevel = 'high';
-          }
-        }
-        break;
-    }
-    
-    return {
-      duration,
-      impactLevel,
-      lockingConcerns,
-      recommendations
-    };
-  }
-  
-  /**
-   * Extracts table names affected by the migration
+   * Extracts affected table names from SQL.
+   * 
+   * @param sql The SQL to analyze
+   * @returns Array of table names
    */
   private static extractAffectedTables(sql: string): string[] {
-    const tableRegex = /(?:CREATE|ALTER|DROP)\s+TABLE\s+(?:IF\s+(?:NOT\s+)?EXISTS\s+)?(\w+)/gi;
     const tables = new Set<string>();
-    let match;
     
-    while ((match = tableRegex.exec(sql)) !== null) {
-      tables.add(match[1]);
+    // Basic regex patterns to extract table names
+    const patterns = [
+      /\bFROM\s+["`]?(\w+)["`]?/gi,
+      /\bJOIN\s+["`]?(\w+)["`]?/gi,
+      /\bINTO\s+["`]?(\w+)["`]?/gi,
+      /\bUPDATE\s+["`]?(\w+)["`]?/gi,
+      /\bCREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?["`]?(\w+)["`]?/gi,
+      /\bALTER\s+TABLE\s+["`]?(\w+)["`]?/gi,
+      /\bDROP\s+TABLE\s+(?:IF\s+EXISTS\s+)?["`]?(\w+)["`]?/gi,
+      /\bCREATE\s+(?:UNIQUE\s+)?INDEX\s+(?:IF\s+NOT\s+EXISTS\s+)?(?:\w+)\s+ON\s+["`]?(\w+)["`]?/gi,
+      /\bDROP\s+INDEX\s+(?:IF\s+EXISTS\s+)?(?:\w+)\s+ON\s+["`]?(\w+)["`]?/gi
+    ];
+    
+    // Extract table names using patterns
+    for (const pattern of patterns) {
+      let match;
+      while ((match = pattern.exec(sql)) !== null) {
+        if (match[1]) {
+          tables.add(match[1]);
+        }
+      }
     }
     
-    return Array.from(tables);
+    return [...tables];
   }
   
   /**
-   * Calculates resource requirements based on operations and table metrics
+   * Analyzes SQL to determine operation impact types.
+   * 
+   * @param sql The SQL to analyze
+   * @returns Impact analysis
    */
-  private static calculateResourceRequirements(
-    operations: Array<{ type: string; details: string; table?: string }>,
-    tableMetrics: TableMetrics[]
-  ): ResourceRequirements {
-    let estimatedCPU: 'low' | 'medium' | 'high' = 'low';
-    let estimatedMemory: 'low' | 'medium' | 'high' = 'low';
-    let estimatedIO: 'low' | 'medium' | 'high' = 'low';
-    let temporaryDiskSpace = 0;
-    
-    const totalTableSize = tableMetrics.reduce((sum, table) => sum + table.sizeInMB, 0);
-    const maxTableSize = Math.max(...tableMetrics.map(t => t.sizeInMB), 0);
-    
-    // Assess based on operation types and table sizes
-    if (operations.some(op => op.type === 'CREATE_INDEX') && maxTableSize > 1000) {
-      estimatedCPU = 'high';
-      estimatedMemory = 'high';
-      estimatedIO = 'high';
-      temporaryDiskSpace += maxTableSize * 0.3; // Index creation needs ~30% of table size
-    }
-    
-    if (operations.some(op => op.type === 'ALTER_TABLE') && totalTableSize > 500) {
-      estimatedCPU = estimatedCPU === 'high' ? 'high' : 'medium';
-      estimatedMemory = estimatedMemory === 'high' ? 'high' : 'medium';
-      estimatedIO = estimatedIO === 'high' ? 'high' : 'medium';
-      temporaryDiskSpace += totalTableSize * 0.5; // Table alterations may need temporary space
-    }
-    
-    if (operations.some(op => op.type === 'DATA_MODIFICATION') && totalTableSize > 100) {
-      estimatedIO = 'high';
-      temporaryDiskSpace += totalTableSize * 0.2; // Data modifications need transaction log space
-    }
+  private static analyzeOperationImpact(sql: string): {
+    alterTable: boolean;
+    addColumn: boolean;
+    dropColumn: boolean;
+    createIndex: boolean;
+    dropIndex: boolean;
+    fullTableUpdate: boolean;
+    fullTableScan: boolean;
+  } {
+    const sqlLower = sql.toLowerCase();
     
     return {
-      estimatedCPU,
-      estimatedMemory,
-      estimatedIO,
-      temporaryDiskSpace: Math.round(temporaryDiskSpace)
+      alterTable: /alter\s+table/i.test(sqlLower),
+      addColumn: /add\s+column/i.test(sqlLower),
+      dropColumn: /drop\s+column/i.test(sqlLower),
+      createIndex: /create\s+(?:unique\s+)?index/i.test(sqlLower),
+      dropIndex: /drop\s+index/i.test(sqlLower),
+      fullTableUpdate: /update\s+\w+\s+set/i.test(sqlLower) && !/where/i.test(sqlLower),
+      fullTableScan: /select\s+/i.test(sqlLower) && !/where/i.test(sqlLower) || /select\s+.*\swhere\s+.*\s(?:not\s+)?like\s+['"'"]%/i.test(sqlLower)
     };
   }
   
   /**
-   * Assesses rollback complexity based on operations
+   * Analyzes complex query patterns for potential performance issues.
+   * 
+   * @param sql The SQL to analyze
+   * @returns Array of potential performance issues
    */
-  private static assessRollbackComplexity(
-    operations: Array<{ type: string; details: string; table?: string }>
-  ): 'simple' | 'moderate' | 'complex' {
-    const hasDataModification = operations.some(op => op.type === 'DATA_MODIFICATION');
-    const hasComplexAlterations = operations.some(op => 
-      op.type === 'ALTER_TABLE' && 
-      (op.details.toUpperCase().includes('DROP COLUMN') || op.details.toUpperCase().includes('ALTER COLUMN'))
-    );
-    const hasDropOperations = operations.some(op => op.type === 'DROP');
+  static analyzeQueryComplexity(sql: string): string[] {
+    const issues: string[] = [];
+    const sqlLower = sql.toLowerCase();
     
-    if (hasDataModification && (hasComplexAlterations || hasDropOperations)) {
-      return 'complex';
-    } else if (hasDataModification || hasComplexAlterations || hasDropOperations) {
-      return 'moderate';
-    } else {
-      return 'simple';
+    // Check for cartesian joins (missing join conditions)
+    if (/\bjoin\b/i.test(sqlLower) && !/\bon\b/i.test(sqlLower)) {
+      issues.push('Potential cartesian join detected (JOIN without ON clause)');
     }
+    
+    // Check for SELECT * (retrieving unnecessary columns)
+    if (/select\s+\*/i.test(sqlLower)) {
+      issues.push('SELECT * may retrieve unnecessary columns');
+    }
+    
+    // Check for LIKE with leading wildcard
+    if (/\blike\s+['"']%/i.test(sqlLower)) {
+      issues.push('LIKE with leading wildcard prevents index usage');
+    }
+    
+    // Check for complex subqueries
+    const subqueryMatches = sqlLower.match(/\(select/gi);
+    if (subqueryMatches && subqueryMatches.length > 2) {
+      issues.push(`Complex query with ${subqueryMatches.length} subqueries may affect performance`);
+    }
+    
+    // Check for NOT IN with subquery
+    if (/not\s+in\s+\(\s*select/i.test(sqlLower)) {
+      issues.push('NOT IN with subquery can cause performance issues');
+    }
+    
+    // Check for ORDER BY on non-indexed columns (simplified check)
+    if (/order\s+by\s+\w+\s+desc/i.test(sqlLower)) {
+      issues.push('ORDER BY DESC may require additional sorting operations');
+    }
+    
+    return issues;
   }
   
-  private static getImpactWeight(level: 'low' | 'medium' | 'high' | 'critical'): number {
-    switch (level) {
-      case 'low': return 1;
-      case 'medium': return 2;
-      case 'high': return 3;
-      case 'critical': return 4;
-      default: return 0;
+  /**
+   * Analyzes a data migration for volume issues.
+   * 
+   * @param sql The SQL to analyze
+   * @returns Assessment of data migration volume
+   */
+  static analyzeDataMigrationVolume(sql: string): {
+    hasDataMigration: boolean;
+    estimatedRows?: number;
+    recommendations?: string[];
+  } {
+    const result = {
+      hasDataMigration: false,
+      estimatedRows: undefined as number | undefined,
+      recommendations: [] as string[]
+    };
+    
+    if (/insert\s+into\s+\w+\s+(?:select|values)/i.test(sql)) {
+      result.hasDataMigration = true;
+      
+      // Try to estimate rows from VALUES clauses
+      const valuesClauses = sql.match(/values\s*\([^)]*\)/gi);
+      if (valuesClauses) {
+        result.estimatedRows = valuesClauses.length;
+      }
+      
+      // Check for INSERT INTO SELECT without LIMIT
+      if (/insert\s+into\s+\w+\s+select/i.test(sql) && !/limit/i.test(sql)) {
+        result.recommendations.push('Consider adding LIMIT to large data migrations');
+      }
+      
+      // Check for lack of batching in large inserts
+      if (result.estimatedRows && result.estimatedRows > 1000) {
+        result.recommendations.push('Consider batching large INSERT operations');
+      }
     }
+    
+    return result;
   }
 }

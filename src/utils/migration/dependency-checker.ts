@@ -1,185 +1,166 @@
 
-/**
- * Migration Dependency Checker
- * Automatically validates migration dependencies and execution order
- */
-
-export interface MigrationDependency {
-  version: string;
-  dependsOn: string[];
-  breakingChange: boolean;
-  estimatedDuration?: number;
-  performanceImpact?: 'low' | 'medium' | 'high';
-}
-
-export interface DependencyValidationResult {
-  valid: boolean;
-  errors: string[];
-  executionOrder: string[];
-  circularDependencies: string[];
-  missingDependencies: string[];
-}
+import { EnhancedMigration, MigrationDependencyValidationResult } from './types';
 
 export class MigrationDependencyChecker {
   /**
-   * Validates migration dependencies and determines execution order
+   * Validates that all dependencies of the provided migrations exist and have valid versions.
+   * @param migrations The migrations to validate
+   * @returns Results of the validation
    */
-  static validateDependencies(migrations: MigrationDependency[]): DependencyValidationResult {
+  static async validateDependencies(
+    migrations: EnhancedMigration[]
+  ): Promise<MigrationDependencyValidationResult> {
     const errors: string[] = [];
-    const circularDependencies: string[] = [];
-    const missingDependencies: string[] = [];
+    const migrationVersions = new Set(migrations.map(m => m.version));
     
-    // Create lookup map for faster access
-    const migrationMap = new Map(migrations.map(m => [m.version, m]));
-    
-    // Check for missing dependencies
-    migrations.forEach(migration => {
-      migration.dependsOn.forEach(depVersion => {
-        if (!migrationMap.has(depVersion)) {
-          missingDependencies.push(`Migration ${migration.version} depends on missing migration ${depVersion}`);
-        }
-      });
-    });
-    
-    // Check for circular dependencies using DFS
-    const visited = new Set<string>();
-    const recursionStack = new Set<string>();
-    
-    const hasCircularDependency = (version: string): boolean => {
-      if (recursionStack.has(version)) {
-        circularDependencies.push(version);
-        return true;
+    // Check each migration's dependencies
+    for (const migration of migrations) {
+      if (!migration.dependencies || migration.dependencies.length === 0) {
+        continue;
       }
       
+      // Check that each dependency exists in the provided migrations
+      for (const dependency of migration.dependencies) {
+        if (!migrationVersions.has(dependency)) {
+          errors.push(`Migration ${migration.version} depends on ${dependency} which does not exist.`);
+        }
+      }
+    }
+    
+    return {
+      valid: errors.length === 0,
+      migration: migrations.length === 1 ? migrations[0].version : 'multiple',
+      errors
+    };
+  }
+  
+  /**
+   * Sorts migrations based on their dependencies to create a valid execution order.
+   * Uses topological sort to resolve dependency graph.
+   * 
+   * @param migrations Migrations to sort
+   * @returns Sorted migrations in execution order
+   */
+  static sortByDependencies(migrations: EnhancedMigration[]): EnhancedMigration[] {
+    // Build dependency graph
+    const graph = new Map<string, string[]>();
+    const allVersions = new Set<string>();
+    
+    for (const migration of migrations) {
+      allVersions.add(migration.version);
+      
+      if (!graph.has(migration.version)) {
+        graph.set(migration.version, []);
+      }
+      
+      if (migration.dependencies && migration.dependencies.length > 0) {
+        for (const dependency of migration.dependencies) {
+          // Add edge from dependency to migration (dependency must come before migration)
+          if (!graph.has(dependency)) {
+            graph.set(dependency, []);
+          }
+          graph.get(dependency)!.push(migration.version);
+        }
+      }
+    }
+    
+    // Perform topological sort
+    const visited = new Set<string>();
+    const sortedVersions: string[] = [];
+    const temporaryMarks = new Set<string>();
+    
+    function visit(version: string) {
+      // Detect cycles
+      if (temporaryMarks.has(version)) {
+        throw new Error(`Circular dependency detected: ${version}`);
+      }
+      
+      // Skip if already visited
       if (visited.has(version)) {
-        return false;
+        return;
+      }
+      
+      temporaryMarks.add(version);
+      
+      // Visit dependencies first
+      for (const dependent of graph.get(version) || []) {
+        visit(dependent);
+      }
+      
+      temporaryMarks.delete(version);
+      visited.add(version);
+      sortedVersions.push(version);
+    }
+    
+    // Visit all versions
+    for (const version of allVersions) {
+      if (!visited.has(version)) {
+        visit(version);
+      }
+    }
+    
+    // Map sorted versions back to migration objects
+    const versionToMigration = new Map(migrations.map(m => [m.version, m]));
+    return sortedVersions.map(version => versionToMigration.get(version)!)
+      .filter(Boolean);
+  }
+  
+  /**
+   * Builds a dependency graph representation of migrations.
+   * 
+   * @param migrations Migrations to analyze
+   * @returns A graph representation for visualization or analysis
+   */
+  static buildDependencyGraph(migrations: EnhancedMigration[]): Record<string, string[]> {
+    const graph: Record<string, string[]> = {};
+    
+    for (const migration of migrations) {
+      if (!graph[migration.version]) {
+        graph[migration.version] = [];
+      }
+      
+      if (migration.dependencies && migration.dependencies.length > 0) {
+        graph[migration.version] = [...migration.dependencies];
+      }
+    }
+    
+    return graph;
+  }
+  
+  /**
+   * Detects potential circular dependencies in a set of migrations.
+   * 
+   * @param migrations Migrations to analyze
+   * @returns Array of detected circular dependencies
+   */
+  static detectCircularDependencies(migrations: EnhancedMigration[]): string[][] {
+    const circularDependencies: string[][] = [];
+    const graph = this.buildDependencyGraph(migrations);
+    
+    // Helper function to detect cycles
+    function detectCycle(version: string, visited: Set<string>, path: string[]) {
+      if (visited.has(version)) {
+        // Found a cycle
+        const cycleStart = path.indexOf(version);
+        if (cycleStart !== -1) {
+          circularDependencies.push(path.slice(cycleStart));
+        }
+        return;
       }
       
       visited.add(version);
-      recursionStack.add(version);
+      path.push(version);
       
-      const migration = migrationMap.get(version);
-      if (migration) {
-        for (const dep of migration.dependsOn) {
-          if (hasCircularDependency(dep)) {
-            return true;
-          }
-        }
-      }
-      
-      recursionStack.delete(version);
-      return false;
-    };
-    
-    // Check each migration for circular dependencies
-    migrations.forEach(migration => {
-      if (!visited.has(migration.version)) {
-        hasCircularDependency(migration.version);
-      }
-    });
-    
-    // Generate execution order using topological sort
-    const executionOrder = this.generateExecutionOrder(migrations);
-    
-    const valid = missingDependencies.length === 0 && circularDependencies.length === 0;
-    
-    return {
-      valid,
-      errors: [...missingDependencies, ...circularDependencies.map(v => `Circular dependency detected involving ${v}`)],
-      executionOrder,
-      circularDependencies,
-      missingDependencies
-    };
-  }
-  
-  /**
-   * Generates optimal execution order for migrations using topological sort
-   */
-  private static generateExecutionOrder(migrations: MigrationDependency[]): string[] {
-    const graph = new Map<string, string[]>();
-    const inDegree = new Map<string, number>();
-    
-    // Initialize graph and in-degree count
-    migrations.forEach(migration => {
-      graph.set(migration.version, migration.dependsOn);
-      inDegree.set(migration.version, 0);
-    });
-    
-    // Calculate in-degrees
-    migrations.forEach(migration => {
-      migration.dependsOn.forEach(dep => {
-        if (inDegree.has(dep)) {
-          inDegree.set(migration.version, (inDegree.get(migration.version) || 0) + 1);
-        }
-      });
-    });
-    
-    // Kahn's algorithm for topological sorting
-    const queue: string[] = [];
-    const result: string[] = [];
-    
-    // Find all nodes with no incoming edges
-    inDegree.forEach((degree, version) => {
-      if (degree === 0) {
-        queue.push(version);
-      }
-    });
-    
-    while (queue.length > 0) {
-      const current = queue.shift()!;
-      result.push(current);
-      
-      // For each dependent migration
-      migrations.forEach(migration => {
-        if (migration.dependsOn.includes(current)) {
-          const newDegree = (inDegree.get(migration.version) || 0) - 1;
-          inDegree.set(migration.version, newDegree);
-          
-          if (newDegree === 0) {
-            queue.push(migration.version);
-          }
-        }
-      });
-    }
-    
-    return result;
-  }
-  
-  /**
-   * Validates that a specific migration can be safely executed
-   */
-  static async validateMigrationExecution(
-    version: string, 
-    appliedMigrations: string[],
-    allMigrations: MigrationDependency[]
-  ): Promise<{ canExecute: boolean; reasons: string[] }> {
-    const reasons: string[] = [];
-    const migration = allMigrations.find(m => m.version === version);
-    
-    if (!migration) {
-      return { canExecute: false, reasons: ['Migration not found'] };
-    }
-    
-    // Check if already applied
-    if (appliedMigrations.includes(version)) {
-      reasons.push('Migration already applied');
-    }
-    
-    // Check dependencies
-    for (const dep of migration.dependsOn) {
-      if (!appliedMigrations.includes(dep)) {
-        reasons.push(`Missing dependency: ${dep}`);
+      for (const dependency of graph[version] || []) {
+        detectCycle(dependency, new Set(visited), [...path]);
       }
     }
     
-    // Check for breaking changes requiring special confirmation
-    if (migration.breakingChange) {
-      reasons.push('Breaking change requires explicit confirmation');
+    // Check each migration for cycles
+    for (const migration of migrations) {
+      detectCycle(migration.version, new Set(), []);
     }
     
-    return {
-      canExecute: reasons.length === 0,
-      reasons
-    };
+    return circularDependencies;
   }
 }

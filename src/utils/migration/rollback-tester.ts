@@ -1,232 +1,250 @@
 
-/**
- * Migration Rollback Testing Utilities
- * Automated testing of migration rollback procedures
- */
-
-export interface RollbackTestResult {
-  success: boolean;
-  errors: string[];
-  dataIntegrityChecks: DataIntegrityCheck[];
-  performanceMetrics: {
-    rollbackDuration: number;
-    affectedRows: number;
-    queryCount: number;
-  };
-}
-
-export interface DataIntegrityCheck {
-  checkName: string;
-  passed: boolean;
-  expected: any;
-  actual: any;
-  description: string;
-}
-
-export interface MigrationRollbackTest {
-  version: string;
-  setupData?: () => Promise<void>;
-  integrityChecks: Array<{
-    name: string;
-    query: string;
-    expectedResult: any;
-    description: string;
-  }>;
-  cleanupData?: () => Promise<void>;
-}
+import { MigrationRollbackTest, MigrationRollbackTestCase } from './types';
 
 export class MigrationRollbackTester {
   /**
-   * Tests rollback procedure for a specific migration
+   * Generates rollback tests for a migration's up/down scripts.
+   * 
+   * @param upSql The SQL for migrating up
+   * @param version The migration version
+   * @returns Rollback test results
    */
-  static async testMigrationRollback(
-    migration: MigrationRollbackTest,
-    executeSQL: (query: string) => Promise<any>
-  ): Promise<RollbackTestResult> {
-    const startTime = performance.now();
-    const errors: string[] = [];
-    const dataIntegrityChecks: DataIntegrityCheck[] = [];
-    let affectedRows = 0;
-    let queryCount = 0;
+  static async generateRollbackTests(upSql: string, version: string): Promise<MigrationRollbackTest> {
+    const testCases: MigrationRollbackTestCase[] = [];
     
-    try {
-      // Setup test data if provided
-      if (migration.setupData) {
-        await migration.setupData();
+    // Analyze the up SQL to extract schema changes
+    const schemaChanges = this.analyzeSchemaChanges(upSql);
+    
+    // Generate test cases for each schema change type
+    for (const change of schemaChanges) {
+      let testCase: MigrationRollbackTestCase;
+      
+      switch (change.type) {
+        case 'CREATE_TABLE':
+          testCase = this.generateTableRollbackTest(change);
+          break;
+        case 'ALTER_TABLE':
+          testCase = this.generateAlterRollbackTest(change);
+          break;
+        case 'DROP_TABLE':
+          testCase = this.generateDropRollbackTest(change);
+          break;
+        case 'INSERT':
+          testCase = this.generateDataRollbackTest(change);
+          break;
+        default:
+          testCase = this.generateGenericRollbackTest(change);
       }
       
-      // Execute rollback (this would be the DOWN migration)
-      console.log(`Testing rollback for migration ${migration.version}`);
-      
-      // Run integrity checks after rollback
-      for (const check of migration.integrityChecks) {
-        try {
-          queryCount++;
-          const result = await executeSQL(check.query);
-          
-          const passed = this.compareResults(result, check.expectedResult);
-          
-          dataIntegrityChecks.push({
-            checkName: check.name,
-            passed,
-            expected: check.expectedResult,
-            actual: result,
-            description: check.description
-          });
-          
-          if (!passed) {
-            errors.push(`Integrity check failed: ${check.name} - ${check.description}`);
-          }
-        } catch (error) {
-          errors.push(`Error running integrity check ${check.name}: ${error}`);
-          dataIntegrityChecks.push({
-            checkName: check.name,
-            passed: false,
-            expected: check.expectedResult,
-            actual: null,
-            description: `Error: ${error}`
+      testCases.push(testCase);
+    }
+    
+    // Default test case if no specific tests could be generated
+    if (testCases.length === 0) {
+      testCases.push({
+        description: 'Generic rollback test',
+        upSql,
+        downSql: '-- No specific rollback test could be generated',
+        valid: false,
+        error: 'Unable to generate specific rollback test'
+      });
+    }
+    
+    return {
+      migration: version,
+      testCases,
+      valid: testCases.every(tc => tc.valid)
+    };
+  }
+  
+  /**
+   * Analyzes SQL to extract schema changes.
+   * 
+   * @param sql The SQL to analyze
+   * @returns Array of schema changes
+   */
+  private static analyzeSchemaChanges(sql: string): Array<{
+    type: string;
+    table?: string;
+    sql: string;
+    details?: any;
+  }> {
+    const changes: Array<{type: string; table?: string; sql: string; details?: any}> = [];
+    const lines = sql.split(';').map(line => line.trim()).filter(line => line.length > 0);
+    
+    for (const line of lines) {
+      // Simple regex-based analysis - in production this would be more robust
+      if (/CREATE\s+TABLE/i.test(line)) {
+        const match = line.match(/CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?["`]?(\w+)["`]?/i);
+        if (match) {
+          changes.push({
+            type: 'CREATE_TABLE',
+            table: match[1],
+            sql: line,
+            details: { tableName: match[1] }
           });
         }
-      }
-      
-      // Cleanup test data
-      if (migration.cleanupData) {
-        await migration.cleanupData();
-      }
-      
-    } catch (error) {
-      errors.push(`Rollback test failed: ${error}`);
-    }
-    
-    const rollbackDuration = performance.now() - startTime;
-    
-    return {
-      success: errors.length === 0,
-      errors,
-      dataIntegrityChecks,
-      performanceMetrics: {
-        rollbackDuration,
-        affectedRows,
-        queryCount
-      }
-    };
-  }
-  
-  /**
-   * Runs comprehensive rollback tests for multiple migrations
-   */
-  static async runRollbackTestSuite(
-    tests: MigrationRollbackTest[],
-    executeSQL: (query: string) => Promise<any>
-  ): Promise<{ passed: number; failed: number; results: RollbackTestResult[] }> {
-    const results: RollbackTestResult[] = [];
-    let passed = 0;
-    let failed = 0;
-    
-    for (const test of tests) {
-      const result = await this.testMigrationRollback(test, executeSQL);
-      results.push(result);
-      
-      if (result.success) {
-        passed++;
+      } else if (/ALTER\s+TABLE/i.test(line)) {
+        const match = line.match(/ALTER\s+TABLE\s+["`]?(\w+)["`]?/i);
+        if (match) {
+          changes.push({
+            type: 'ALTER_TABLE',
+            table: match[1],
+            sql: line,
+            details: { tableName: match[1] }
+          });
+        }
+      } else if (/DROP\s+TABLE/i.test(line)) {
+        const match = line.match(/DROP\s+TABLE\s+(?:IF\s+EXISTS\s+)?["`]?(\w+)["`]?/i);
+        if (match) {
+          changes.push({
+            type: 'DROP_TABLE',
+            table: match[1],
+            sql: line,
+            details: { tableName: match[1] }
+          });
+        }
+      } else if (/INSERT\s+INTO/i.test(line)) {
+        const match = line.match(/INSERT\s+INTO\s+["`]?(\w+)["`]?/i);
+        if (match) {
+          changes.push({
+            type: 'INSERT',
+            table: match[1],
+            sql: line,
+            details: { tableName: match[1] }
+          });
+        }
       } else {
-        failed++;
+        changes.push({
+          type: 'GENERIC',
+          sql: line
+        });
       }
     }
     
-    return { passed, failed, results };
+    return changes;
   }
   
   /**
-   * Generates automated rollback test cases based on migration structure
+   * Generates a table creation rollback test.
+   * 
+   * @param change The schema change
+   * @returns Rollback test case
    */
-  static generateRollbackTests(migrationSQL: string, version: string): MigrationRollbackTest {
-    // Parse migration SQL to identify tables, columns, indexes created
-    const createdTables = this.extractCreatedTables(migrationSQL);
-    const createdColumns = this.extractCreatedColumns(migrationSQL);
-    const createdIndexes = this.extractCreatedIndexes(migrationSQL);
-    
-    const integrityChecks = [
-      // Check that rolled back tables don't exist
-      ...createdTables.map(table => ({
-        name: `table_${table}_removed`,
-        query: `SELECT COUNT(*) as count FROM information_schema.tables WHERE table_name = '${table}' AND table_schema = 'public'`,
-        expectedResult: { count: 0 },
-        description: `Table ${table} should be removed after rollback`
-      })),
-      
-      // Check that rolled back columns don't exist
-      ...createdColumns.map(col => ({
-        name: `column_${col.table}_${col.column}_removed`,
-        query: `SELECT COUNT(*) as count FROM information_schema.columns WHERE table_name = '${col.table}' AND column_name = '${col.column}' AND table_schema = 'public'`,
-        expectedResult: { count: 0 },
-        description: `Column ${col.column} in table ${col.table} should be removed after rollback`
-      })),
-      
-      // Check that rolled back indexes don't exist
-      ...createdIndexes.map(index => ({
-        name: `index_${index}_removed`,
-        query: `SELECT COUNT(*) as count FROM pg_indexes WHERE indexname = '${index}'`,
-        expectedResult: { count: 0 },
-        description: `Index ${index} should be removed after rollback`
-      }))
-    ];
-    
+  private static generateTableRollbackTest(change: any): MigrationRollbackTestCase {
     return {
-      version,
-      integrityChecks
+      description: `Test rollback for table creation: ${change.table}`,
+      upSql: change.sql,
+      downSql: `DROP TABLE IF EXISTS ${change.table}`,
+      valid: true
     };
   }
   
-  private static compareResults(actual: any, expected: any): boolean {
-    if (Array.isArray(expected)) {
-      return Array.isArray(actual) && 
-             actual.length === expected.length &&
-             actual.every((item, index) => 
-               JSON.stringify(item) === JSON.stringify(expected[index])
-             );
-    }
-    
-    if (typeof expected === 'object' && expected !== null) {
-      return JSON.stringify(actual) === JSON.stringify(expected);
-    }
-    
-    return actual === expected;
+  /**
+   * Generates an alter table rollback test.
+   * 
+   * @param change The schema change
+   * @returns Rollback test case
+   */
+  private static generateAlterRollbackTest(change: any): MigrationRollbackTestCase {
+    // This is simplified - in reality, would need to analyze the specific ALTER operation
+    return {
+      description: `Test rollback for table alteration: ${change.table}`,
+      upSql: change.sql,
+      downSql: `-- Rollback for ALTER TABLE ${change.table} would need careful review\n-- Original change: ${change.sql}`,
+      valid: false,
+      error: 'ALTER TABLE rollback requires manual verification'
+    };
   }
   
-  private static extractCreatedTables(sql: string): string[] {
-    const regex = /CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?(\w+)/gi;
-    const matches = [];
-    let match;
-    
-    while ((match = regex.exec(sql)) !== null) {
-      matches.push(match[1]);
-    }
-    
-    return matches;
+  /**
+   * Generates a drop table rollback test.
+   * 
+   * @param change The schema change
+   * @returns Rollback test case
+   */
+  private static generateDropRollbackTest(change: any): MigrationRollbackTestCase {
+    return {
+      description: `Test rollback for table drop: ${change.table}`,
+      upSql: change.sql,
+      downSql: `-- Cannot automatically generate CREATE TABLE statement for ${change.table}\n-- Original change: ${change.sql}`,
+      valid: false,
+      error: 'DROP TABLE rollback requires original table definition'
+    };
   }
   
-  private static extractCreatedColumns(sql: string): Array<{table: string, column: string}> {
-    const regex = /ALTER\s+TABLE\s+(\w+)\s+ADD\s+(?:COLUMN\s+)?(\w+)/gi;
-    const matches = [];
-    let match;
-    
-    while ((match = regex.exec(sql)) !== null) {
-      matches.push({ table: match[1], column: match[2] });
-    }
-    
-    return matches;
+  /**
+   * Generates a data modification rollback test.
+   * 
+   * @param change The schema change
+   * @returns Rollback test case
+   */
+  private static generateDataRollbackTest(change: any): MigrationRollbackTestCase {
+    return {
+      description: `Test rollback for data insertion: ${change.table}`,
+      upSql: change.sql,
+      downSql: `-- Rollback for INSERT INTO ${change.table} would require DELETE with matching criteria\n-- Original change: ${change.sql}`,
+      valid: false,
+      error: 'Data modifications require manual rollback'
+    };
   }
   
-  private static extractCreatedIndexes(sql: string): string[] {
-    const regex = /CREATE\s+(?:UNIQUE\s+)?INDEX\s+(?:IF\s+NOT\s+EXISTS\s+)?(\w+)/gi;
-    const matches = [];
-    let match;
-    
-    while ((match = regex.exec(sql)) !== null) {
-      matches.push(match[1]);
+  /**
+   * Generates a generic rollback test.
+   * 
+   * @param change The schema change
+   * @returns Rollback test case
+   */
+  private static generateGenericRollbackTest(change: any): MigrationRollbackTestCase {
+    return {
+      description: 'Generic rollback test case',
+      upSql: change.sql,
+      downSql: `-- Unable to automatically generate rollback for: ${change.sql}`,
+      valid: false,
+      error: 'Cannot automatically generate rollback for this SQL'
+    };
+  }
+  
+  /**
+   * Validates a rollback by executing it in a transaction and rolling back.
+   * Note: This would require database access and is left as a placeholder.
+   * 
+   * @param upSql The up migration SQL
+   * @param downSql The down migration SQL
+   * @param executeSQL Function to execute SQL
+   * @returns Validation result
+   */
+  static async validateRollback(
+    upSql: string, 
+    downSql: string, 
+    executeSQL: (sql: string) => Promise<any>
+  ): Promise<{valid: boolean; error?: string}> {
+    try {
+      // Begin transaction
+      await executeSQL('BEGIN');
+      
+      // Execute up SQL
+      await executeSQL(upSql);
+      
+      // Execute down SQL
+      await executeSQL(downSql);
+      
+      // Rollback transaction
+      await executeSQL('ROLLBACK');
+      
+      return { valid: true };
+    } catch (error) {
+      // Ensure transaction is rolled back
+      try {
+        await executeSQL('ROLLBACK');
+      } catch (rollbackError) {
+        // Ignore rollback errors
+      }
+      
+      return { 
+        valid: false, 
+        error: error instanceof Error ? error.message : 'Unknown error during rollback validation' 
+      };
     }
-    
-    return matches;
   }
 }
