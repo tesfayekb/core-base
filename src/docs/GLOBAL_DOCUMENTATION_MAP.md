@@ -1,7 +1,7 @@
 
 # Global Documentation Map
 
-> **Version**: 4.1.0  
+> **Version**: 4.2.0  
 > **Last Updated**: 2025-05-23
 
 ## Official Implementation Path
@@ -11,6 +11,24 @@ The **only** official implementation path is:
 - **[ai-development/AUTHORITATIVE_IMPLEMENTATION_PATH.md](ai-development/AUTHORITATIVE_IMPLEMENTATION_PATH.md)**
 
 All implementations must follow this path exactly with mandatory validation checkpoints between phases.
+
+## NEW: Tiered Documentation Approach
+
+**For AI Implementation**, use the new tiered approach for optimal context management:
+
+### Tier 1: Quick Start (1-2 hours)
+- **[ai-development/TIER1_QUICK_START.md](ai-development/TIER1_QUICK_START.md)**: Essential implementation
+- **[ai-development/TIERED_NAVIGATION_GUIDE.md](ai-development/TIERED_NAVIGATION_GUIDE.md)**: Navigation rules
+
+### Tier 2: Standard (2-4 weeks)
+- **[ai-development/TIER2_STANDARD.md](ai-development/TIER2_STANDARD.md)**: Production-ready implementation
+- **[ai-development/AUTHORITATIVE_IMPLEMENTATION_PATH.md](ai-development/AUTHORITATIVE_IMPLEMENTATION_PATH.md)**: Full implementation sequence
+
+### Tier 3: Advanced (Reference-only)
+- **[ai-development/TIER3_ADVANCED.md](ai-development/TIER3_ADVANCED.md)**: Specialized optimization and edge cases
+
+### Tiered Approach Overview
+- **[ai-development/TIERED_APPROACH_OVERVIEW.md](ai-development/TIERED_APPROACH_OVERVIEW.md)**: Complete tiered system explanation
 
 ## Mandatory Validation System
 
@@ -49,21 +67,26 @@ These are the definitive specifications for key subsystems:
 
 When implementing features:
 
-1. **Follow only the authoritative implementation path**
+1. **Choose appropriate tier**: Quick Start (Tier 1) or Standard (Tier 2)
+   - **[ai-development/TIERED_NAVIGATION_GUIDE.md](ai-development/TIERED_NAVIGATION_GUIDE.md)**: Navigation rules
+   - **[ai-development/TIER1_QUICK_START.md](ai-development/TIER1_QUICK_START.md)**: 1-2 hour implementation
+   - **[ai-development/TIER2_STANDARD.md](ai-development/TIER2_STANDARD.md)**: Production implementation
+
+2. **Follow the authoritative implementation path**
    - [ai-development/AUTHORITATIVE_IMPLEMENTATION_PATH.md](ai-development/AUTHORITATIVE_IMPLEMENTATION_PATH.md)
    - Implement exactly in the order specified
 
-2. **Pass mandatory validation checkpoints**
+3. **Pass mandatory validation checkpoints**
    - [implementation/PHASE_VALIDATION_CHECKPOINTS.md](implementation/PHASE_VALIDATION_CHECKPOINTS.md)
    - Cannot proceed without 100% validation pass rate
 
-3. **Reference canonical specifications**
+4. **Reference canonical specifications**
    - Use canonical references for specifications
    - Do not modify canonical references
 
-4. **Validate against success criteria**
-   - Check implementation against phase success criteria
-   - Run tests specified in testing guides
+5. **Consult Tier 3 only when needed**
+   - [ai-development/TIER3_ADVANCED.md](ai-development/TIER3_ADVANCED.md)
+   - Use for specific optimization or edge cases
 
 ## Quality Gates Enforcement
 
@@ -85,6 +108,7 @@ When implementing features:
 
 ## Version History
 
+- **4.2.0**: Added tiered documentation approach for optimal AI context management (2025-05-23)
 - **4.1.0**: Added mandatory validation checkpoint system for all phase transitions (2025-05-23)
 - **4.0.0**: Established single authoritative implementation path (2025-05-23)
 - **3.0.0**: Implemented three-tier documentation hierarchy (2025-05-23)
