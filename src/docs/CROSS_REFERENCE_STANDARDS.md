@@ -1,34 +1,30 @@
 
 # Documentation Cross-Reference Standards
 
-> **Version**: 1.0.0  
-> **Last Updated**: 2025-05-22
+> **Version**: 2.0.0  
+> **Last Updated**: 2025-05-23
 
 ## Overview
 
-This document defines the standards for cross-referencing between documentation files to ensure consistency, navigability, and maintainability across the entire documentation set.
+This document defines the updated standards for cross-referencing between documentation files to ensure consistency, navigability, and AI-friendly navigation across the entire documentation set.
 
 ## Cross-Reference Formats
 
-### Internal References
+### Absolute Path Standard
 
-References to other documents within the project-plan directory should use relative paths:
+All cross-references must use absolute paths from the docs root to prevent confusion when files are moved:
 
-1. **Same-Directory References**:
-   - Format: `[Document Title](DOCUMENT_NAME.md)`
-   - Example: `[Core Architecture](CORE_ARCHITECTURE.md)`
+1. **Standard Format**:
+   - Format: `[Document Title](docs/path/to/DOCUMENT_NAME.md)`
+   - Example: `[Core Architecture](docs/CORE_ARCHITECTURE.md)`
 
-2. **Child-Directory References**:
-   - Format: `[Document Title](directory/DOCUMENT_NAME.md)`
-   - Example: `[Role Architecture](rbac/ROLE_ARCHITECTURE.md)`
+2. **Subdirectory References**:
+   - Format: `[Document Title](docs/directory/DOCUMENT_NAME.md)`
+   - Example: `[Role Architecture](docs/rbac/ROLE_ARCHITECTURE.md)`
 
-3. **Parent-Directory References**:
-   - Format: `[Document Title](../DOCUMENT_NAME.md)`
-   - Example: `[RBAC System](../rbac/README.md)`
-
-4. **Cross-Directory References**:
-   - Format: `[Document Title](../other-directory/DOCUMENT_NAME.md)`
-   - Example: `[Authentication System](../security/AUTH_SYSTEM.md)`
+3. **Deep Path References**:
+   - Format: `[Document Title](docs/directory/subdirectory/DOCUMENT_NAME.md)`
+   - Example: `[Core Algorithm](docs/rbac/permission-resolution/CORE_ALGORITHM.md)`
 
 ### Section References
 
@@ -39,62 +35,52 @@ References to specific sections within documents:
    - Example: `[Permission Model](#permission-model)`
 
 2. **External Document Section References**:
-   - Format: `[Document Title: Section Name](path/to/DOCUMENT.md#section-anchor)`
-   - Example: `[Role Architecture: Role Types](rbac/ROLE_ARCHITECTURE.md#role-types)`
+   - Format: `[Document Title: Section Name](docs/path/to/DOCUMENT.md#section-anchor)`
+   - Example: `[Role Architecture: Role Types](docs/rbac/ROLE_ARCHITECTURE.md#role-types)`
 
 ## Cross-Reference Guidelines
 
 ### Path Construction
 
-1. **Always Use Relative Paths**:
-   - All internal document references must use relative paths
-   - Start with the location of the current document
-   - Navigate to the target document using `../` for parent directories
+1. **Always Use Absolute Paths from docs root**:
+   - All internal document references must start with `docs/`
+   - This ensures references work regardless of current file location
+   - Example: `docs/rbac/ROLE_ARCHITECTURE.md` not `../rbac/ROLE_ARCHITECTURE.md`
 
-2. **Never Use Absolute Paths**:
-   - Do not use absolute paths starting with `/`
-   - This ensures portability across different environments
-
-3. **Always Include File Extension**:
+2. **Always Include File Extension**:
    - Include `.md` extension for all Markdown files
    - Example: `DOCUMENT_NAME.md` not just `DOCUMENT_NAME`
+
+3. **Use Forward Slashes**:
+   - Always use forward slashes `/` for path separators
+   - This ensures cross-platform compatibility
 
 ### Reference Text
 
 1. **Use Descriptive Link Text**:
    - Link text should describe the target document
-   - Example: `[Role Architecture](rbac/ROLE_ARCHITECTURE.md)` not `[click here](rbac/ROLE_ARCHITECTURE.md)`
+   - Example: `[Role Architecture](docs/rbac/ROLE_ARCHITECTURE.md)` not `[click here](docs/rbac/ROLE_ARCHITECTURE.md)`
 
 2. **Match Document Titles**:
    - Link text should typically match the title of the target document
-   - Example: For a document titled "Role Architecture", use `[Role Architecture](rbac/ROLE_ARCHITECTURE.md)`
+   - Example: For a document titled "Role Architecture", use `[Role Architecture](docs/rbac/ROLE_ARCHITECTURE.md)`
 
 3. **Include Context When Needed**:
    - Add context when referencing similar documents from different systems
-   - Example: `[Security: Authentication System](security/AUTH_SYSTEM.md)` vs `[User Management: Authentication](user-management/AUTHENTICATION.md)`
+   - Example: `[Security: Authentication System](docs/security/AUTH_SYSTEM.md)` vs `[User Management: Authentication](docs/user-management/AUTHENTICATION.md)`
 
 ## Standard Reference Blocks
 
 ### Related Documentation Section
 
-Each document should include a "Related Documentation" section near the end:
+Each document should include a "Related Documentation" section using absolute paths:
 
 ```markdown
 ## Related Documentation
 
-- **[DOCUMENT1.md](DOCUMENT1.md)**: Brief description of relationship
-- **[directory/DOCUMENT2.md](directory/DOCUMENT2.md)**: Brief description of relationship
-- **[../directory/DOCUMENT3.md](../directory/DOCUMENT3.md)**: Brief description of relationship
-```
-
-Example:
-
-```markdown
-## Related Documentation
-
-- **[CORE_ARCHITECTURE.md](CORE_ARCHITECTURE.md)**: Core architectural principles
-- **[rbac/README.md](rbac/README.md)**: RBAC system overview
-- **[security/AUTH_SYSTEM.md](security/AUTH_SYSTEM.md)**: Authentication system details
+- **[Core Architecture](docs/CORE_ARCHITECTURE.md)**: Core architectural principles
+- **[RBAC System](docs/rbac/README.md)**: RBAC system overview
+- **[Security System](docs/security/AUTH_SYSTEM.md)**: Authentication system details
 ```
 
 ### Cross-System Integration References
@@ -104,84 +90,111 @@ For documents at system boundaries, include explicit integration references:
 ```markdown
 ## Integration Points
 
-- **Security Integration**: See [security/RBAC_INTEGRATION.md](security/RBAC_INTEGRATION.md)
-- **Audit Integration**: See [audit/SECURITY_INTEGRATION.md](audit/SECURITY_INTEGRATION.md)
+- **Security Integration**: See [Security RBAC Integration](docs/integration/SECURITY_RBAC_INTEGRATION.md)
+- **Audit Integration**: See [RBAC Audit Integration](docs/integration/RBAC_AUDIT_INTEGRATION.md)
 ```
 
-## Navigation Aids
+## Knowledge Graph Integration
+
+### Relationship Declarations
+
+Documents should declare their relationships explicitly:
+
+```markdown
+## Document Relationships
+
+### Dependencies
+- **Requires**: [Core Architecture](docs/CORE_ARCHITECTURE.md)
+- **Built On**: [RBAC System](docs/RBAC_SYSTEM.md)
+
+### Dependents
+- **Required By**: [Permission Resolution](docs/rbac/PERMISSION_RESOLUTION.md)
+- **Integrates With**: [Security System](docs/security/README.md)
+```
+
+## AI Navigation Aids
 
 ### Document Maps
 
-Include navigation guidance in README files:
+Reference phase-specific document maps for AI navigation:
 
 ```markdown
-## Documentation Structure
+## Implementation Guide
 
-This system's documentation is organized as follows:
-
-1. **[README.md](README.md)**: This overview document
-2. **[COMPONENT1.md](COMPONENT1.md)**: Component 1 details
-3. **[COMPONENT2.md](COMPONENT2.md)**: Component 2 details
-4. **[subdirectory/README.md](subdirectory/README.md)**: Subdirectory overview
+For AI implementation, see:
+- **[Phase 1 Map](docs/implementation/phase1/DOCUMENT_MAP.md)**: Foundation implementation
+- **[Phase 2 Map](docs/implementation/phase2/DOCUMENT_MAP.md)**: Core features implementation
 ```
 
-### Version Compatibility References
+### Context Management
 
-Reference version compatibility when relevant:
+Reference context management guidelines:
 
 ```markdown
-For compatible versions of related documents, please refer to [VERSION_COMPATIBILITY.md](VERSION_COMPATIBILITY.md).
+## AI Context Guidelines
+
+- **Maximum 3 documents per session**
+- **Start with**: [Streamlined Implementation Guide](docs/ai-development/STREAMLINED_IMPLEMENTATION_GUIDE.md)
+- **Follow**: [Context Management Strategy](docs/ai-development/CONTEXT_MANAGEMENT_STRATEGY.md)
 ```
 
-## Cross-Reference Validation
+## Migration from Relative Paths
 
-To maintain integrity of cross-references:
+### Before (Relative Paths)
+```markdown
+- [Role Architecture](../rbac/ROLE_ARCHITECTURE.md)
+- [Security System](../../security/README.md)
+```
 
-1. **Validate Before Committing**:
-   - Ensure all referenced documents exist
-   - Check that relative paths are correct
-   - Verify that section anchors exist in target documents
+### After (Absolute Paths)
+```markdown
+- [Role Architecture](docs/rbac/ROLE_ARCHITECTURE.md)
+- [Security System](docs/security/README.md)
+```
 
-2. **Update References When Moving Documents**:
-   - When moving or renaming a document, update all references to it
-   - Use search tools to find all references to the document
+## Validation Rules
 
-3. **Handle Deleted Documents**:
-   - Before deleting a document, identify and update all references to it
-   - Provide alternative references when a document is removed
+### Cross-Reference Validation
+
+1. **Path Validation**:
+   - All references must start with `docs/`
+   - All references must include `.md` extension
+   - All referenced files must exist
+
+2. **Link Text Validation**:
+   - Link text should match document title when possible
+   - Link text should be descriptive and meaningful
+   - Avoid generic text like "click here" or "see here"
+
+3. **Section Anchor Validation**:
+   - Section anchors must exist in target documents
+   - Use kebab-case for section anchors
+   - Anchor format: `#section-name`
 
 ## Examples of Standard References
 
-### Example 1: Reference from System README to Component Document
-
-In `rbac/README.md`:
-
+### Example 1: System Overview to Component
 ```markdown
-The permission resolution process is detailed in [Permission Resolution](permission-resolution/README.md).
+The RBAC system is detailed in [RBAC System Overview](docs/rbac/README.md).
 ```
 
-### Example 2: Reference from Component to Related System
-
-In `rbac/permission-resolution/IMPLEMENTATION.md`:
-
+### Example 2: Component to Integration
 ```markdown
-For integration with the security system, see [Security RBAC Integration](../../integration/SECURITY_RBAC_INTEGRATION.md).
+For security integration, see [Security RBAC Integration](docs/integration/SECURITY_RBAC_INTEGRATION.md).
 ```
 
-### Example 3: Reference from One System to Another
-
-In `security/AUTH_SYSTEM.md`:
-
+### Example 3: Implementation Reference
 ```markdown
-After authentication, permission resolution is handled by the RBAC system as described in [Permission Resolution](../rbac/permission-resolution/README.md).
+Implementation details are in [Phase 1 Foundation](docs/implementation/phase1/DOCUMENT_MAP.md).
 ```
 
 ## Related Documentation
 
-- **[DOCUMENTATION_MAP.md](DOCUMENTATION_MAP.md)**: Documentation structure overview
-- **[GLOBAL_DOCUMENTATION_MAP.md](GLOBAL_DOCUMENTATION_MAP.md)**: Complete documentation map
-- **[VERSION_COMPATIBILITY.md](VERSION_COMPATIBILITY.md)**: Version compatibility matrix
+- **[KNOWLEDGE_GRAPH.md](docs/KNOWLEDGE_GRAPH.md)**: Complete knowledge graph of document relationships
+- **[DOCUMENTATION_MAP.md](docs/DOCUMENTATION_MAP.md)**: Documentation structure overview
+- **[VERSION_COMPATIBILITY.md](docs/VERSION_COMPATIBILITY.md)**: Version compatibility matrix
 
 ## Version History
 
+- **2.0.0**: Updated to absolute path standard and added knowledge graph integration (2025-05-23)
 - **1.0.0**: Initial cross-reference standards (2025-05-22)
