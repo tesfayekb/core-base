@@ -1,23 +1,17 @@
 
 # Component Integration Testing Map
 
-> **Version**: 2.0.0  
+> **Version**: 2.1.0  
 > **Last Updated**: 2025-05-23
 
 ## Overview
 
 This document maps the integration points between major system components and references the focused integration testing documents.
 
-## Focused Integration Testing Documents
-
-- **[CORE_COMPONENT_INTEGRATION.md](docs/testing/CORE_COMPONENT_INTEGRATION.md)**: Essential component integration tests
-- **[ADVANCED_INTEGRATION_PATTERNS.md](docs/testing/ADVANCED_INTEGRATION_PATTERNS.md)**: Complex integration scenarios
-- **[INTEGRATION_TEST_ENVIRONMENT.md](docs/testing/INTEGRATION_TEST_ENVIRONMENT.md)**: Test environment setup
-
-## Core Integration Points
+## Visual System Integration Map
 
 ```mermaid
-flowchart TD
+graph TD
     AUTH[Authentication] <--> RBAC[Permission System]
     AUTH <--> TENANT[Multi-tenant System]
     RBAC <--> TENANT
@@ -30,6 +24,57 @@ flowchart TD
     API <--> TENANT
     EVENTS[Event System] <--> AUDIT
     EVENTS <--> RBAC
+    
+    %% Testing Layer
+    AUTH -.-> AUTH_TEST[Auth Tests]
+    RBAC -.-> RBAC_TEST[RBAC Tests]
+    TENANT -.-> TENANT_TEST[Multi-tenant Tests]
+    AUDIT -.-> AUDIT_TEST[Audit Tests]
+    
+    classDef system fill:#e3f2fd
+    classDef testing fill:#fff3e0
+    
+    class AUTH,RBAC,TENANT,AUDIT,UI,API,EVENTS system
+    class AUTH_TEST,RBAC_TEST,TENANT_TEST,AUDIT_TEST testing
+```
+
+## Focused Integration Testing Documents
+
+- **[CORE_COMPONENT_INTEGRATION.md](docs/testing/CORE_COMPONENT_INTEGRATION.md)**: Essential component integration tests
+- **[ADVANCED_INTEGRATION_PATTERNS.md](docs/testing/ADVANCED_INTEGRATION_PATTERNS.md)**: Complex integration scenarios
+- **[INTEGRATION_TEST_ENVIRONMENT.md](docs/testing/INTEGRATION_TEST_ENVIRONMENT.md)**: Test environment setup
+
+## Core Integration Points
+
+### Authentication ↔ RBAC Integration
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant A as Auth System
+    participant R as RBAC System
+    participant D as Database
+    
+    U->>A: Login Request
+    A->>D: Validate Credentials
+    A->>R: Get User Permissions
+    R->>D: Query User Roles
+    R->>A: Return Permissions
+    A->>U: Auth Token + Permissions
+```
+
+### Multi-tenant ↔ RBAC Integration
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant T as Tenant Context
+    participant R as RBAC System
+    participant D as Database
+    
+    U->>T: Access Resource
+    T->>R: Check Tenant Permissions
+    R->>D: Query with Tenant Filter
+    R->>T: Permission Result
+    T->>U: Allow/Deny Access
 ```
 
 ## Integration Test Matrix
@@ -90,5 +135,6 @@ flowchart TD
 
 ## Version History
 
+- **2.1.0**: Added visual system integration map and sequence diagrams (2025-05-23)
 - **2.0.0**: Updated to reference focused integration testing documents (2025-05-23)
 - **1.0.0**: Initial component integration testing map (2025-05-23)

@@ -1,8 +1,55 @@
 
 # Testing Documentation Map
 
-> **Version**: 2.0.0  
+> **Version**: 2.1.0  
 > **Last Updated**: 2025-05-23
+
+## Visual Testing Architecture
+
+```mermaid
+graph TD
+    TEST_FRAME[Test Framework] --> CORE_TEST[Core Testing]
+    TEST_FRAME --> SEC_TEST[Security Testing]
+    TEST_FRAME --> PERF_TEST[Performance Testing]
+    TEST_FRAME --> INT_TEST[Integration Testing]
+    
+    CORE_TEST --> PHASE1[Phase 1 Testing]
+    CORE_TEST --> PHASE2[Phase 2 Testing]
+    CORE_TEST --> PHASE3[Phase 3 Testing]
+    CORE_TEST --> PHASE4[Phase 4 Testing]
+    
+    SEC_TEST --> AUTH_TEST[Auth Testing]
+    SEC_TEST --> RBAC_TEST[RBAC Testing]
+    SEC_TEST --> THREAT_TEST[Threat Testing]
+    
+    PERF_TEST --> RBAC_PERF[RBAC Performance]
+    PERF_TEST --> MULTI_PERF[Multi-tenant Performance]
+    PERF_TEST --> STANDARDS[Performance Standards]
+    
+    INT_TEST --> CORE_COMP[Core Components]
+    INT_TEST --> ADV_PAT[Advanced Patterns]
+    INT_TEST --> TEST_ENV[Test Environment]
+    
+    %% Testing Validation
+    PHASE1 -.-> QUANT_MET[Quantifiable Metrics]
+    PHASE2 -.-> QUANT_MET
+    PHASE3 -.-> QUANT_MET
+    PHASE4 -.-> QUANT_MET
+    
+    classDef framework fill:#e3f2fd
+    classDef core fill:#f3e5f5
+    classDef security fill:#ffebee
+    classDef performance fill:#e8f5e8
+    classDef integration fill:#fff3e0
+    classDef validation fill:#fce4ec
+    
+    class TEST_FRAME framework
+    class CORE_TEST,PHASE1,PHASE2,PHASE3,PHASE4 core
+    class SEC_TEST,AUTH_TEST,RBAC_TEST,THREAT_TEST security
+    class PERF_TEST,RBAC_PERF,MULTI_PERF,STANDARDS performance
+    class INT_TEST,CORE_COMP,ADV_PAT,TEST_ENV integration
+    class QUANT_MET validation
+```
 
 ## Document Structure
 
@@ -11,6 +58,21 @@
 - **[../testing/PERFORMANCE_TESTING.md](../testing/PERFORMANCE_TESTING.md)**: Performance testing strategy and benchmarks
 - **[../testing/MULTI_TENANT_TESTING.md](../testing/MULTI_TENANT_TESTING.md)**: Multi-tenant testing approach and validation
 - **[../testing/INTEGRATION_TESTING.md](../testing/INTEGRATION_TESTING.md)**: Integration testing approach and patterns
+
+### Enhanced Integration Testing
+- **[../testing/CORE_COMPONENT_INTEGRATION.md](../testing/CORE_COMPONENT_INTEGRATION.md)**: Essential component integration tests
+- **[../testing/ADVANCED_INTEGRATION_PATTERNS.md](../testing/ADVANCED_INTEGRATION_PATTERNS.md)**: Complex integration scenarios
+- **[../testing/INTEGRATION_TEST_ENVIRONMENT.md](../testing/INTEGRATION_TEST_ENVIRONMENT.md)**: Test environment setup
+- **[COMPONENT_INTEGRATION_MAP.md](../testing/COMPONENT_INTEGRATION_MAP.md)**: Visual component integration map
+
+### Phase-Based Testing
+- **[../implementation/testing/PHASE1_TESTING.md](../implementation/testing/PHASE1_TESTING.md)**: Phase 1 testing integration
+- **[../implementation/testing/PHASE2_TESTING.md](../implementation/testing/PHASE2_TESTING.md)**: Phase 2 testing integration
+- **[../implementation/testing/PHASE3_TESTING.md](../implementation/testing/PHASE3_TESTING.md)**: Phase 3 testing integration
+- **[../implementation/testing/PHASE4_TESTING.md](../implementation/testing/PHASE4_TESTING.md)**: Phase 4 testing integration
+
+### Testing Validation
+- **[../implementation/testing/QUANTIFIABLE_METRICS.md](../implementation/testing/QUANTIFIABLE_METRICS.md)**: Quantifiable validation criteria
 
 ### Framework and Standards
 - **[../TEST_FRAMEWORK.md](../TEST_FRAMEWORK.md)**: Overall testing framework and approach
@@ -41,6 +103,18 @@
 2. **Data Isolation**: [../multitenancy/DATA_ISOLATION.md](../multitenancy/DATA_ISOLATION.md) - Isolation testing
 3. **Entity Boundaries**: [../rbac/ENTITY_BOUNDARIES.md](../rbac/ENTITY_BOUNDARIES.md) - Boundary testing
 4. **Cross-tenant Validation**: Multi-tenant security and isolation testing
+
+### For Integration Testing Implementation
+1. **Integration Overview**: [INTEGRATION_TESTING.md](../testing/INTEGRATION_TESTING.md) - Integration testing strategy
+2. **Core Components**: [CORE_COMPONENT_INTEGRATION.md](../testing/CORE_COMPONENT_INTEGRATION.md) - Essential integration tests
+3. **Advanced Patterns**: [ADVANCED_INTEGRATION_PATTERNS.md](../testing/ADVANCED_INTEGRATION_PATTERNS.md) - Complex scenarios
+4. **Test Environment**: [INTEGRATION_TEST_ENVIRONMENT.md](../testing/INTEGRATION_TEST_ENVIRONMENT.md) - Environment setup
+
+### For Phase-Based Testing
+1. **Phase 1**: [PHASE1_TESTING.md](../implementation/testing/PHASE1_TESTING.md) - Foundation testing
+2. **Phase 2**: [PHASE2_TESTING.md](../implementation/testing/PHASE2_TESTING.md) - Core features testing
+3. **Phase 3**: [PHASE3_TESTING.md](../implementation/testing/PHASE3_TESTING.md) - Advanced features testing
+4. **Phase 4**: [PHASE4_TESTING.md](../implementation/testing/PHASE4_TESTING.md) - Production testing
 
 ## Integration Points
 
@@ -104,5 +178,6 @@
 
 ## Version History
 
+- **2.1.0**: Added visual testing architecture and enhanced integration testing documents (2025-05-23)
 - **2.0.0**: Standardized format with consistent navigation structure (2025-05-23)
 - **1.0.0**: Initial testing documentation map (2025-05-22)
