@@ -1,12 +1,16 @@
 
 # RBAC and Audit Logging Integration
 
-> **Version**: 1.0.0  
-> **Last Updated**: 2025-05-22
+> **Version**: 2.0.0  
+> **Last Updated**: 2025-05-23
 
 ## Overview
 
 This document details the integration between the Role-Based Access Control (RBAC) system and the Audit Logging system, defining how permission changes and access attempts are recorded.
+
+## Canonical Event Architecture Reference
+
+**IMPORTANT**: All RBAC event integration follows the patterns defined in [EVENT_ARCHITECTURE.md](EVENT_ARCHITECTURE.md). This document provides RBAC-specific implementations that extend the canonical event architecture.
 
 ## Integration Points
 
@@ -27,12 +31,15 @@ The RBAC system must emit events to the Audit Logging system for:
    - Role boundary changes
    - Role structure modifications
 
-## Event Publishing Interface
+## RBAC Event Production Interface
+
+RBAC events extend the canonical EventEmitter interface from [EVENT_ARCHITECTURE.md](EVENT_ARCHITECTURE.md):
 
 ```typescript
-interface RbacEventPublishingInterface {
+// RBAC event producer following canonical patterns
+interface RbacEventProducer {
   /**
-   * Log permission check result
+   * Log permission check result using canonical event schema
    */
   logPermissionCheck(
     userId: string,
@@ -40,10 +47,10 @@ interface RbacEventPublishingInterface {
     action: string,
     granted: boolean,
     context?: Record<string, any>
-  ): void;
+  ): Promise<void>;
   
   /**
-   * Log role assignment change
+   * Log role assignment change using canonical event schema
    */
   logRoleChange(
     targetUserId: string,
@@ -51,10 +58,10 @@ interface RbacEventPublishingInterface {
     changeType: 'assigned' | 'removed',
     roleId: string,
     context?: Record<string, any>
-  ): void;
+  ): Promise<void>;
   
   /**
-   * Log permission configuration change
+   * Log permission configuration change using canonical event schema
    */
   logPermissionChange(
     changedBy: string,
@@ -62,16 +69,108 @@ interface RbacEventPublishingInterface {
     roleId?: string,
     permissionId?: string,
     details?: Record<string, any>
-  ): void;
+  ): Promise<void>;
 }
 ```
 
-## Implementation Requirements
+## Implementation Using Canonical Event Architecture
 
 ### Permission Check Logging
 
 ```typescript
-// Permission check with automatic audit logging
+// Permission check with automatic audit logging using canonical events
+class RbacEventProducerImpl implements RbacEventProducer {
+  private eventBus: EventEmitter;
+  
+  constructor(eventBus: EventEmitter) {
+    this.eventBus = eventBus;
+  }
+  
+  async logPermissionCheck(
+    userId: string,
+    resource: string,
+    action: string,
+    granted: boolean,
+    context?: Record<string, any>
+  ): Promise<void> {
+    const rbacEvent: DomainEvent<PermissionCheckData> = {
+      id: generateUUID(),
+      type: 'rbac.permission_check',
+      source: 'rbac-service',
+      time: new Date().toISOString(),
+      dataVersion: '1.0',
+      data: {
+        userId,
+        resource,
+        action,
+        granted,
+        context
+      },
+      metadata: {
+        tenantId: getCurrentTenantId(),
+        correlationId: getRequestCorrelationId()
+      }
+    };
+    
+    // Use canonical event bus
+    await this.eventBus.emit('rbac', rbacEvent);
+  }
+  
+  async logRoleChange(
+    targetUserId: string,
+    changedBy: string,
+    changeType: 'assigned' | 'removed',
+    roleId: string,
+    context?: Record<string, any>
+  ): Promise<void> {
+    const rbacEvent: DomainEvent<RoleChangeData> = {
+      id: generateUUID(),
+      type: 'rbac.role_change',
+      source: 'rbac-service',
+      time: new Date().toISOString(),
+      dataVersion: '1.0',
+      data: {
+        targetUserId,
+        changedBy,
+        changeType,
+        roleId,
+        context
+      },
+      metadata: {
+        tenantId: getCurrentTenantId(),
+        correlationId: getRequestCorrelationId()
+      }
+    };
+    
+    // High priority for role changes
+    await this.eventBus.emitWithGuarantee('rbac', rbacEvent, {
+      priority: 'high'
+    });
+  }
+}
+
+// Event data interfaces extending canonical schema
+interface PermissionCheckData {
+  userId: string;
+  resource: string;
+  action: string;
+  granted: boolean;
+  context?: Record<string, any>;
+}
+
+interface RoleChangeData {
+  targetUserId: string;
+  changedBy: string;
+  changeType: 'assigned' | 'removed';
+  roleId: string;
+  context?: Record<string, any>;
+}
+```
+
+### Integrated Permission System with Canonical Events
+
+```typescript
+// Permission check with automatic audit logging using canonical event architecture
 async function checkPermission(
   userId: string,
   resource: string,
@@ -83,8 +182,8 @@ async function checkPermission(
     userId, resource, action, resourceId
   );
   
-  // Log permission check to audit system
-  auditLogger.logPermissionCheck(
+  // Log permission check using canonical event system
+  await rbacEventProducer.logPermissionCheck(
     userId,
     resource,
     action,
@@ -94,12 +193,8 @@ async function checkPermission(
   
   return hasPermission;
 }
-```
 
-### Role Change Logging
-
-```typescript
-// Role assignment with automatic audit logging
+// Role assignment with automatic audit logging using canonical events
 async function assignRoleToUser(
   userId: string,
   roleId: string,
@@ -108,8 +203,8 @@ async function assignRoleToUser(
   // Perform role assignment
   await roleManager.assignRole(userId, roleId);
   
-  // Log role assignment to audit system
-  auditLogger.logRoleChange(
+  // Log role assignment using canonical event system
+  await rbacEventProducer.logRoleChange(
     userId,
     assignedBy,
     'assigned',
@@ -121,72 +216,39 @@ async function assignRoleToUser(
 }
 ```
 
-## Event Structures
+## Event Channel Configuration
 
-### Permission Event Structure
-
-```typescript
-interface PermissionEvent {
-  eventType: 'permissionCheck' | 'roleAssign' | 'roleRemove' | 'permissionChange';
-  userId: string;
-  targetId?: string;
-  resource?: string;
-  action?: string;
-  granted?: boolean;
-  roleId?: string;
-  permissionId?: string;
-  timestamp: string;
-  context?: Record<string, any>;
-}
-```
-
-### Access Log Structure
+RBAC events use the 'rbac' channel as defined in the canonical event bus configuration from [EVENT_ARCHITECTURE.md](EVENT_ARCHITECTURE.md):
 
 ```typescript
-interface AccessLogEvent {
-  userId: string;
-  action: string;
-  resource: string;
-  resourceId?: string;
-  result: 'granted' | 'denied';
-  timestamp: string;
-  location: {
-    ip?: string;
-    userAgent?: string;
-  };
-  details?: Record<string, any>;
+// RBAC channel configuration (from canonical event architecture)
+'rbac': {
+  bufferSize: 500,
+  consumers: ['audit-logger', 'permission-cache-invalidator'],
+  retryStrategy: {
+    attempts: 2,
+    backoff: 'fixed',
+    delay: 200 // ms
+  }
 }
 ```
 
 ## Audit Trail Requirements
 
-Permission-related events must be logged with:
+Permission-related events must be logged following the canonical event schema with:
 
-1. **Complete Context**
-   - Who performed the action (userId)
-   - What action was performed (operation)
-   - Which resource was affected (resource, resourceId)
-   - When it occurred (timestamp)
-   - Where it originated from (IP, user agent)
-   - Why it was performed (context)
-
-2. **Search and Filtering**
-   - Events must be indexed for efficient searching
-   - Filtering by user, resource, action, and result must be supported
-   - Time-based filtering must be available
-
-3. **Compliance Support**
-   - Role and permission changes must be preserved for compliance requirements
-   - Access grant/deny patterns must be analyzable for security reviews
-   - Reports must be generatable for audit purposes
+1. **Complete Context** (as defined in canonical event metadata)
+2. **Search and Filtering** (supported by canonical event structure)
+3. **Compliance Support** (enabled by canonical event immutability)
 
 ## Related Documentation
 
+- **[EVENT_ARCHITECTURE.md](EVENT_ARCHITECTURE.md)**: **CANONICAL EVENT ARCHITECTURE REFERENCE**
 - **[../rbac/PERMISSION_RESOLUTION.md](../rbac/PERMISSION_RESOLUTION.md)**: Permission resolution process
 - **[../audit/SECURITY_INTEGRATION.md](../audit/SECURITY_INTEGRATION.md)**: Audit security integration
-- **[EVENT_ARCHITECTURE.md](EVENT_ARCHITECTURE.md)**: Event architecture details
 - **[SECURITY_AUDIT_INTEGRATION.md](SECURITY_AUDIT_INTEGRATION.md)**: Security audit integration
 
 ## Version History
 
+- **2.0.0**: Refactored to use canonical event architecture from EVENT_ARCHITECTURE.md, removed duplicate event patterns (2025-05-23)
 - **1.0.0**: Initial RBAC and Audit integration specification

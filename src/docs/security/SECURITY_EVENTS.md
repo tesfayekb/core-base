@@ -1,14 +1,18 @@
 
 # Security Event Logging
 
-> **Version**: 1.0.0  
+> **Version**: 2.0.0  
 > **Last Updated**: 2025-05-23
 
 ## Overview
 
 This document details the security event logging system that captures, processes, and stores security-related events for auditing and compliance.
 
-## Event Categories
+## Canonical Event Architecture Reference
+
+**IMPORTANT**: All security event integration follows the patterns defined in [../integration/EVENT_ARCHITECTURE.md](../integration/EVENT_ARCHITECTURE.md). This document provides security-specific details that extend the canonical event architecture.
+
+## Security Event Categories
 
 Security events are systematically captured through the audit logging framework:
 
@@ -30,37 +34,29 @@ Security events are systematically captured through the audit logging framework:
    - Batched security event processing
    - Priority handling for critical security events
 
-## Security Event Schema
+## Security Event Schema Extension
 
-Security events follow this standardized format:
+Security events extend the canonical BaseEvent schema defined in [../integration/EVENT_ARCHITECTURE.md](../integration/EVENT_ARCHITECTURE.md):
 
 ```typescript
-interface SecurityEvent {
-  // Event identification
-  id?: string;                  // Auto-generated if not provided
-  timestamp?: string;           // ISO 8601 format, defaults to now
-  
-  // Event categorization
-  type: SecurityEventType;      // Primary event category
-  subtype: string;              // Event-specific subtype
-  level: SecurityEventLevel;    // Severity/importance level
-  
-  // User context
-  userId?: string;              // User that triggered the event
-  sessionId?: string;           // User session ID
-  
-  // System context
-  source: string;               // System component that generated the event
-  tenantId?: string;            // Multi-tenant context
-  environment: string;          // Production, staging, development
-  
-  // Request context
-  requestId?: string;           // Correlation ID for tracking
-  ip?: string;                  // IP address
-  userAgent?: string;           // User agent
-  
-  // Event details
-  metadata: Record<string, any>; // Event-specific data
+// Extends DomainEvent<T> from canonical event architecture
+interface SecurityEvent extends DomainEvent<SecurityEventData> {
+  // Additional security-specific metadata
+  metadata: {
+    tenantId?: string;           // Multi-tenant context
+    userId?: string;             // User that triggered the event
+    sessionId?: string;          // User session ID
+    ip?: string;                 // IP address
+    userAgent?: string;          // User agent
+    securityLevel: SecurityEventLevel; // Security severity
+    [key: string]: any;
+  };
+}
+
+interface SecurityEventData {
+  eventType: SecurityEventType;
+  subtype: string;
+  details: Record<string, any>;
 }
 
 enum SecurityEventType {
@@ -84,175 +80,120 @@ enum SecurityEventLevel {
 }
 ```
 
-## Event Logging Implementation
+## Event Production Integration
 
-The security event logging implementation:
+Security events are produced using the canonical EventEmitter interface from [../integration/EVENT_ARCHITECTURE.md](../integration/EVENT_ARCHITECTURE.md):
 
 ```typescript
-// Security event logging implementation
-async function auditSecurityEvent(event: SecurityEvent): Promise<void> {
-  try {
-    // 1. Validate event structure
-    validateSecurityEvent(event);
-    
-    // 2. Add standard fields if not provided
-    const enrichedEvent = {
+// Security event producer following canonical patterns
+class SecurityEventProducer {
+  private eventBus: EventEmitter;
+  
+  constructor(eventBus: EventEmitter) {
+    this.eventBus = eventBus;
+  }
+  
+  async logSecurityEvent(
+    eventType: SecurityEventType,
+    subtype: string,
+    details: Record<string, any>,
+    level: SecurityEventLevel = SecurityEventLevel.INFO
+  ): Promise<void> {
+    const securityEvent: SecurityEvent = {
       id: generateUUID(),
-      timestamp: new Date().toISOString(),
-      environment: getEnvironment(),
-      source: getServiceName(),
-      ...event
+      type: 'security',
+      source: 'security-service',
+      time: new Date().toISOString(),
+      dataVersion: '1.0',
+      data: {
+        eventType,
+        subtype,
+        details
+      },
+      metadata: {
+        securityLevel: level,
+        tenantId: getCurrentTenantId(),
+        userId: getCurrentUserId(),
+        sessionId: getCurrentSessionId(),
+        ip: getCurrentIP(),
+        userAgent: getCurrentUserAgent()
+      }
     };
     
-    // 3. Determine priority based on event type and level
-    const priority = calculateEventPriority(enrichedEvent);
-    
-    // 4. Submit to audit logging service with appropriate priority
-    if (priority === 'high') {
-      // High priority - log immediately and wait for confirmation
-      await auditLogger.logImmediately(enrichedEvent);
+    // Use canonical event bus with priority based on security level
+    if (level === SecurityEventLevel.CRITICAL || level === SecurityEventLevel.ERROR) {
+      await this.eventBus.emitWithGuarantee('security', securityEvent, {
+        priority: 'high'
+      });
     } else {
-      // Standard priority - can be batched
-      auditLogger.log(enrichedEvent);
-    }
-    
-    // 5. Trigger alerts for critical events
-    if (enrichedEvent.level === SecurityEventLevel.CRITICAL) {
-      await securityAlertService.trigger(enrichedEvent);
-    }
-  } catch (error) {
-    // Fallback logging to ensure security events are never lost
-    console.error('Failed to audit security event:', error);
-    
-    // Last resort - local file logging if available
-    try {
-      await fallbackLogger.log(event);
-    } catch (fallbackError) {
-      console.error('Fallback security logging failed:', fallbackError);
+      await this.eventBus.emit('security', securityEvent);
     }
   }
-}
-
-// Utility to calculate event priority
-function calculateEventPriority(event: SecurityEvent): 'high' | 'standard' {
-  // Critical and error events are always high priority
-  if (
-    event.level === SecurityEventLevel.CRITICAL || 
-    event.level === SecurityEventLevel.ERROR
-  ) {
-    return 'high';
-  }
-  
-  // Authentication failures are high priority
-  if (
-    event.type === SecurityEventType.AUTHENTICATION && 
-    event.subtype?.includes('failure')
-  ) {
-    return 'high';
-  }
-  
-  // Configuration changes are high priority
-  if (event.type === SecurityEventType.CONFIGURATION) {
-    return 'high';
-  }
-  
-  // Admin actions are high priority
-  if (event.type === SecurityEventType.ADMIN_ACTION) {
-    return 'high';
-  }
-  
-  // Default to standard priority
-  return 'standard';
 }
 ```
 
-## Event Types and Subtypes
-
-Security events are categorized by these types and subtypes:
+## Security Event Types and Examples
 
 ### Authentication Events
 
 ```typescript
-// Authentication event examples
-interface AuthenticationEvent extends SecurityEvent {
-  type: 'authentication';
-  subtype: 
-    | 'login_success' 
-    | 'login_failure' 
-    | 'logout' 
-    | 'token_refresh'
-    | 'password_reset_request'
-    | 'password_changed'
-    | 'mfa_enabled'
-    | 'mfa_disabled'
-    | 'mfa_challenge'
-    | 'mfa_success'
-    | 'mfa_failure';
-  metadata: {
-    method?: 'password' | 'social' | 'sso' | 'token';
-    provider?: string;
-    reason?: string;
-    attemptCount?: number;
-  }
+// Authentication event examples extending canonical schema
+interface AuthenticationEventData {
+  method: 'password' | 'social' | 'sso' | 'token';
+  provider?: string;
+  reason?: string;
+  attemptCount?: number;
 }
+
+// Usage examples
+await securityEventProducer.logSecurityEvent(
+  SecurityEventType.AUTHENTICATION,
+  'login_success',
+  { method: 'password', provider: 'local' },
+  SecurityEventLevel.INFO
+);
+
+await securityEventProducer.logSecurityEvent(
+  SecurityEventType.AUTHENTICATION,
+  'login_failure',
+  { method: 'password', reason: 'invalid_credentials', attemptCount: 3 },
+  SecurityEventLevel.WARNING
+);
 ```
 
 ### Authorization Events
 
 ```typescript
 // Authorization event examples
-interface AuthorizationEvent extends SecurityEvent {
-  type: 'authorization';
-  subtype: 
-    | 'permission_check'
-    | 'permission_granted'
-    | 'permission_denied'
-    | 'role_assigned'
-    | 'role_revoked'
-    | 'permission_created'
-    | 'permission_deleted';
-  metadata: {
-    resource?: string;
-    action?: string;
-    roleId?: string;
-    roleName?: string;
-    permissionId?: string;
-    targetUserId?: string;
-  }
+interface AuthorizationEventData {
+  resource: string;
+  action: string;
+  roleId?: string;
+  roleName?: string;
+  permissionId?: string;
+  targetUserId?: string;
 }
+
+// Usage examples
+await securityEventProducer.logSecurityEvent(
+  SecurityEventType.AUTHORIZATION,
+  'permission_denied',
+  { resource: 'users', action: 'delete', targetUserId: 'user-123' },
+  SecurityEventLevel.WARNING
+);
 ```
 
-### Configuration Events
+## Event Bus Channel Configuration
 
-```typescript
-// Configuration event examples
-interface ConfigurationEvent extends SecurityEvent {
-  type: 'configuration';
-  subtype: 
-    | 'security_setting_changed'
-    | 'feature_flag_changed'
-    | 'integration_configured'
-    | 'policy_updated'
-    | 'system_setting_changed';
-  metadata: {
-    setting?: string;
-    oldValue?: any;
-    newValue?: any;
-    component?: string;
-    reason?: string;
-    approvedBy?: string;
-  }
-}
-```
+Security events use the 'security' channel as defined in the canonical event bus configuration from [../integration/EVENT_ARCHITECTURE.md](../integration/EVENT_ARCHITECTURE.md).
 
 ## Related Documentation
 
-- **[OVERVIEW.md](OVERVIEW.md)**: Security implementation overview
-- **[AUTH_ALGORITHMS.md](AUTH_ALGORITHMS.md)**: Authentication algorithms
-- **[PERMISSION_ENFORCEMENT.md](PERMISSION_ENFORCEMENT.md)**: Permission enforcement
-- **[SECURITY_MONITORING.md](SECURITY_MONITORING.md)**: Security monitoring
-- **[../audit/SECURITY_INTEGRATION.md](../audit/SECURITY_INTEGRATION.md)**: Audit integration
+- **[../integration/EVENT_ARCHITECTURE.md](../integration/EVENT_ARCHITECTURE.md)**: **CANONICAL EVENT ARCHITECTURE REFERENCE**
+- **[SECURITY_MONITORING.md](SECURITY_MONITORING.md)**: Security monitoring implementation
+- **[../audit/SECURITY_INTEGRATION.md](../audit/SECURITY_INTEGRATION.md)**: Audit integration details
 
 ## Version History
 
+- **2.0.0**: Refactored to extend canonical event architecture from EVENT_ARCHITECTURE.md, removed duplicate event patterns (2025-05-23)
 - **1.0.0**: Initial document created from OVERVIEW.md refactoring (2025-05-23)
