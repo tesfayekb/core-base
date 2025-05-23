@@ -1,7 +1,7 @@
 
 # Migration Monitoring and Rollback Strategies
 
-> **Version**: 1.0.0  
+> **Version**: 1.1.0  
 > **Last Updated**: 2025-05-23
 
 ## Automated Rollback Triggers
@@ -77,4 +77,5 @@ class MigrationMetricsCollector {
 
 ## Version History
 
+- **1.1.0**: Updated cross-references to use absolute paths (2025-05-23)
 - **1.0.0**: Initial migration monitoring and rollback strategies (2025-05-23)

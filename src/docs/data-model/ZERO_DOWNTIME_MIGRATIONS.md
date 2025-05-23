@@ -1,7 +1,7 @@
 
 # Zero-Downtime Migration Patterns Overview
 
-> **Version**: 2.0.0  
+> **Version**: 2.1.0  
 > **Last Updated**: 2025-05-23
 
 ## Overview
@@ -84,5 +84,6 @@ For multi-tenant systems, see:
 
 ## Version History
 
+- **2.1.0**: Refactored into focused overview with detailed guides (2025-05-23)
 - **2.0.0**: Refactored into focused overview with detailed guides (2025-05-23)
 - **1.0.0**: Initial zero-downtime migration patterns documentation (2025-05-23)

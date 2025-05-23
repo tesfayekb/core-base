@@ -1,7 +1,7 @@
 
 # Detailed Migration Implementation Patterns
 
-> **Version**: 1.0.0  
+> **Version**: 1.1.0  
 > **Last Updated**: 2025-05-23
 
 ## Advanced Migration Patterns
@@ -145,4 +145,5 @@ END $$;
 
 ## Version History
 
+- **1.1.0**: Updated cross-references to use absolute paths (2025-05-23)
 - **1.0.0**: Initial detailed migration patterns (2025-05-23)

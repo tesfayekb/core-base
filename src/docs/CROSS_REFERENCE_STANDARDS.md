@@ -1,7 +1,7 @@
 
 # Documentation Cross-Reference Standards
 
-> **Version**: 3.0.0  
+> **Version**: 3.1.0  
 > **Last Updated**: 2025-05-23
 
 ## Overview
@@ -10,9 +10,9 @@ This document defines the updated standards for cross-referencing between docume
 
 ## Cross-Reference Formats
 
-### Absolute Path Standard
+### Absolute Path Standard (REQUIRED)
 
-All cross-references must use absolute paths from the docs root to prevent confusion when files are moved:
+All cross-references MUST use absolute paths from the docs root to prevent confusion when files are moved:
 
 1. **Standard Format**:
    - Format: `[Document Title](src/docs/path/to/DOCUMENT_NAME.md)`
@@ -25,6 +25,13 @@ All cross-references must use absolute paths from the docs root to prevent confu
 3. **Deep Path References**:
    - Format: `[Document Title](src/docs/directory/subdirectory/DOCUMENT_NAME.md)`
    - Example: `[Core Algorithm](src/docs/rbac/permission-resolution/CORE_ALGORITHM.md)`
+
+### Deprecated Path Formats
+
+❌ **Do NOT use these formats:**
+- Relative paths: `../security/AUTH_SYSTEM.md`
+- Root relative: `/docs/CORE_ARCHITECTURE.md`
+- Missing src/docs prefix: `rbac/README.md`
 
 ## Standard Reference Blocks
 
@@ -71,6 +78,7 @@ For AI implementation, see:
 
 ## Version History
 
+- **3.1.0**: Made absolute path format mandatory and deprecated relative paths (2025-05-23)
 - **3.0.0**: Standardized to absolute path format for all references (2025-05-23)
 - **2.0.0**: Updated to absolute path standard and added knowledge graph integration (2025-05-23)
 - **1.0.0**: Initial cross-reference standards (2025-05-22)

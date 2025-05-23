@@ -1,7 +1,7 @@
 
 # Multi-Tenant Implementation Reference (DEPRECATED)
 
-> **Version**: 3.1.0  
+> **Version**: 3.2.0  
 > **Last Updated**: 2025-05-23  
 > **Status**: REFERENCE ONLY - Use Authoritative Implementation Path
 
@@ -16,7 +16,8 @@
 
 This document is maintained as a **reference only** for historical context and pattern examples. 
 
-**Do not use this checklist for active implementation.**
+**❌ Do not use this checklist for active implementation.**
+**✅ Use this document only for reference and historical context.**
 
 ## Migration Path
 
@@ -49,6 +50,7 @@ The original approach was replaced because:
 
 ## Version History
 
+- **3.2.0**: Enhanced deprecation notice with clear status and migration path (2025-05-23)
 - **3.1.0**: Clarified status as reference-only, updated guidance (2025-05-23)
 - **3.0.0**: Deprecated in favor of the authoritative implementation path (2025-05-23)
 - **2.1.0**: Refactored into focused reference guide (2025-05-23)

@@ -1,7 +1,7 @@
 
 # Migration Testing Strategies
 
-> **Version**: 1.0.0  
+> **Version**: 1.1.0  
 > **Last Updated**: 2025-05-23
 
 ## Testing Zero-Downtime Migrations
@@ -111,4 +111,5 @@ class MigrationLoadTester {
 
 ## Version History
 
+- **1.1.0**: Updated cross-references to use absolute paths (2025-05-23)
 - **1.0.0**: Initial migration testing strategies (2025-05-23)
