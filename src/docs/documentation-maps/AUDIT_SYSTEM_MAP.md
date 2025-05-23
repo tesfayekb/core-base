@@ -1,7 +1,8 @@
 
+
 # Audit System Documentation Map
 
-> **Version**: 1.2.0  
+> **Version**: 1.3.0  
 > **Last Updated**: 2025-05-23
 
 This document provides a visual guide to the audit logging documentation files in the project plan.
@@ -22,7 +23,10 @@ audit/
 ├── LOG_FORMAT_STANDARDIZATION.md # Entry point to log format docs
 ├── LOG_FORMAT_CORE.md         # Core log format structure
 ├── LOG_FORMAT_SUBSYSTEMS.md   # Subsystem-specific log formats
-├── LOG_FORMAT_IMPLEMENTATION.md # Implementation guidelines
+├── LOG_FORMAT_IMPLEMENTATION.md # Implementation guidelines overview
+├── LOG_FORMAT_INTERFACES.md   # Core interfaces for implementation
+├── LOG_FORMAT_EXAMPLES.md     # Example implementations
+├── LOG_FORMAT_USAGE.md        # Usage patterns and best practices
 └── LOG_FORMAT_INTEGRATION.md  # Integration with other systems
 ```
 
@@ -45,6 +49,10 @@ graph TD
     LOG_STD --> LOG_IMP["LOG_FORMAT_IMPLEMENTATION.md"]
     LOG_STD --> LOG_INT["LOG_FORMAT_INTEGRATION.md"]
     
+    LOG_IMP --> LOG_INTF["LOG_FORMAT_INTERFACES.md"]
+    LOG_IMP --> LOG_EX["LOG_FORMAT_EXAMPLES.md"]
+    LOG_IMP --> LOG_USE["LOG_FORMAT_USAGE.md"]
+    
     SEC["../security/README.md"] --> AUDIT
     SEC_MON["../security/SECURITY_MONITORING.md"] --> SEC_INT
     SEC_MON --> DASH
@@ -64,8 +72,9 @@ graph TD
     
     LOG_CORE --> SERVICE
     LOG_CORE --> LOG_SUB
-    LOG_IMP --> SERVICE
-
+    LOG_INTF --> SERVICE
+    LOG_INTF --> LOG_EX
+    LOG_INTF --> LOG_USE
 ```
 
 ## Permission Resolution Document Map
