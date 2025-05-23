@@ -1,316 +1,58 @@
 
 # Integration Testing Strategy
 
-> **Version**: 1.0.0  
+> **Version**: 2.0.0  
 > **Last Updated**: 2025-05-23
 
 ## Overview
 
-This document outlines the comprehensive integration testing strategy that ensures different components of the system work together correctly. Integration testing focuses on verifying the interactions between components rather than testing individual units in isolation.
+This document provides an overview of the comprehensive integration testing strategy. The strategy has been split into focused documents for better AI context management and maintainability.
+
+## Focused Integration Testing Documents
+
+### Core Testing Areas
+
+- **[CORE_COMPONENT_INTEGRATION.md](CORE_COMPONENT_INTEGRATION.md)**: Essential component-to-component integration tests
+  - RBAC and User Management integration
+  - Authentication and session management
+  - Multi-tenant data isolation
+  - Basic audit integration
+
+- **[ADVANCED_INTEGRATION_PATTERNS.md](ADVANCED_INTEGRATION_PATTERNS.md)**: Complex integration scenarios
+  - End-to-end user flows
+  - Advanced multi-tenant testing
+  - Event-driven integration
+  - Performance integration testing
+
+- **[INTEGRATION_TEST_ENVIRONMENT.md](INTEGRATION_TEST_ENVIRONMENT.md)**: Test environment setup and configuration
+  - Database setup and management
+  - Service mocking strategies
+  - Test fixtures and helpers
+  - CI/CD integration
 
 ## Integration Test Categories
 
-### Component-to-Component Integration
+### 1. Component-to-Component Integration
+Focus: Testing interactions between closely related components within the same subsystem.
+**See**: [CORE_COMPONENT_INTEGRATION.md](CORE_COMPONENT_INTEGRATION.md)
 
-Tests that verify interactions between closely related components within the same subsystem:
+### 2. Subsystem Integration
+Focus: Testing interactions between major subsystems (Auth, RBAC, Multi-tenant, Audit).
+**See**: [CORE_COMPONENT_INTEGRATION.md](CORE_COMPONENT_INTEGRATION.md)
 
-```typescript
-// Example: Testing RBAC and User Management integration
-describe('RBAC and User Management Integration', () => {
-  test('should assign correct permissions when user role changes', async () => {
-    // 1. Set up user with initial role
-    const { userId } = await userService.createUser({
-      email: 'test@example.com',
-      name: 'Test User'
-    });
-    
-    await roleService.assignRole(userId, 'basic-user');
-    
-    // 2. Verify initial permissions
-    const initialPermissions = await permissionService.getUserPermissions(userId);
-    expect(initialPermissions).toContain('documents.view');
-    expect(initialPermissions).not.toContain('users.manage');
-    
-    // 3. Change user role
-    await roleService.assignRole(userId, 'admin-user');
-    
-    // 4. Verify updated permissions
-    const updatedPermissions = await permissionService.getUserPermissions(userId);
-    expect(updatedPermissions).toContain('documents.view');
-    expect(updatedPermissions).toContain('users.manage');
-    
-    // 5. Clean up
-    await userService.deleteUser(userId);
-  });
-});
-```
+### 3. End-to-End Flow Integration
+Focus: Testing complete business flows across multiple subsystems.
+**See**: [ADVANCED_INTEGRATION_PATTERNS.md](ADVANCED_INTEGRATION_PATTERNS.md)
 
-### Subsystem Integration
+### 4. Performance Integration
+Focus: Testing integration points under load and performance requirements.
+**See**: [ADVANCED_INTEGRATION_PATTERNS.md](ADVANCED_INTEGRATION_PATTERNS.md)
 
-Tests that verify interactions between major subsystems:
+## Quick Start Guide
 
-```typescript
-// Example: Testing Authentication, RBAC, and Multi-tenant integration
-describe('Authentication, RBAC, and Multi-tenant Integration', () => {
-  test('should set tenant context when user logs in', async () => {
-    // 1. Create test user with tenant access
-    const { userId } = await userService.createUser({
-      email: 'tenant-test@example.com',
-      name: 'Tenant Test User'
-    });
-    
-    const tenantId = await tenantService.createTenant('Test Tenant');
-    await tenantService.addUserToTenant(userId, tenantId);
-    
-    // 2. Perform login
-    const { session } = await authService.login({
-      email: 'tenant-test@example.com',
-      password: 'password123'
-    });
-    
-    // 3. Verify tenant context is set
-    const currentTenant = await tenantService.getCurrentTenant(session);
-    expect(currentTenant.id).toBe(tenantId);
-    
-    // 4. Verify permissions include tenant context
-    const hasPermission = await permissionService.checkPermission({
-      userId,
-      tenantId,
-      resourceType: 'documents',
-      action: 'view'
-    });
-    
-    expect(hasPermission).toBe(true);
-    
-    // 5. Clean up
-    await userService.deleteUser(userId);
-    await tenantService.deleteTenant(tenantId);
-  });
-});
-```
-
-### End-to-End Flow Integration
-
-Tests that verify complete business flows across multiple subsystems:
-
-```typescript
-// Example: Testing complete user onboarding flow
-describe('User Onboarding Flow', () => {
-  test('should complete full onboarding process', async () => {
-    // 1. Register new user
-    const { userId, verificationToken } = await authService.register({
-      email: 'new-user@example.com',
-      password: 'securePassword123'
-    });
-    
-    // 2. Verify email
-    await authService.verifyEmail(verificationToken);
-    
-    // 3. Complete profile
-    await userService.updateProfile(userId, {
-      name: 'New User',
-      jobTitle: 'Developer'
-    });
-    
-    // 4. Join organization
-    const orgId = await organizationService.createOrganization('Test Org');
-    await organizationService.addMember(orgId, userId);
-    
-    // 5. Verify permissions in organization context
-    const hasOrgPermission = await permissionService.checkPermission({
-      userId,
-      tenantId: orgId,
-      resourceType: 'projects',
-      action: 'view'
-    });
-    
-    expect(hasOrgPermission).toBe(true);
-    
-    // 6. Clean up
-    await userService.deleteUser(userId);
-    await organizationService.deleteOrganization(orgId);
-  });
-});
-```
-
-## Integration Testing Environment
-
-### Test Database Setup
-
-1. **Isolated Test Database**: Use a separate database instance for integration tests
-2. **Automated Migration**: Run migrations before test suite execution
-3. **Data Seeding**: Populate with standardized test data before each test
-4. **Transaction Boundaries**: Run tests within transactions that roll back after completion
-
-### Integration Test Configuration
-
-```typescript
-// Example test configuration
-export const integrationTestConfig = {
-  database: {
-    url: process.env.TEST_DATABASE_URL,
-    schema: 'integration_tests'
-  },
-  services: {
-    auth: {
-      jwtSecret: 'test-secret',
-      tokenExpiry: '1h'
-    },
-    permissions: {
-      cacheTTL: 60 // 1 minute for faster testing
-    }
-  },
-  mocks: {
-    email: true, // Mock email service
-    externalAPIs: true // Mock external API calls
-  }
-};
-```
-
-## Integration Test Implementation
-
-### Testing Multi-tenant Interactions
-
-```typescript
-// Example: Testing multi-tenant data isolation
-describe('Multi-tenant Data Isolation', () => {
-  let tenant1Id: string;
-  let tenant2Id: string;
-  let user1Id: string;
-  let user2Id: string;
-  
-  beforeAll(async () => {
-    // Set up two tenants and users
-    tenant1Id = await tenantService.createTenant('Tenant 1');
-    tenant2Id = await tenantService.createTenant('Tenant 2');
-    
-    user1Id = await userService.createUser({ email: 'user1@tenant1.com' });
-    user2Id = await userService.createUser({ email: 'user2@tenant2.com' });
-    
-    await tenantService.addUserToTenant(user1Id, tenant1Id);
-    await tenantService.addUserToTenant(user2Id, tenant2Id);
-    
-    // Create tenant-specific data
-    await documentService.createDocument({
-      tenantId: tenant1Id,
-      title: 'Tenant 1 Document',
-      content: 'Content for tenant 1'
-    });
-    
-    await documentService.createDocument({
-      tenantId: tenant2Id,
-      title: 'Tenant 2 Document',
-      content: 'Content for tenant 2'
-    });
-  });
-  
-  test('users should only see their tenant data', async () => {
-    // User 1 in Tenant 1
-    const user1Docs = await documentService.listDocuments({
-      userId: user1Id,
-      tenantId: tenant1Id
-    });
-    
-    expect(user1Docs.length).toBe(1);
-    expect(user1Docs[0].title).toBe('Tenant 1 Document');
-    
-    // User 2 in Tenant 2
-    const user2Docs = await documentService.listDocuments({
-      userId: user2Id,
-      tenantId: tenant2Id
-    });
-    
-    expect(user2Docs.length).toBe(1);
-    expect(user2Docs[0].title).toBe('Tenant 2 Document');
-  });
-  
-  test('users cannot access other tenant data', async () => {
-    // User 1 trying to access Tenant 2
-    const result = await documentService.listDocuments({
-      userId: user1Id,
-      tenantId: tenant2Id
-    });
-    
-    expect(result.length).toBe(0);
-  });
-  
-  afterAll(async () => {
-    // Clean up
-    await tenantService.deleteTenant(tenant1Id);
-    await tenantService.deleteTenant(tenant2Id);
-    await userService.deleteUser(user1Id);
-    await userService.deleteUser(user2Id);
-  });
-});
-```
-
-### Testing RBAC and Audit Integration
-
-```typescript
-// Example: Testing RBAC and audit logging integration
-describe('RBAC and Audit Integration', () => {
-  test('should log permission changes in audit log', async () => {
-    // 1. Set up user and role
-    const userId = await userService.createUser({ email: 'audit-test@example.com' });
-    const roleId = await roleService.createRole('Test Role');
-    
-    // 2. Track audit log position
-    const auditStartPosition = await auditService.getLastEventId();
-    
-    // 3. Make permission change
-    await roleService.assignPermissionToRole(roleId, 'documents.edit');
-    await roleService.assignRoleToUser(userId, roleId);
-    
-    // 4. Verify audit log entry
-    const auditEvents = await auditService.getEventsSince(auditStartPosition);
-    
-    const permissionEvent = auditEvents.find(
-      e => e.eventType === 'permission.change' && e.userId === userId
-    );
-    
-    expect(permissionEvent).toBeDefined();
-    expect(permissionEvent.metadata.permission).toBe('documents.edit');
-    expect(permissionEvent.metadata.roleId).toBe(roleId);
-    
-    // 5. Clean up
-    await roleService.deleteRole(roleId);
-    await userService.deleteUser(userId);
-  });
-});
-```
-
-### Testing Authentication and Session Management
-
-```typescript
-// Example: Testing authentication and session management
-describe('Authentication and Session Management', () => {
-  test('should properly create and verify sessions', async () => {
-    // 1. Register and login
-    await authService.register({
-      email: 'session-test@example.com',
-      password: 'session123'
-    });
-    
-    const { session } = await authService.login({
-      email: 'session-test@example.com',
-      password: 'session123'
-    });
-    
-    // 2. Verify session token
-    const isValid = await authService.verifySession(session.token);
-    expect(isValid).toBe(true);
-    
-    // 3. Verify session includes user data
-    const sessionData = await authService.getSessionData(session.token);
-    expect(sessionData.email).toBe('session-test@example.com');
-    
-    // 4. Verify session expiry
-    jest.advanceTimersByTime(60 * 60 * 1000 + 1); // 1 hour + 1ms
-    const isExpired = await authService.verifySession(session.token);
-    expect(isExpired).toBe(false);
-  });
-});
-```
+1. **Start with Core Integration**: Begin with [CORE_COMPONENT_INTEGRATION.md](CORE_COMPONENT_INTEGRATION.md)
+2. **Set Up Environment**: Configure using [INTEGRATION_TEST_ENVIRONMENT.md](INTEGRATION_TEST_ENVIRONMENT.md)
+3. **Add Advanced Patterns**: Implement complex scenarios from [ADVANCED_INTEGRATION_PATTERNS.md](ADVANCED_INTEGRATION_PATTERNS.md)
 
 ## Test Coverage Requirements
 
@@ -337,4 +79,5 @@ Integration tests should cover:
 
 ## Version History
 
+- **2.0.0**: Refactored into focused documents for better AI context management (2025-05-23)
 - **1.0.0**: Initial integration testing strategy document (2025-05-23)
