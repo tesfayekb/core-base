@@ -1,1 +1,3 @@
 
+# This file exists to ensure the docs directory is tracked by Git
+# Empty directories are not tracked by Git by default
