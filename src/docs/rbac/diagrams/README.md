@@ -1,8 +1,8 @@
 
 # RBAC System Diagrams
 
-> **Version**: 1.0.0  
-> **Last Updated**: 2025-05-18
+> **Version**: 1.1.0  
+> **Last Updated**: 2025-05-23
 
 This directory contains visual diagrams that complement the RBAC system documentation, illustrating key concepts in a visual format to enhance understanding of the system's architecture.
 
@@ -28,10 +28,14 @@ These diagrams are designed to complement the written documentation by providing
 
 ## Related Documentation
 
-- [RBAC System](../RBAC_SYSTEM.md)
-- [Multi-Tenant Roles](../security/MULTI_TENANT_ROLES.md)
-- [Performance Strategies](../audit/PERFORMANCE_STRATEGIES.md)
+- [RBAC System Overview](../README.md)
+- [Permission Resolution](../permission-resolution/README.md)
+- [Caching Strategy](../CACHING_STRATEGY.md)
+- [Entity Boundaries](../ENTITY_BOUNDARIES.md)
+- [Security: Multi-Tenant Roles](../../security/MULTI_TENANT_ROLES.md)
+- [Performance: Strategies](../../audit/PERFORMANCE_STRATEGIES.md)
 
 ## Version History
 
+- **1.1.0**: Updated related documentation links to follow cross-reference standards (2025-05-23)
 - **1.0.0**: Initial creation of RBAC system diagrams

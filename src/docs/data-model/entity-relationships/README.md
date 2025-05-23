@@ -1,8 +1,8 @@
 
 # Entity Relationship Documentation
 
-> **Version**: 1.1.0  
-> **Last Updated**: 2025-05-22
+> **Version**: 1.2.0  
+> **Last Updated**: 2025-05-23
 
 ## Overview
 
@@ -55,9 +55,13 @@ When making changes to entity relationships, special care must be taken to maint
 - **[../SCHEMA_MIGRATIONS.md](../SCHEMA_MIGRATIONS.md)**: Database migration procedures
 - **[../DATA_INTEGRITY.md](../DATA_INTEGRITY.md)**: Data integrity constraints
 - **[../../rbac/README.md](../../rbac/README.md)**: RBAC system documentation
+- **[../../rbac/ENTITY_BOUNDARIES.md](../../rbac/ENTITY_BOUNDARIES.md)**: Entity boundary definitions for permissions
 - **[../../multitenancy/README.md](../../multitenancy/README.md)**: Multitenancy architecture
+- **[../../multitenancy/DATA_ISOLATION.md](../../multitenancy/DATA_ISOLATION.md)**: Data isolation strategies
+- **[../../multitenancy/DATABASE_QUERY_PATTERNS.md](../../multitenancy/DATABASE_QUERY_PATTERNS.md)**: Multi-tenant query patterns
 
 ## Version History
 
+- **1.2.0**: Updated related documentation links to follow cross-reference standards (2025-05-23)
 - **1.1.0**: Added references to migration strategy documents (2025-05-22)
 - **1.0.0**: Initial entity relationship documentation refactoring (2025-05-22)
