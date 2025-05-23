@@ -1,177 +1,119 @@
-
 # Tiered Navigation Guide for AI
 
-> **Version**: 1.0.0  
+> **Version**: 1.1.0  
 > **Last Updated**: 2025-05-23
+
+## AI Context Management Rules
+
+### Document Session Limits by Tier
+
+#### Tier 1: Quick Start
+- **Maximum 2-3 documents per session**
+- **Single session implementation possible**
+- **Essential documents only**
+
+#### Tier 2: Standard  
+- **Maximum 3-4 documents per session**
+- **3-4 focused sessions total**
+- **Phase-based document grouping**
+
+#### Tier 3: Advanced
+- **Reference-only approach**
+- **Consult specific documents as needed**
+- **No bulk processing required**
+
+### Context Processing Guidelines
+
+#### Session Planning
+```typescript
+interface AISession {
+  tier: 1 | 2 | 3;
+  phase?: number;
+  maxDocuments: number;
+  documentGroup: string[];
+  implementation: string;
+  mustComplete: boolean;
+}
+
+// Example Tier 2 Session
+const phase1Session: AISession = {
+  tier: 2,
+  phase: 1,
+  maxDocuments: 4,
+  documentGroup: [
+    "docs/CORE_ARCHITECTURE.md",
+    "docs/data-model/DATABASE_SCHEMA.md", 
+    "docs/security/AUTH_SYSTEM.md"
+  ],
+  implementation: "authentication_foundation",
+  mustComplete: true
+};
+```
 
 ## Overview
 
-This guide provides AI platforms with clear navigation rules for the tiered documentation approach, optimizing context management and implementation efficiency.
+This guide provides navigation rules for AI platforms implementing the tiered documentation approach.
+
+## Tier Selection Guide
+
+1. **Tier 1 (Quick Start)**:
+   - **Use for**: Initial exploration, proof-of-concept, rapid prototyping
+   - **Documents**: `ai-development/TIER1_QUICK_START.md`
+   - **Goal**: Implement essential features in 1-2 hours
+
+2. **Tier 2 (Standard)**:
+   - **Use for**: Production-ready implementation, full-featured systems
+   - **Documents**: `ai-development/TIER2_STANDARD.md`
+   - **Goal**: Implement complete system in 2-4 weeks
+
+3. **Tier 3 (Advanced)**:
+   - **Use for**: Optimization, edge cases, complex integrations
+   - **Documents**: Consult specific documents as needed
+   - **Goal**: Fine-tune system for specific requirements
 
 ## Navigation Rules
 
-### Rule 1: Always Start with Appropriate Tier
-```
-Quick MVP needed (1-2 hours) → Tier 1
-Production system (2-4 weeks) → Tier 2  
-Complex/specialized requirements → Start Tier 2, reference Tier 3
-```
+### Tier 1 Navigation
+1. **Start**: `ai-development/TIER1_QUICK_START.md`
+2. **Follow**: The 5-document implementation sequence
+3. **Reference**: Only the documents listed in TIER1_QUICK_START.md
+4. **Validate**: Meet the success criteria in TIER1_QUICK_START.md
 
-### Rule 2: Complete Current Tier Before Advancing
-- **Validate all success criteria** before moving to next tier
-- **Don't mix tiers** in single implementation session
-- **Build incrementally** on previous tier foundation
+### Tier 2 Navigation
+1. **Start**: `ai-development/TIER2_STANDARD.md`
+2. **Follow**: The phase-by-phase implementation sequence
+3. **Reference**: Only the documents listed for the current phase
+4. **Validate**: Meet all validation checkpoint criteria before continuing
 
-### Rule 3: Reference Higher Tiers Only When Needed
-- **Tier 1 → Tier 2**: When basic implementation complete
-- **Tier 2 → Tier 3**: When specific optimization/complexity needed
-- **Never skip tiers** unless explicit advanced requirements
+### Tier 3 Navigation
+1. **Start**: With a specific problem or optimization goal
+2. **Search**: For relevant documents in the documentation set
+3. **Reference**: Only the documents directly related to the problem
+4. **Validate**: That the solution meets the specific requirements
 
-## AI Context Management Strategy
+## Implementation Benefits
 
-### Single Session Approach
-```
-Tier 1: Complete in 1 session (2-3 documents max)
-Tier 2: 3-4 focused sessions (5 documents per session)
-Tier 3: Reference-only (1-2 documents per specific need)
-```
+### Tier 1 Benefits
+- **Rapid Implementation**: Get running in hours
+- **Minimal Context**: Focus on essential documents
+- **Clear Path**: Follow the 5-document sequence
 
-### Session Planning
-1. **Session 1**: Database + Auth (Tier 1 foundation)
-2. **Session 2**: RBAC + Permissions (Tier 1 complete)
-3. **Session 3**: Multi-tenant upgrade (Tier 2 start)
-4. **Session 4**: Advanced features (Tier 2 continue)
-5. **Session 5**: Production polish (Tier 2 complete)
+### Tier 2 Benefits
+- **Complete System**: Implement all features
+- **Structured Approach**: Follow the phase-based sequence
+- **Validation Gates**: Ensure quality at each phase
 
-## Tier Transition Points
+### Tier 3 Benefits
+- **Targeted Solutions**: Address specific problems
+- **Maximum Flexibility**: Consult any document as needed
+- **Expert Control**: Fine-tune the system for specific needs
 
-### Tier 1 → Tier 2 Transition
-**When to upgrade:**
-- Basic functionality working
-- Need multi-tenant support
-- Require production features
-- Performance optimization needed
+## Related Documentation
 
-**Upgrade checklist:**
-- [ ] User authentication working
-- [ ] Basic permissions implemented
-- [ ] Single tenant data access
-- [ ] Core UI functional
+- **[TIERED_APPROACH_OVERVIEW.md](TIERED_APPROACH_OVERVIEW.md)**: Complete tiered system explanation
+- **[../GLOBAL_DOCUMENTATION_MAP.md](../GLOBAL_DOCUMENTATION_MAP.md)**: Complete documentation structure
 
-### Tier 2 → Tier 3 Reference
-**When to consult:**
-- Performance targets not met
-- Complex business rules needed
-- Advanced security requirements
-- Specialized integration needs
+## Version History
 
-**Reference approach:**
-- Identify specific issue
-- Find relevant Tier 3 document
-- Implement specific solution
-- Return to Tier 2 flow
-
-## Implementation Patterns by Tier
-
-### Tier 1 Pattern: Minimal Viable
-```typescript
-// Focus: Get it working
-const login = async (email: string, password: string) => {
-  const result = await auth.signIn(email, password);
-  return result.success;
-};
-```
-
-### Tier 2 Pattern: Production Ready
-```typescript
-// Focus: Complete implementation
-const login = async (
-  email: string, 
-  password: string, 
-  tenantId: string
-) => {
-  try {
-    const result = await auth.signInWithPassword({ email, password });
-    if (result.error) return { success: false, error: result.error.message };
-    
-    await setTenantContext(tenantId);
-    await logAuditEvent('login', { userId: result.data.user.id, tenantId });
-    
-    return { success: true, data: result.data };
-  } catch (error) {
-    return { success: false, error: 'Login failed' };
-  }
-};
-```
-
-### Tier 3 Pattern: Optimized/Specialized
-```typescript
-// Focus: Performance and edge cases
-class OptimizedAuthService {
-  private cache = new Map();
-  
-  async loginWithAdvancedSecurity(
-    credentials: AuthCredentials,
-    securityContext: SecurityContext
-  ): Promise<AuthResult> {
-    // Advanced threat detection, caching, optimization
-  }
-}
-```
-
-## Document Selection Strategy
-
-### For Quick Implementation (Tier 1)
-Primary documents:
-1. `TIER1_QUICK_START.md` (this file structure)
-2. Core patterns from `CORE_PATTERNS.md`
-3. Basic database schema
-4. Simple authentication
-5. Essential permissions
-
-### For Production System (Tier 2)
-Primary documents:
-1. `TIER2_STANDARD.md` (comprehensive guide)
-2. Phase implementation maps
-3. Validation checkpoints
-4. Integration patterns
-5. Testing strategies
-
-### For Advanced Needs (Tier 3)
-Reference documents:
-1. `TIER3_ADVANCED.md` (when to consult)
-2. Specific optimization guides
-3. Complex integration patterns
-4. Edge case handling
-5. Performance tuning
-
-## Success Metrics by Tier
-
-### Tier 1 Success
-- Implementation time: 1-2 hours
-- Documents referenced: 5-7
-- Features: Basic auth, simple permissions, single tenant
-- Context load: Minimal (single session)
-
-### Tier 2 Success
-- Implementation time: 2-4 weeks
-- Documents referenced: 15-20
-- Features: Multi-tenant, advanced RBAC, production ready
-- Context load: Managed (3-4 sessions)
-
-### Tier 3 Success
-- Reference time: As needed
-- Documents referenced: Specific to need
-- Features: Optimization, edge cases, complex integration
-- Context load: Minimal (targeted reference)
-
-## Common Navigation Mistakes
-
-❌ **Starting with Tier 3**: Too complex, overwhelming context  
-❌ **Mixing tiers**: Inconsistent patterns, context confusion  
-❌ **Skipping validation**: Moving to next tier without completing current  
-❌ **Over-engineering**: Using Tier 3 when Tier 2 sufficient  
-
-✅ **Correct approach**: Progressive implementation with validation gates
-
-This navigation guide ensures efficient AI implementation with optimal context management.
+- **1.1.0**: Added AI Context Management Rules and Session Planning (2025-05-23)
+- **1.0.0**: Initial tiered navigation guide (2025-05-23)

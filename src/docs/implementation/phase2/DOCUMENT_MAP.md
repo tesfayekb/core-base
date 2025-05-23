@@ -1,8 +1,29 @@
 
 # Phase 2: Core Features - Document Map
 
-> **Version**: 1.0.0  
+> **Version**: 1.1.0  
 > **Last Updated**: 2025-05-23
+
+## AI Context Management
+
+### 📋 Document Processing Groups
+**Process these documents in separate AI sessions to maintain context:**
+
+#### Session 2A: Advanced RBAC
+- `docs/rbac/permission-resolution/CORE_ALGORITHM.md`
+- `docs/rbac/CACHING_STRATEGY.md`
+- `docs/rbac/PERFORMANCE_OPTIMIZATION.md`
+
+#### Session 2B: Enhanced Features
+- `docs/multitenancy/DATABASE_QUERY_PATTERNS.md`
+- `docs/audit/LOG_FORMAT_STANDARDIZATION.md`
+- `docs/audit/PERFORMANCE_STRATEGIES.md`
+
+#### Session 2C: User Management
+- `docs/user-management/RBAC_INTEGRATION.md`
+- `docs/user-management/MULTITENANCY_INTEGRATION.md`
+
+**⚠️ AI Implementation Rule**: Maximum 3-4 documents per session. Must complete Phase 1 validation checkpoint before starting Phase 2.
 
 ## Overview
 

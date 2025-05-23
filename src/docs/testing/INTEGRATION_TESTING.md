@@ -1,8 +1,23 @@
 
 # Integration Testing Strategy
 
-> **Version**: 2.0.0  
+> **Version**: 2.1.0  
 > **Last Updated**: 2025-05-23
+
+## AI Context Management
+
+### 📋 Testing Document Processing Guide
+**For AI Implementation**: Process testing documents alongside implementation documents in these groups:
+
+#### Phase 1 Testing Context
+- Implementation Session + `docs/testing/CORE_COMPONENT_INTEGRATION.md`
+- Validation Session: `docs/implementation/PHASE_VALIDATION_CHECKPOINTS.md`
+
+#### Phase 2-4 Testing Context
+- Implementation Session + `docs/testing/ADVANCED_INTEGRATION_PATTERNS.md`
+- Environment Setup: `docs/testing/INTEGRATION_TEST_ENVIRONMENT.md`
+
+**⚠️ AI Rule**: Always include one testing document per implementation session. Never implement features without corresponding tests.
 
 ## Overview
 

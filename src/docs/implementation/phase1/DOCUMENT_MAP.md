@@ -1,8 +1,33 @@
 
 # Phase 1: Foundation - Document Map
 
-> **Version**: 1.0.0  
+> **Version**: 1.1.0  
 > **Last Updated**: 2025-05-23
+
+## AI Context Management
+
+### 📋 Document Processing Groups
+**Process these documents in separate AI sessions to maintain context:**
+
+#### Session 1A: Project Foundation
+- `docs/CORE_ARCHITECTURE.md`
+- `docs/TECHNOLOGIES.md`
+- `docs/data-model/DATABASE_SCHEMA.md`
+
+#### Session 1B: Authentication
+- `docs/security/AUTH_SYSTEM.md`
+- `docs/user-management/AUTHENTICATION.md`
+
+#### Session 1C: RBAC Foundation
+- `docs/rbac/ROLE_ARCHITECTURE.md`
+- `docs/rbac/PERMISSION_TYPES.md`
+- `docs/rbac/PERMISSION_DEPENDENCIES.md`
+
+#### Session 1D: Multi-Tenant & Security
+- `docs/multitenancy/DATA_ISOLATION.md`
+- `docs/security/INPUT_VALIDATION.md`
+
+**⚠️ AI Implementation Rule**: Maximum 3-4 documents per session. Complete current session before proceeding to next.
 
 ## Overview
 

@@ -1,8 +1,38 @@
 
 # Global Documentation Map
 
-> **Version**: 4.2.0  
+> **Version**: 4.3.0  
 > **Last Updated**: 2025-05-23
+
+## AI Context Management
+
+### 📋 Critical AI Implementation Guidelines
+
+#### Document Session Limits
+- **Maximum 3-4 documents per implementation session**
+- **Complete current session before starting next**
+- **Follow phase-based grouping strictly**
+
+#### Context Processing Order
+1. **Phase Document Map** (provides context and grouping)
+2. **Core Implementation Documents** (3-4 max per session)
+3. **Testing Integration** (validate implementation)
+4. **Validation Checkpoint** (before next phase)
+
+#### Session Management
+```typescript
+// AI Session Tracking
+interface DocumentSession {
+  phase: number;
+  sessionId: string;
+  documents: string[];
+  maxDocuments: 4;
+  implementation: string;
+  validationRequired: boolean;
+}
+```
+
+**⚠️ CRITICAL**: Never mix documents from different phases in the same session. Always complete validation checkpoints before proceeding.
 
 ## Official Implementation Path
 
