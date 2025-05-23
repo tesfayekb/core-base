@@ -1,11 +1,12 @@
+
 # Phase 2: Core Application Features
 
-> **Version**: 2.1.0  
+> **Version**: 2.2.0  
 > **Last Updated**: 2025-05-23
 
 ## Overview
 
-This phase builds upon the foundation to implement core application functionality including advanced RBAC features, form systems, API integration, and resource management. All features follow the architectural patterns established in Phase 1.
+This phase builds upon the foundation to implement core application functionality including advanced RBAC features, multi-tenant infrastructure, audit logging, and resource management. All features follow the architectural patterns established in Phase 1.
 
 ## Advanced RBAC Implementation
 
@@ -45,22 +46,126 @@ Multi-level caching strategy from [../rbac/CACHING_STRATEGY.md](../rbac/CACHING_
 - Test performance with and without caching
 - Validate cache consistency
 
-## Multi-Tenant Security
+## Multi-Tenant Security & Core
 
-### Tenant Context and Switching
-Following [../security/MULTI_TENANT_ROLES.md](../security/MULTI_TENANT_ROLES.md) and [../multitenancy/SESSION_MANAGEMENT.md](../multitenancy/SESSION_MANAGEMENT.md):
+### Tenant Data Isolation
+Following [../multitenancy/DATA_ISOLATION.md](../multitenancy/DATA_ISOLATION.md) and [../multitenancy/DATABASE_QUERY_PATTERNS.md](../multitenancy/DATABASE_QUERY_PATTERNS.md):
 
-- Tenant isolation implementation
-- Cross-tenant security validation
-- Tenant-specific permission handling
-- Data isolation enforcement
-- Tenant switching mechanism implementation per tenant context requirements
+- Complete tenant isolation implementation
+- Database-level tenant boundaries
+- Row Level Security policies
+- Query patterns for tenant data access
+- Multi-tenant index optimization
 
 **Testing Requirements:**
 - Test tenant isolation mechanisms using [../testing/MULTI_TENANT_TESTING.md](../testing/MULTI_TENANT_TESTING.md)
 - Verify cross-tenant access prevention
+- Test query performance with tenant isolation
+- Validate database security policies
+
+### Tenant Context and Switching
+Following [../security/MULTI_TENANT_ROLES.md](../security/MULTI_TENANT_ROLES.md) and [../multitenancy/SESSION_MANAGEMENT.md](../multitenancy/SESSION_MANAGEMENT.md):
+
+- Tenant context tracking implementation
+- Tenant switching mechanism
+- Cross-tenant security validation
+- Tenant-specific permission handling
+- User-tenant relationship management
+
+**Testing Requirements:**
+- Test tenant context switching
+- Verify permission resolution across tenant contexts
 - Test tenant-specific permission validation
-- Validate data isolation enforcement
+- Validate data isolation during context switches
+
+## Enhanced Audit Logging System
+
+### Comprehensive Logging Architecture
+Following [../audit/LOG_FORMAT_STANDARDIZATION.md](../audit/LOG_FORMAT_STANDARDIZATION.md):
+
+- Advanced structured logging implementation
+- Context-aware audit events
+- Tenant-specific audit trails
+- Complete system event coverage
+
+**Testing Requirements:**
+- Test audit log generation across system events
+- Verify tenant context in audit logs
+- Test log query performance
+- Validate log format compliance
+
+### Audit Performance Optimization
+Following [../audit/PERFORMANCE_STRATEGIES.md](../audit/PERFORMANCE_STRATEGIES.md):
+
+- Asynchronous logging implementation
+- Batch processing for high-volume events
+- Performance monitoring of logging impact
+- Optimized storage strategies
+
+**Testing Requirements:**
+- Test logging performance under load
+- Verify asynchronous processing
+- Test batch operation effectiveness
+- Validate minimal performance impact
+
+## Resource Management Framework
+
+### Resource Definition System
+Following [../data-model/DATABASE_SCHEMA.md](../data-model/DATABASE_SCHEMA.md) patterns:
+
+- Generic resource framework
+- Resource type definitions
+- Resource validation schemas
+- CRUD operations for all resource types
+
+**Testing Requirements:**
+- Test resource registration process
+- Verify resource validation schemas
+- Test CRUD operations for each resource type
+- Validate resource metadata extraction
+
+### Resource Permission Integration
+Using [../rbac/ENTITY_BOUNDARIES.md](../rbac/ENTITY_BOUNDARIES.md):
+
+- Resource-specific permission checking
+- Entity boundary enforcement
+- Resource ownership handling
+- Permission inheritance for related resources
+
+**Testing Requirements:**
+- Test resource-level permissions
+- Verify entity boundary enforcement
+- Test ownership-based access
+- Validate permission inheritance
+
+## API Integration Layer
+
+### RESTful API Client
+Following patterns in [../integration/API_CONTRACTS.md](../integration/API_CONTRACTS.md):
+
+- Consistent API client implementation
+- Request/response interceptors
+- Authentication header injection
+- Error handling standardization
+- API versioning support
+
+**Testing Requirements:**
+- Test API client with mock responses
+- Verify authentication header injection
+- Test error handling and retry logic
+- Validate API versioning
+
+### Service Layer Architecture
+- Service abstraction for data operations
+- Repository pattern implementation
+- Data transformation and mapping
+- Caching at service layer
+
+**Testing Requirements:**
+- Test service layer with mock data
+- Verify data transformation accuracy
+- Test caching behavior
+- Validate error propagation
 
 ## Form System Implementation
 
@@ -92,65 +197,6 @@ Combining [../security/INPUT_VALIDATION.md](../security/INPUT_VALIDATION.md) and
 - Verify sanitization effectiveness
 - Test file upload security
 - Validate error message display
-
-## API Integration Layer
-
-### RESTful API Client
-Following patterns in [../integration/API_CONTRACTS.md](../integration/API_CONTRACTS.md):
-
-- Consistent API client implementation
-- Request/response interceptors
-- Authentication header injection
-- Error handling standardization
-- API versioning support
-
-**Testing Requirements:**
-- Test API client with mock responses
-- Verify authentication header injection
-- Test error handling and retry logic
-- Validate API versioning
-
-### Service Layer Architecture
-- Service abstraction for data operations
-- Repository pattern implementation
-- Data transformation and mapping
-- Caching at service layer
-
-**Testing Requirements:**
-- Test service layer with mock data
-- Verify data transformation accuracy
-- Test caching behavior
-- Validate error propagation
-
-## Resource Management Framework
-
-### Resource Definition System
-Following [../data-model/DATABASE_SCHEMA.md](../data-model/DATABASE_SCHEMA.md) patterns:
-
-- Generic resource framework
-- Resource type definitions
-- Resource validation schemas
-- CRUD operations for all resource types
-
-**Testing Requirements:**
-- Test resource registration process
-- Verify resource validation schemas
-- Test CRUD operations for each resource type
-- Validate resource metadata extraction
-
-### Resource Permission Integration
-Using [../rbac/ENTITY_BOUNDARIES.md](../rbac/ENTITY_BOUNDARIES.md):
-
-- Resource-specific permission checking
-- Entity boundary enforcement
-- Resource ownership handling
-- Permission inheritance for related resources
-
-**Testing Requirements:**
-- Test resource-level permissions
-- Verify entity boundary enforcement
-- Test ownership-based access
-- Validate permission inheritance
 
 ## Advanced User Management
 
@@ -200,20 +246,6 @@ Following [../data-model/PERMISSION_TENANT_MIGRATIONS.md](../data-model/PERMISSI
 - Multi-tenant permission setup
 - Permission cleanup and optimization
 
-## Security Enhancements
-
-### Advanced Security Features
-- Session security improvements
-- Advanced threat detection
-- Security event logging per [../security/SECURITY_EVENTS.md](../security/SECURITY_EVENTS.md)
-- Security monitoring setup from [../security/SECURITY_MONITORING.md](../security/SECURITY_MONITORING.md)
-
-**Testing Requirements:**
-- Test security event generation
-- Verify threat detection mechanisms
-- Test security monitoring alerts
-- Validate incident response
-
 ## UI Component Enhancement
 
 ### Advanced UI Components
@@ -238,22 +270,19 @@ Following [../ui/responsive/RESPONSIVE_COMPONENTS.md](../ui/responsive/RESPONSIV
 - Mobile-first design implementation
 - Responsive typography from [../ui/responsive/RESPONSIVE_TYPOGRAPHY.md](../ui/responsive/RESPONSIVE_TYPOGRAPHY.md)
 
-## Performance Optimization
+## Security Enhancements
 
-### Audit System Performance
-Following [../audit/PERFORMANCE_STRATEGIES.md](../audit/PERFORMANCE_STRATEGIES.md):
-
-- Asynchronous log processing implementation
-- Selective logging strategies
-- Efficient storage optimization
-- Smart retention policies
-- Batch processing for audit logs
+### Advanced Security Features
+- Session security improvements
+- Advanced threat detection
+- Security event logging per [../security/SECURITY_EVENTS.md](../security/SECURITY_EVENTS.md)
+- Security monitoring setup from [../security/SECURITY_MONITORING.md](../security/SECURITY_MONITORING.md)
 
 **Testing Requirements:**
-- Test audit system performance impact
-- Verify asynchronous processing efficiency
-- Test selective logging accuracy
-- Validate retention policy execution
+- Test security event generation
+- Verify threat detection mechanisms
+- Test security monitoring alerts
+- Validate incident response
 
 ## Required Reading for Implementation
 
@@ -265,6 +294,19 @@ Following [../audit/PERFORMANCE_STRATEGIES.md](../audit/PERFORMANCE_STRATEGIES.m
 - [../rbac/PERMISSION_DEPENDENCIES.md](../rbac/PERMISSION_DEPENDENCIES.md)
 - [../rbac/CACHING_STRATEGY.md](../rbac/CACHING_STRATEGY.md)
 - [../rbac/ENTITY_BOUNDARIES.md](../rbac/ENTITY_BOUNDARIES.md)
+
+### Multi-Tenant & Data Isolation
+- [../multitenancy/DATA_ISOLATION.md](../multitenancy/DATA_ISOLATION.md)
+- [../multitenancy/DATABASE_QUERY_PATTERNS.md](../multitenancy/DATABASE_QUERY_PATTERNS.md)
+- [../multitenancy/SESSION_MANAGEMENT.md](../multitenancy/SESSION_MANAGEMENT.md)
+- [../security/MULTI_TENANT_ROLES.md](../security/MULTI_TENANT_ROLES.md)
+- [../testing/MULTI_TENANT_TESTING.md](../testing/MULTI_TENANT_TESTING.md)
+
+### Audit & Logging
+- [../audit/LOG_FORMAT_STANDARDIZATION.md](../audit/LOG_FORMAT_STANDARDIZATION.md)
+- [../audit/LOG_FORMAT_CORE.md](../audit/LOG_FORMAT_CORE.md)
+- [../audit/STORAGE_RETENTION.md](../audit/STORAGE_RETENTION.md)
+- [../audit/PERFORMANCE_STRATEGIES.md](../audit/PERFORMANCE_STRATEGIES.md)
 
 ### Form & Validation
 - [../ui/examples/FORM_EXAMPLES.md](../ui/examples/FORM_EXAMPLES.md)
@@ -285,18 +327,9 @@ Following [../audit/PERFORMANCE_STRATEGIES.md](../audit/PERFORMANCE_STRATEGIES.m
 - [../data-model/SCHEMA_MIGRATIONS.md](../data-model/SCHEMA_MIGRATIONS.md)
 - [../data-model/PERMISSION_TENANT_MIGRATIONS.md](../data-model/PERMISSION_TENANT_MIGRATIONS.md)
 
-### Security & Multi-Tenant
+### Security
 - [../security/SECURITY_EVENTS.md](../security/SECURITY_EVENTS.md)
 - [../security/SECURITY_MONITORING.md](../security/SECURITY_MONITORING.md)
-- [../security/MULTI_TENANT_ROLES.md](../security/MULTI_TENANT_ROLES.md)
-- [../multitenancy/SESSION_MANAGEMENT.md](../multitenancy/SESSION_MANAGEMENT.md)
-
-### Performance & Audit
-- [../audit/PERFORMANCE_STRATEGIES.md](../audit/PERFORMANCE_STRATEGIES.md)
-
-### Testing
-- [../testing/MULTI_TENANT_TESTING.md](../testing/MULTI_TENANT_TESTING.md)
-- [../testing/SECURITY_TESTING.md](../testing/SECURITY_TESTING.md)
 
 ### UI & Design
 - [../ui/COMPONENT_ARCHITECTURE.md](../ui/COMPONENT_ARCHITECTURE.md)
@@ -309,21 +342,26 @@ Following [../audit/PERFORMANCE_STRATEGIES.md](../audit/PERFORMANCE_STRATEGIES.m
 At the end of Phase 2, the application should have:
 
 1. **Complete RBAC**: Full permission resolution with caching and optimization
-2. **Robust Forms**: Comprehensive form system with validation and sanitization
-3. **API Integration**: Complete API layer with error handling and authentication
+2. **Multi-tenant Core**: Full tenant isolation, switching, and data separation
+3. **Enhanced Audit Logging**: Comprehensive system event tracking with performance optimization
 4. **Resource Framework**: Generic resource management with permission integration
-5. **Advanced Security**: Enhanced security features and monitoring
-6. **Enhanced UI**: Permission-aware components with responsive design
+5. **Form System**: Comprehensive form system with validation and sanitization
+6. **API Integration**: Complete API layer with error handling and authentication
+7. **Advanced Security**: Enhanced security features and monitoring
+8. **Enhanced UI**: Permission-aware components with responsive design
 
 ## Related Documentation
 
 - **[PHASE1_FOUNDATION.md](PHASE1_FOUNDATION.md)**: Previous development phase
 - **[PHASE3_FEATURES.md](PHASE3_FEATURES.md)**: Next development phase
 - **[../rbac/README.md](../rbac/README.md)**: Complete RBAC system overview
+- **[../multitenancy/README.md](../multitenancy/README.md)**: Multi-tenant architecture overview
 
 ## Version History
 
+- **2.2.0**: Resequenced implementation to prioritize multi-tenant core and audit logging before UI features (2025-05-23)
 - **2.1.0**: Added missing document references for multi-tenant testing, audit performance strategies, and tenant switching (2025-05-23)
 - **2.0.0**: Complete rewrite to reference existing documentation and improve AI guidance (2025-05-23)
 - **1.1.0**: Updated with explicit document references and Required Reading section (2025-05-23)
 - **1.0.0**: Initial document creation (2025-05-18)
+
