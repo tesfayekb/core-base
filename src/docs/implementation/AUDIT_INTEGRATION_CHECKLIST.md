@@ -1,60 +1,60 @@
 
 # Audit Integration Checklist
 
-> **Version**: 1.0.0  
+> **Version**: 2.0.0  
 > **Last Updated**: 2025-05-23
 
 ## Overview
 
-This document provides a single, comprehensive audit integration checklist that all implementation phases must follow. It consolidates audit requirements from security, RBAC, and audit documentation into actionable checkpoints.
+This document is the **master reference** for audit integration requirements across all implementation phases. It provides a comprehensive checklist for implementing audit functionality without circular references to phase-specific documents.
 
 ## Canonical Audit References
 
-**IMPORTANT**: All audit integration follows these canonical references:
-- **[../audit/LOG_FORMAT_STANDARDIZATION.md](../audit/LOG_FORMAT_STANDARDIZATION.md)**: Single source for log format requirements
-- **[../integration/EVENT_ARCHITECTURE.md](../integration/EVENT_ARCHITECTURE.md)**: Canonical event architecture for audit events
-- **[../audit/SECURITY_INTEGRATION.md](../audit/SECURITY_INTEGRATION.md)**: Security audit integration patterns
+All audit integration follows these canonical references:
+- **[../audit/LOG_FORMAT_STANDARDIZATION.md](../audit/LOG_FORMAT_STANDARDIZATION.md)**: Log format requirements
+- **[../integration/EVENT_CORE_PATTERNS.md](../integration/EVENT_CORE_PATTERNS.md)**: Event architecture patterns
+- **[../audit/SECURITY_INTEGRATION.md](../audit/SECURITY_INTEGRATION.md)**: Security audit integration
 
-## Phase-Specific Audit Integration
+## Phase-Specific Audit Implementation
 
 ### Phase 1: Foundation Audit Requirements
 
 **✅ Basic Audit Infrastructure**
-- [ ] Implement structured logging service following LOG_FORMAT_STANDARDIZATION.md
-- [ ] Set up audit event bus using canonical event architecture
-- [ ] Configure audit database schema per DATABASE_STRUCTURE.md
-- [ ] Implement basic security event capture (auth success/failure)
+- [ ] Implement structured logging service
+- [ ] Set up audit event bus
+- [ ] Configure audit database schema
+- [ ] Implement basic security event capture
 - [ ] Set up audit log retention policies
 
 **✅ Security Integration**
-- [ ] Authentication events logged (login, logout, password change)
-- [ ] Failed authentication attempts tracked with rate limiting
+- [ ] Authentication events logged
+- [ ] Failed authentication attempts tracked
 - [ ] Security configuration changes audited
-- [ ] Administrative actions logged with full context
+- [ ] Administrative actions logged
 
 **✅ Performance Requirements**
-- [ ] Audit logging latency < 5ms for critical path operations
-- [ ] Asynchronous processing for non-critical audit events
-- [ ] Batch processing capability for high-volume events
-- [ ] Storage optimization strategies implemented
+- [ ] Audit logging latency < 5ms for critical path
+- [ ] Asynchronous processing for non-critical events
+- [ ] Batch processing for high-volume events
+- [ ] Storage optimization strategies
 
 ### Phase 2: Core System Audit Requirements
 
 **✅ RBAC Audit Integration**
-- [ ] Permission check results logged using canonical event format
+- [ ] Permission check results logged
 - [ ] Role assignment/removal events captured
 - [ ] Permission grant/revoke operations audited
 - [ ] Entity boundary enforcement events tracked
-- [ ] Cross-tenant operations explicitly logged
+- [ ] Cross-tenant operations logged
 
 **✅ Multi-Tenant Audit Isolation**
 - [ ] Tenant-specific audit trails implemented
-- [ ] Cross-tenant audit event prevention verified
-- [ ] Tenant context included in all relevant audit events
-- [ ] Entity boundary violations logged and blocked
+- [ ] Cross-tenant audit prevention verified
+- [ ] Tenant context in all relevant events
+- [ ] Entity boundary violations logged
 
 **✅ Enhanced Event Coverage**
-- [ ] Data access events (create, read, update, delete)
+- [ ] Data access events (CRUD operations)
 - [ ] Configuration changes with before/after values
 - [ ] System administration activities
 - [ ] Integration events (API calls, webhooks)
@@ -62,13 +62,13 @@ This document provides a single, comprehensive audit integration checklist that 
 ### Phase 3: Advanced Audit Features
 
 **✅ Comprehensive Event Correlation**
-- [ ] Request correlation IDs across all events
+- [ ] Request correlation IDs across events
 - [ ] User session tracking in audit events
 - [ ] Cross-system event correlation capability
 - [ ] Event timeline reconstruction features
 
 **✅ Real-Time Monitoring Integration**
-- [ ] Security alert generation from audit patterns
+- [ ] Security alert generation from patterns
 - [ ] Anomaly detection based on audit data
 - [ ] Real-time dashboard integration
 - [ ] Automated incident response triggers
@@ -123,20 +123,18 @@ const dataAuditEvents = [
 ];
 ```
 
-## Audit Event Format Compliance
+## Audit Event Format
 
-All audit events MUST follow the standardized format from LOG_FORMAT_STANDARDIZATION.md:
+All audit events MUST follow this standardized format:
 
 ```typescript
 interface StandardAuditEvent {
-  // Base event structure from canonical event architecture
   id: string;
   type: string;
   source: string;
   time: string;
   dataVersion: string;
   
-  // Audit-specific data
   data: {
     action: string;
     result: 'success' | 'failure' | 'error';
@@ -147,7 +145,6 @@ interface StandardAuditEvent {
     details?: Record<string, any>;
   };
   
-  // Required metadata
   metadata: {
     userId?: string;
     entityId?: string;
@@ -160,58 +157,6 @@ interface StandardAuditEvent {
 }
 ```
 
-## Validation Gates
-
-### Pre-Phase Completion Validation
-- [ ] All required audit events implemented for phase scope
-- [ ] Audit log format compliance verified
-- [ ] Performance benchmarks met
-- [ ] Security integration tested
-- [ ] Multi-tenant isolation verified (if applicable)
-
-### Post-Phase Validation
-- [ ] Audit trail completeness verified
-- [ ] Event correlation functionality tested
-- [ ] Compliance reporting capability validated
-- [ ] Performance under load verified
-- [ ] Security monitoring integration confirmed
-
-## Common Integration Patterns
-
-### Event Bus Integration
-```typescript
-// Standard pattern for audit event emission
-await eventBus.emit('audit', {
-  id: generateUUID(),
-  type: 'user.action',
-  source: 'user-service',
-  time: new Date().toISOString(),
-  dataVersion: '1.0',
-  data: {
-    action: 'profile.update',
-    result: 'success',
-    resource: { type: 'user', id: userId }
-  },
-  metadata: {
-    userId,
-    entityId,
-    correlationId: getRequestCorrelationId()
-  }
-});
-```
-
-### Error Handling Integration
-```typescript
-// Standard pattern for audit error logging
-try {
-  await performAction();
-  await auditSuccess(action, context);
-} catch (error) {
-  await auditFailure(action, context, error);
-  throw error;
-}
-```
-
 ## Success Criteria
 
 **Phase Completion Requirements:**
@@ -219,17 +164,17 @@ try {
 2. Audit log format compliance at 100%
 3. Performance benchmarks met
 4. Security integration validated
-5. Multi-tenant isolation verified (where applicable)
+5. Multi-tenant isolation verified (if applicable)
 6. Compliance reporting functional (Phase 3+)
 
 ## Related Documentation
 
-- **[../audit/LOG_FORMAT_STANDARDIZATION.md](../audit/LOG_FORMAT_STANDARDIZATION.md)**: Canonical log format reference
-- **[../integration/EVENT_ARCHITECTURE.md](../integration/EVENT_ARCHITECTURE.md)**: Canonical event architecture
+- **[../audit/LOG_FORMAT_STANDARDIZATION.md](../audit/LOG_FORMAT_STANDARDIZATION.md)**: Log format reference
+- **[../integration/EVENT_CORE_PATTERNS.md](../integration/EVENT_CORE_PATTERNS.md)**: Event architecture
 - **[../audit/SECURITY_INTEGRATION.md](../audit/SECURITY_INTEGRATION.md)**: Security audit integration
 - **[../audit/PERFORMANCE_STRATEGIES.md](../audit/PERFORMANCE_STRATEGIES.md)**: Performance optimization
-- **[TESTING_INTEGRATION_GUIDE.md](TESTING_INTEGRATION_GUIDE.md)**: Testing integration requirements
 
 ## Version History
 
-- **1.0.0**: Initial audit integration checklist consolidating requirements from security, RBAC, and audit documentation (2025-05-23)
+- **2.0.0**: Removed circular references, established as master reference (2025-05-23)
+- **1.0.0**: Initial audit integration checklist (2025-05-23)

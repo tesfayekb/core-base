@@ -1,93 +1,88 @@
 
 # Documentation Map
 
-> **Version**: 2.0.0  
-> **Last Updated**: 2025-05-22
+> **Version**: 3.0.0  
+> **Last Updated**: 2025-05-23
 
-This document has been refactored into smaller, more focused documentation maps for better maintainability and navigation.
+## Documentation Hierarchy
 
-## Organization of Documentation Maps
+This project follows a three-tier documentation structure for clarity and AI processing:
 
-For detailed documentation mapping, please refer to the specialized maps in the [documentation-maps](documentation-maps/) directory:
+1. **Master Entry Points** - High-level guides and starting points
+2. **Implementation Guides** - Phase-specific, actionable instructions
+3. **Reference Documents** - Detailed specifications and standards
 
-- [Core Architecture Map](documentation-maps/CORE_ARCHITECTURE_MAP.md): Central architecture documents
-- [RBAC System Map](documentation-maps/RBAC_SYSTEM_MAP.md): Role-based access control documentation
-- [Security System Map](documentation-maps/SECURITY_SYSTEM_MAP.md): Security implementation documentation
-- [Audit System Map](documentation-maps/AUDIT_SYSTEM_MAP.md): Audit logging documentation
-- [Multi-Tenant Map](documentation-maps/MULTI_TENANT_MAP.md): Multi-tenant implementation documentation
-- [Integration Map](documentation-maps/INTEGRATION_MAP.md): System integration documentation
-- [Implementation Map](documentation-maps/IMPLEMENTATION_MAP.md): Implementation phases and decisions
-- [Mobile Map](documentation-maps/MOBILE_MAP.md): Mobile application documentation
-- [Testing Map](documentation-maps/TESTING_MAP.md): Testing strategies and approaches
-- [User Management Map](documentation-maps/USER_MANAGEMENT_MAP.md): User management documentation
+## Master Entry Points
 
-## Core Documentation Structure
+Start here for high-level understanding and navigation:
 
-The overall documentation structure remains organized as:
+- **[CORE_ARCHITECTURE.md](CORE_ARCHITECTURE.md)**: System architecture overview
+- **[DEVELOPMENT_ROADMAP.md](DEVELOPMENT_ROADMAP.md)**: Implementation timeline
+- **[implementation/MASTER_DOCUMENT_MAP.md](implementation/MASTER_DOCUMENT_MAP.md)**: Complete implementation guide
+- **[RBAC_SYSTEM.md](RBAC_SYSTEM.md)**: Access control overview
+- **[SECURITY_IMPLEMENTATION.md](SECURITY_IMPLEMENTATION.md)**: Security overview
+- **[TEST_FRAMEWORK.md](TEST_FRAMEWORK.md)**: Testing approach
 
-```
-project-plan/
-├── README.md                  # Entry point and overview
-├── DOCUMENTATION_MAP.md       # This file - navigation guide
-├── CORE_ARCHITECTURE.md       # System architecture principles
-├── DEVELOPMENT_ROADMAP.md     # Timeline and milestones
-├── INTEGRATION_SPECIFICATIONS.md # Component integration details
-├── RBAC_SYSTEM.md             # Access control framework
-├── TECHNOLOGIES.md            # Technology stack decisions
-├── SCHEMA_MANAGEMENT.md       # Database schema approach
-├── TEST_FRAMEWORK.md          # Testing strategy
-├── UI_STANDARDS.md            # UI design guidelines
-├── CLONING_GUIDELINES.md      # Project reproduction guidelines
-├── GLOSSARY.md                # Terminology standardization
-├── VERSION_COMPATIBILITY.md   # Version compatibility matrix
-├── CROSS_REFERENCE_STANDARDS.md # Documentation cross-reference standards
-├── implementation/            # Implementation details by phase
-├── security/                  # Security implementation details
-├── rbac/                      # RBAC implementation details
-├── audit/                     # Audit logging framework
-├── multitenancy/              # Multi-tenant implementation 
-├── data-model/                # Database model and schema
-├── documentation-maps/        # Specialized documentation maps
-├── mobile/                    # Mobile application strategy
-├── testing/                   # Testing strategies
-└── user-management/           # User management documentation
-```
+## Implementation Guides
 
-## How to Use Documentation Maps
+Phase-specific implementation documents:
 
-1. **Begin with the README.md** for the project overview
-2. **Consult this document** to understand the overall documentation structure
-3. **Navigate to specialized maps** for detailed subsystem documentation:
-   - For core architecture, see [Core Architecture Map](documentation-maps/CORE_ARCHITECTURE_MAP.md)
-   - For RBAC documentation, see [RBAC System Map](documentation-maps/RBAC_SYSTEM_MAP.md)
-   - For security documentation, see [Security System Map](documentation-maps/SECURITY_SYSTEM_MAP.md)
-   - For specific subsystem details, follow links in the specialized maps
+### Phase 1: Foundation
+- **[implementation/phase1/IMPLEMENTATION_DOCUMENT_MAP.md](implementation/phase1/IMPLEMENTATION_DOCUMENT_MAP.md)**: Phase 1 guide
+- **[implementation/testing/PHASE1_TESTING.md](implementation/testing/PHASE1_TESTING.md)**: Phase 1 testing
 
-## Cross-System Integration
+### Phase 2: Core Features
+- **[implementation/phase2/IMPLEMENTATION_DOCUMENT_MAP.md](implementation/phase2/IMPLEMENTATION_DOCUMENT_MAP.md)**: Phase 2 guide
+- **[implementation/testing/PHASE2_TESTING.md](implementation/testing/PHASE2_TESTING.md)**: Phase 2 testing
 
-For documentation about how systems integrate with each other, refer to:
-- [Integration Map](documentation-maps/INTEGRATION_MAP.md): Comprehensive integration documentation
-- [INTEGRATION_SPECIFICATIONS.md](INTEGRATION_SPECIFICATIONS.md): High-level integration details
+### Phase 3: Advanced Features
+- **[implementation/phase3/IMPLEMENTATION_DOCUMENT_MAP.md](implementation/phase3/IMPLEMENTATION_DOCUMENT_MAP.md)**: Phase 3 guide
+- **[implementation/testing/PHASE3_TESTING.md](implementation/testing/PHASE3_TESTING.md)**: Phase 3 testing
 
-## Version Compatibility
+### Phase 4: Polish & Production
+- **[implementation/phase4/IMPLEMENTATION_DOCUMENT_MAP.md](implementation/phase4/IMPLEMENTATION_DOCUMENT_MAP.md)**: Phase 4 guide
+- **[implementation/testing/PHASE4_TESTING.md](implementation/testing/PHASE4_TESTING.md)**: Phase 4 testing
 
-For compatibility information between document versions, refer to:
-- [VERSION_COMPATIBILITY.md](VERSION_COMPATIBILITY.md): Version compatibility matrix
+## Reference Documents
 
-## Documentation Standards
+Detailed specifications and standards:
 
-For documentation standards, refer to:
-- [CROSS_REFERENCE_STANDARDS.md](CROSS_REFERENCE_STANDARDS.md): Documentation linking conventions
+### Canonical References
+These are the definitive specifications for key subsystems:
+
+- **[audit/LOG_FORMAT_STANDARDIZATION.md](audit/LOG_FORMAT_STANDARDIZATION.md)**: Audit log format standard
+- **[integration/EVENT_CORE_PATTERNS.md](integration/EVENT_CORE_PATTERNS.md)**: Event architecture patterns
+- **[rbac/ROLE_ARCHITECTURE.md](rbac/ROLE_ARCHITECTURE.md)**: RBAC role architecture
+- **[data-model/DATABASE_SCHEMA.md](data-model/DATABASE_SCHEMA.md)**: Database schema
+- **[implementation/AUDIT_INTEGRATION_CHECKLIST.md](implementation/AUDIT_INTEGRATION_CHECKLIST.md)**: Audit integration requirements
+
+### Component-Specific References
+Detailed specifications for individual components:
+
+- **[rbac/permission-resolution/README.md](rbac/permission-resolution/README.md)**: Permission resolution
+- **[multitenancy/DATA_ISOLATION.md](multitenancy/DATA_ISOLATION.md)**: Multi-tenant data isolation
+- **[security/AUTH_SYSTEM.md](security/AUTH_SYSTEM.md)**: Authentication system
+- **[ui/DESIGN_SYSTEM.md](ui/DESIGN_SYSTEM.md)**: UI design system
+- **[mobile/OVERVIEW.md](mobile/OVERVIEW.md)**: Mobile strategy overview
+
+## Implementation Path
+
+For implementing features, follow this path:
+
+1. Start with the relevant **phase implementation document map**
+2. Reference the **testing guide** for that phase
+3. Follow the implementation sequence in the phase map
+4. Refer to **canonical references** for detailed specifications
+5. Use **component-specific references** for implementation details
+
+## Specialized Documentation Maps
+
+For detailed documentation navigation:
+
+- **[documentation-maps/README.md](documentation-maps/README.md)**: Specialized documentation maps
 
 ## Version History
 
+- **3.0.0**: Established clear three-tier documentation hierarchy (2025-05-23)
 - **2.0.0**: Refactored into specialized documentation maps (2025-05-22)
-- **1.5.0**: Added comprehensive RBAC and multi-tenancy document relationships
-- **1.4.0**: Added VERSION_COMPATIBILITY.md reference and updated version guidance
-- **1.3.0**: Added integration specifications document and updated relationship diagrams
-- **1.2.0**: Standardized all document references with consistent relative paths and file extensions
-- **1.1.0**: Added detailed integration diagrams and enhanced cross-references
-- **1.0.3**: Fixed path inconsistencies and improved cross-references
-- **1.0.2**: Enhanced diagram clarity and navigation guidance
-- **1.0.1**: Added document type descriptions
-- **1.0.0**: Initial documentation map
+- **1.0.0**: Initial documentation map (2025-05-22)
