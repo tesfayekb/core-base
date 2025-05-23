@@ -1,7 +1,7 @@
 
 # Performance Testing Strategy
 
-> **Version**: 1.1.0  
+> **Version**: 1.2.0  
 > **Last Updated**: 2025-05-23
 
 This document outlines the performance testing approach to ensure the application meets performance standards defined in [../PERFORMANCE_STANDARDS.md](../PERFORMANCE_STANDARDS.md).
@@ -190,5 +190,6 @@ const performanceThresholds = {
 
 ## Version History
 
+- **1.2.0**: Updated to reference comprehensive performance standards and integrate specific KPIs (2025-05-23)
 - **1.1.0**: Updated to reference comprehensive performance standards and integrate specific KPIs (2025-05-23)
 - **1.0.0**: Initial performance testing strategy document (2025-05-22)

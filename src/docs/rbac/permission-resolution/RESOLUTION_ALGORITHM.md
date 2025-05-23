@@ -1,7 +1,7 @@
 
 # Permission Resolution Algorithm
 
-> **Version**: 2.0.0  
+> **Version**: 2.1.0  
 > **Last Updated**: 2025-05-23
 
 ## Overview
@@ -61,9 +61,13 @@ The permission resolution algorithm has been divided into these specialized docu
 - **[IMPLEMENTATION.md](IMPLEMENTATION.md)**: Implementation details
 - **[../CACHING_STRATEGY.md](../CACHING_STRATEGY.md)**: Permission caching approach
 - **[ENTITY_BOUNDARIES.md](ENTITY_BOUNDARIES.md)**: Entity-level permission boundaries
-- **[../DATABASE_OPTIMIZATION.md](../DATABASE_OPTIMIZATION.md)**: SQL optimization for permissions
+- **[DATABASE_OPTIMIZATION.md](DATABASE_OPTIMIZATION.md)**: SQL optimization for permissions
+- **[UI_INTEGRATION.md](UI_INTEGRATION.md)**: Integration with UI components
+- **[BATCH_PROCESSING.md](BATCH_PROCESSING.md)**: Batch permission resolution
+- **[FRONTEND_IMPLEMENTATION.md](FRONTEND_IMPLEMENTATION.md)**: Client-side permission checking
 
 ## Version History
 
+- **2.1.0**: Added more comprehensive related document references (2025-05-23)
 - **2.0.0**: Refactored into smaller specialized documents (2025-05-23)
 - **1.0.0**: Initial document creation from permission resolution refactoring (2025-05-22)
