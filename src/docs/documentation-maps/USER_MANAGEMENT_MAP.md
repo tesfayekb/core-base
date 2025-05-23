@@ -1,7 +1,7 @@
 
 # User Management Documentation Map
 
-> **Version**: 2.0.0  
+> **Version**: 2.1.0  
 > **Last Updated**: 2025-05-23
 
 ## Document Structure
@@ -16,6 +16,11 @@
 - **[../user-management/PROFILE_MANAGEMENT.md](../user-management/PROFILE_MANAGEMENT.md)**: User profile management
 - **[../user-management/CORE_USER_MODEL.md](../user-management/CORE_USER_MODEL.md)**: Core user model definition
 - **[../user-management/USER_EXTENSIONS.md](../user-management/USER_EXTENSIONS.md)**: User model extensions and customization
+- **[../user-management/USER_LIFECYCLE.md](../user-management/USER_LIFECYCLE.md)**: User lifecycle management processes
+
+### User Operations
+- **[../user-management/USER_BULK_OPERATIONS.md](../user-management/USER_BULK_OPERATIONS.md)**: Bulk user operations
+- **[../user-management/USER_DATA_PORTABILITY.md](../user-management/USER_DATA_PORTABILITY.md)**: User data export and import
 
 ### Integration Documents
 - **[../user-management/RBAC_INTEGRATION.md](../user-management/RBAC_INTEGRATION.md)**: RBAC system integration
@@ -32,6 +37,7 @@
 2. **Identity**: [IDENTITY_ARCHITECTURE.md](../user-management/IDENTITY_ARCHITECTURE.md) - Identity system design
 3. **Authentication**: [AUTHENTICATION.md](../user-management/AUTHENTICATION.md) - Authentication implementation
 4. **Profile**: [PROFILE_MANAGEMENT.md](../user-management/PROFILE_MANAGEMENT.md) - Profile management
+5. **Lifecycle**: [USER_LIFECYCLE.md](../user-management/USER_LIFECYCLE.md) - User lifecycle management
 
 ### For User Registration Flow
 1. **Registration**: [REGISTRATION_ONBOARDING.md](../user-management/REGISTRATION_ONBOARDING.md) - Registration process
@@ -44,6 +50,12 @@
 2. **Extensions**: [USER_EXTENSIONS.md](../user-management/USER_EXTENSIONS.md) - Model extensions
 3. **Multi-tenant**: [MULTITENANCY_INTEGRATION.md](../user-management/MULTITENANCY_INTEGRATION.md) - Tenant integration
 4. **Profile**: [PROFILE_MANAGEMENT.md](../user-management/PROFILE_MANAGEMENT.md) - Profile data model
+
+### For Bulk Operations Implementation
+1. **Bulk Operations**: [USER_BULK_OPERATIONS.md](../user-management/USER_BULK_OPERATIONS.md) - Bulk operation framework
+2. **Lifecycle Management**: [USER_LIFECYCLE.md](../user-management/USER_LIFECYCLE.md) - User lifecycle states
+3. **Data Portability**: [USER_DATA_PORTABILITY.md](../user-management/USER_DATA_PORTABILITY.md) - Import/export
+4. **Multi-tenant**: [MULTITENANCY_INTEGRATION.md](../user-management/MULTITENANCY_INTEGRATION.md) - Tenant context
 
 ### For Integration Implementation
 1. **RBAC Integration**: [RBAC_INTEGRATION.md](../user-management/RBAC_INTEGRATION.md) - Permission integration
@@ -97,6 +109,12 @@
 - Check USER_EXTENSIONS.md for extensibility patterns
 - Use MULTITENANCY_INTEGRATION.md for multi-tenant profiles
 
+### For User Lifecycle Developers
+- Use USER_LIFECYCLE.md for lifecycle management implementation
+- Reference USER_BULK_OPERATIONS.md for batch state transitions
+- Check USER_DATA_PORTABILITY.md for data export/import
+- Use AUDIT_SECURITY.md for lifecycle event logging
+
 ### For Integration Developers
 - Use specific integration documents for cross-system integration
 - Follow error handling standards for consistent error management
@@ -113,5 +131,6 @@
 
 ## Version History
 
+- **2.1.0**: Added user lifecycle, bulk operations, and data portability documents (2025-05-23)
 - **2.0.0**: Standardized format with consistent navigation structure (2025-05-23)
 - **1.0.0**: Initial user management documentation map (2025-05-22)

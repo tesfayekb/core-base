@@ -1,6 +1,7 @@
+
 # Multitenancy Integration
 
-> **Version**: 1.2.0  
+> **Version**: 1.3.0  
 > **Last Updated**: 2025-05-23
 
 ## Overview
@@ -276,6 +277,171 @@ Notification handling across tenant boundaries:
    - Source tenant identification
    - Context switching from notifications
 
+## User Lifecycle Management
+
+### User States and Transitions
+
+1. **User Lifecycle States**:
+   - Active: Fully operational user account
+   - Suspended: Temporary access restriction
+   - Deactivated: Account disabled but data retained
+   - Archived: Data retained for compliance, no access
+   - Deleted: Soft deletion with metadata only
+   - Purged: Complete removal from system
+
+2. **Lifecycle State Transitions**:
+   ```
+   Active ⟷ Suspended → Deactivated → Archived → Deleted → Purged
+   ```
+
+3. **Transition Governance**:
+   - Role-based transition authorization
+   - Approval workflows for critical transitions
+   - Automatic state transitions based on rules
+   - Audit trail of all state changes
+   - Retention policy enforcement
+
+### Deactivation Process
+
+1. **User Deactivation Workflow**:
+   - Authentication access revocation
+   - Session termination across all devices
+   - Scheduled or immediate deactivation
+   - Notification to administrators and the user
+   - Audit logging of deactivation event
+
+2. **Deactivation Permissions**:
+   - Self-deactivation controls
+   - Administrator deactivation controls
+   - Tenant-specific deactivation permissions
+   - Cross-tenant deactivation governance
+
+3. **Reactivation Process**:
+   - Reactivation request workflow
+   - Administrator approval requirements
+   - Identity verification on reactivation
+   - Security review before reactivation
+   - Audit logging of reactivation events
+
+### Archival Process
+
+1. **User Archival Policy**:
+   - Compliance-driven archival rules
+   - Data retention scope definition
+   - Archived data access controls
+   - Archival metadata preservation
+   - Integration with system-wide archival
+
+2. **Archival Implementation**:
+   - Selective profile data archival
+   - Activity history preservation
+   - Configuration data archival
+   - Relationship preservation or severing
+   - Cross-referenced data handling
+
+3. **Archive Access Controls**:
+   - Special permissions for archive access
+   - Time-limited archive retrieval
+   - Read-only archive exploration
+   - Archive search capabilities
+   - Compliance reporting on archived users
+
+## Data Export and Import
+
+### User Data Export Capabilities
+
+1. **Export Formats and Content**:
+   - Full profile data export (JSON, CSV)
+   - Activity history export (PDF, CSV)
+   - Configuration settings export (JSON)
+   - Relationship data export (JSON)
+   - Tenant-specific data exports (JSON, CSV)
+
+2. **Export Security Controls**:
+   - Data minimization options
+   - PII redaction capabilities
+   - Field-level export policies
+   - Export authorization requirements
+   - Audit logging of all exports
+
+3. **Export Triggers and Scheduling**:
+   - On-demand export generation
+   - Scheduled periodic exports
+   - Event-triggered exports
+   - Compliance-driven exports
+   - User-requested data exports (GDPR)
+
+### User Data Import Capabilities
+
+1. **Import Sources and Validation**:
+   - Structured data import (JSON, CSV)
+   - Template-based imports
+   - Data validation during import
+   - Error handling and reporting
+   - Partial import capabilities
+
+2. **Import Security Controls**:
+   - Import authorization requirements
+   - Schema validation enforcement
+   - Malicious data detection
+   - Rate limiting on imports
+   - Audit logging of all imports
+
+3. **Bulk Import Process**:
+   - Pre-import validation step
+   - Simulated import capability
+   - Transaction-based import
+   - Rollback capabilities
+   - Import success/failure reporting
+
+## Bulk User Operations
+
+### Batch Processing Framework
+
+1. **Batch Operation Types**:
+   - Bulk role assignment/revocation
+   - Bulk tenant access changes
+   - Bulk state transitions (activate/deactivate)
+   - Bulk permission changes
+   - Bulk profile updates
+
+2. **Batch Processing Controls**:
+   - Transaction integrity
+   - Partial success handling
+   - Failure reporting and logging
+   - Rate limiting and throttling
+   - Progress monitoring
+
+3. **Batch Authorization Model**:
+   - Special permissions for bulk operations
+   - Scale-based authorization (size of batch)
+   - Impact assessment requirements
+   - Approval workflows for large batches
+   - Tenant-specific batch operation permissions
+
+### Bulk Operation Implementation
+
+1. **Processing Architecture**:
+   - Queue-based batch processing
+   - Asynchronous operation execution
+   - Progress tracking and reporting
+   - Prioritization of bulk tasks
+   - Error handling and retry logic
+
+2. **Bulk Operation Interfaces**:
+   - API endpoints for batch operations
+   - Batch template generation
+   - Batch history and status
+   - Result downloading and reporting
+   - Batch operation cancellation
+
+3. **Performance Considerations**:
+   - Optimized query patterns
+   - Database impact minimization
+   - Resource allocation controls
+   - Background processing timing
+   - System load management
+
 ## Data Security
 
 ### Cross-Tenant Data Protection
@@ -304,9 +470,13 @@ Ensures isolation of user data between tenants:
 - **[../multitenancy/DATA_ISOLATION.md](../multitenancy/DATA_ISOLATION.md)**: Tenant data isolation with comprehensive user profile isolation
 - **[../multitenancy/IMPLEMENTATION_EXAMPLES.md](../multitenancy/IMPLEMENTATION_EXAMPLES.md)**: Concrete implementation examples for multi-tenant features
 - **[../data-model/entity-relationships/MULTI_TENANT_MODEL.md](../data-model/entity-relationships/MULTI_TENANT_MODEL.md)**: Multi-tenant entity relationships
+- **[USER_LIFECYCLE.md](USER_LIFECYCLE.md)**: Detailed user lifecycle management
+- **[USER_BULK_OPERATIONS.md](USER_BULK_OPERATIONS.md)**: Comprehensive bulk user operations
+- **[USER_DATA_PORTABILITY.md](USER_DATA_PORTABILITY.md)**: User data export and import capabilities
 
 ## Version History
 
-- **1.2.0**: Added references to multi-tenant implementation examples (2025-05-23)
+- **1.3.0**: Added user lifecycle management, bulk operations, and data export/import sections (2025-05-23)
+- **1.2.0**: Added references to multi-tenant implementation examples (2025-05-22)
 - **1.1.0**: Added references to enhanced user profiles and tenant-specific settings documentation (2025-05-22)
 - **1.0.0**: Initial document created from user management refactoring (2025-05-22)
