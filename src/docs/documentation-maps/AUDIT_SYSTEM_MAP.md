@@ -1,7 +1,7 @@
 
 # Audit System Documentation Map
 
-> **Version**: 1.1.0  
+> **Version**: 1.2.0  
 > **Last Updated**: 2025-05-23
 
 This document provides a visual guide to the audit logging documentation files in the project plan.
@@ -65,3 +65,41 @@ graph TD
     LOG_CORE --> SERVICE
     LOG_CORE --> LOG_SUB
     LOG_IMP --> SERVICE
+
+```
+
+## Permission Resolution Document Map
+
+```mermaid
+graph TD
+    RSLV["RESOLUTION_ALGORITHM.md"] --> CORE["CORE_ALGORITHM.md"]
+    RSLV --> DB["DATABASE_QUERIES.md"]
+    RSLV --> SPECIAL["SPECIAL_CASES.md"]
+    RSLV --> PERF["PERFORMANCE_OPTIMIZATION.md"]
+    
+    SPECIAL --> RESOURCE["RESOURCE_SPECIFIC.md"]
+    SPECIAL --> WILDCARDS["WILDCARDS.md"]
+    SPECIAL --> OWNERSHIP["OWNERSHIP.md"]
+    SPECIAL --> HIERARCHICAL["HIERARCHICAL.md"]
+    
+    PERF --> CACHING["CACHING.md"]
+    PERF --> BATCH["BATCH_PROCESSING.md"]
+    PERF --> MEMORY["MEMORY_MANAGEMENT.md"]
+    PERF --> DB_OPT["DATABASE_OPTIMIZATION.md"]
+```
+
+## Security Overview Document Map
+
+```mermaid
+graph TD
+    OVERVIEW["OVERVIEW.md"] --> AUTH["AUTH_SYSTEM.md"]
+    OVERVIEW --> AUTH_ALG["AUTH_ALGORITHMS.md"]
+    OVERVIEW --> PERM_ENF["PERMISSION_ENFORCEMENT.md"]
+    OVERVIEW --> SEC_EVT["SECURITY_EVENTS.md"]
+    OVERVIEW --> INPUT["INPUT_VALIDATION.md"]
+    OVERVIEW --> COMM["COMMUNICATION_SECURITY.md"]
+    OVERVIEW --> DATA["DATA_PROTECTION.md"]
+    OVERVIEW --> TEST["SECURITY_TESTING.md"]
+    OVERVIEW --> MON["SECURITY_MONITORING.md"]
+    OVERVIEW --> DEV["SECURE_DEVELOPMENT.md"]
+```
