@@ -1,11 +1,10 @@
-
 // Database Service - Orchestration Layer
 // Version: 2.0.0
 // Phase 1.2: Database Foundation - Refactored with Focused Services
 
 import { MigrationRunner, Migration } from '../migrations/migrationRunner';
 import { tenantContextService } from './tenantContext';
-import { testConnection } from './connection';
+import { testConnection, supabase } from './connection';
 
 // Import all migration files
 import migration000 from '../migrations/migrations/000_migration_infrastructure';
@@ -31,6 +30,19 @@ export class DatabaseService {
 
   async testConnection(): Promise<boolean> {
     return await testConnection();
+  }
+
+  async query(sql: string): Promise<any> {
+    try {
+      const { data, error } = await supabase.rpc('execute_sql', { sql_query: sql });
+      if (error) {
+        throw new Error(`Query execution failed: ${error.message}`);
+      }
+      return { rows: data || [], rowCount: Array.isArray(data) ? data.length : 0 };
+    } catch (error) {
+      console.error('Database query failed:', error);
+      throw error;
+    }
   }
 
   private registerMigrations(): void {

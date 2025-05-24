@@ -7,6 +7,7 @@ export interface Migration {
   version: string;
   name: string;
   script: string;
+  checksum?: string;
 }
 
 export interface MigrationRecord {

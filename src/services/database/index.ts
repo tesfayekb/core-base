@@ -14,6 +14,12 @@ export { auditService, AuditService } from './auditService';
 // Export migration runner
 export { migrationRunner, MigrationRunner } from '../migrations/migrationRunner';
 
+// Import for re-export
+import { supabase } from './connection';
+import { tenantContextService } from './tenantContext';
+import { permissionService } from './permissionService';
+import { auditService } from './auditService';
+
 // Re-export for backward compatibility
 export const database = {
   supabase,
