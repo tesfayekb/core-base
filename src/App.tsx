@@ -5,7 +5,8 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "./components/auth/AuthProvider";
-import { AuthGuard } from "./components/auth/AuthGuard";
+import { ProtectedRoute } from "./components/auth/ProtectedRoute";
+import { AuthPage } from "./components/auth/AuthPage";
 import { MainLayout } from "./components/layout/MainLayout";
 import Analytics from "./pages/Analytics";
 import Users from "./pages/Users";
@@ -21,17 +22,25 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <AuthProvider>
-          <AuthGuard>
-            <Routes>
-              <Route element={<MainLayout />}>
-                <Route path="/" element={<Navigate to="/analytics" replace />} />
-                <Route path="/analytics" element={<Analytics />} />
-                <Route path="/users" element={<Users />} />
-                <Route path="/settings" element={<Settings />} />
-              </Route>
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </AuthGuard>
+          <Routes>
+            {/* Public authentication route */}
+            <Route path="/auth" element={<AuthPage />} />
+            
+            {/* Protected routes */}
+            <Route path="/" element={
+              <ProtectedRoute>
+                <MainLayout />
+              </ProtectedRoute>
+            }>
+              <Route index element={<Navigate to="/analytics" replace />} />
+              <Route path="analytics" element={<Analytics />} />
+              <Route path="users" element={<Users />} />
+              <Route path="settings" element={<Settings />} />
+            </Route>
+            
+            {/* Catch all route */}
+            <Route path="*" element={<NotFound />} />
+          </Routes>
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>
