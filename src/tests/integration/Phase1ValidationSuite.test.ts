@@ -123,9 +123,9 @@ describe('Phase 1.2 Comprehensive Validation Suite', () => {
       try {
         const startTime = performance.now();
         
-        // Simulate audit event recording
-        phase1Monitor.recordAuditEvent(5, false);
-        phase1Monitor.recordAuditEvent(3, true);
+        // Simulate audit event recording - fix method signature
+        phase1Monitor.recordAuditEvent(5);
+        phase1Monitor.recordAuditEvent(3);
         
         const duration = performance.now() - startTime;
         const metrics = phase1Monitor.getMetrics();
@@ -155,9 +155,9 @@ describe('Phase 1.2 Comprehensive Validation Suite', () => {
         // Database performance targets
         const dbPerformanceOk = metrics.database.averageQueryTime < 50; // 50ms target
         
-        // RBAC performance targets  
-        const rbacPerformanceOk = metrics.rbac.averageCheckTime < 15; // 15ms target
-        const rbacCacheOk = metrics.rbac.cacheHitRate > 85; // 85% cache hit rate
+        // RBAC performance targets - fix property name
+        const rbacPerformanceOk = metrics.permissions.averageCheckTime < 15; // 15ms target
+        const rbacCacheOk = metrics.permissions.cacheHitRate > 85; // 85% cache hit rate
         
         // Multi-tenant performance targets
         const tenantPerformanceOk = metrics.multiTenant.averageSwitchTime < 200; // 200ms target

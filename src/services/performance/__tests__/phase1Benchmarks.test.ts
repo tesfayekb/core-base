@@ -205,18 +205,18 @@ describe('Phase 1.2 Performance Benchmarks', () => {
       const health = phase1Monitor.getHealthStatus();
       
       // System should start in healthy state
-      expect(['healthy', 'warning']).toContain(health.status);
+      expect(['excellent', 'good', 'warning']).toContain(health.status);
       expect(health.score).toBeGreaterThanOrEqual(70);
     });
 
-    test('Performance report generation should be fast', () => {
+    test('Performance metrics generation should be fast', () => {
       const startTime = performance.now();
-      const report = phase1Monitor.generateReport();
+      const metrics = phase1Monitor.getMetrics();
       const duration = performance.now() - startTime;
       
-      expect(typeof report).toBe('string');
-      expect(report.length).toBeGreaterThan(0);
-      expect(duration).toBeLessThan(10); // Report generation should be very fast
+      expect(typeof metrics).toBe('object');
+      expect(metrics).toHaveProperty('database');
+      expect(duration).toBeLessThan(10); // Metrics generation should be very fast
     });
   });
 });

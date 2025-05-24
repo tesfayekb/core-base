@@ -42,7 +42,7 @@ export class DatabaseHealthMonitor {
           database: phase1Monitor.getMetrics(),
           connectionPool: connectionPool.getMetrics(),
           errorRecovery: errorRecovery.getMetrics(),
-          rbac: phase1Monitor.getMetrics().rbac,
+          permissions: phase1Monitor.getMetrics().permissions, // Fix: use permissions instead of rbac
           multiTenant: phase1Monitor.getMetrics().multiTenant
         };
 
@@ -70,7 +70,8 @@ export class DatabaseHealthMonitor {
     // Database performance health
     const dbHealth = phase1Monitor.getHealthStatus();
     components.database = dbHealth;
-    if (dbHealth.status !== 'healthy') {
+    // Fix: check for correct status values
+    if (dbHealth.status !== 'excellent' && dbHealth.status !== 'good') {
       issues.push(...dbHealth.issues);
     }
 

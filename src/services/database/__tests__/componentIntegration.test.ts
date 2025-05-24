@@ -122,8 +122,8 @@ describe('Database Component Integration Tests', () => {
       
       const metrics = phase1Monitor.getMetrics();
       
-      // Verify metrics are being collected
-      expect(metrics.database.queryCount).toBeGreaterThan(0);
+      // Verify metrics are being collected - fix property name
+      expect(metrics.database.totalQueries).toBeGreaterThan(0);
     });
   });
 
