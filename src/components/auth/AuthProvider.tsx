@@ -34,19 +34,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log('Auth state change:', event, session);
-        setSession(session);
-        setUser(session?.user ?? null);
-        setLoading(false);
-
-        // Set user context when authenticated
-        if (session?.user) {
-          console.log('Setting user context for:', session.user.id);
+        console.log('🔄 Auth state change:', event, session?.user?.email || 'no user');
+        
+        if (event === 'SIGNED_OUT') {
+          console.log('🚪 User signed out - clearing state');
+          setSession(null);
+          setUser(null);
+          setCurrentTenantId(null);
+          tenantContextService.clearContext();
+        } else if (event === 'SIGNED_IN' && session?.user) {
+          console.log('🔐 User signed in:', session.user.email);
+          setSession(session);
+          setUser(session.user);
           await tenantContextService.setUserContext(session.user.id);
         } else {
-          tenantContextService.clearContext();
-          setCurrentTenantId(null);
+          console.log('🔄 Other auth event:', event);
+          setSession(session);
+          setUser(session?.user ?? null);
         }
+        
+        setLoading(false);
       }
     );
 
@@ -130,11 +137,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = async () => {
     try {
+      console.log('🚪 Starting logout process...');
+      
+      // Clear local state first
       tenantContextService.clearContext();
       setCurrentTenantId(null);
-      await supabase.auth.signOut();
+      
+      console.log('🚪 Calling supabase.auth.signOut()...');
+      const { error } = await supabase.auth.signOut();
+      
+      if (error) {
+        console.error('❌ Supabase signout error:', error);
+        throw error;
+      }
+      
+      console.log('✅ Supabase signout successful');
+      
+      // The onAuthStateChange listener should handle the rest
+      
     } catch (error) {
-      console.error('Signout failed:', error);
+      console.error('💥 Signout failed:', error);
+      // Even if there's an error, try to clear local state
+      setSession(null);
+      setUser(null);
+      setCurrentTenantId(null);
+      tenantContextService.clearContext();
     }
   };
 

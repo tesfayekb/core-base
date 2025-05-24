@@ -17,9 +17,11 @@ export function Header({ toggleSidebar }: { toggleSidebar: () => void }) {
   
   const handleSignOut = async () => {
     try {
+      console.log('🖱️ Header logout clicked');
       await signOut();
+      console.log('✅ Header logout completed');
     } catch (error) {
-      console.error('Logout failed:', error);
+      console.error('❌ Header logout failed:', error);
     }
   };
 
