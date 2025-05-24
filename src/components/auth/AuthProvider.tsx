@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase, tenantContextService } from '@/services/database';
@@ -55,13 +54,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signUp = async (email: string, password: string, firstName?: string, lastName?: string) => {
     try {
+      console.log('=== SIGNUP DEBUG START ===');
       console.log('Attempting signup for:', email);
-      console.log('Supabase client ready:', !!supabase);
-      console.log('Auth service ready:', !!supabase.auth);
+      console.log('Supabase URL:', 'https://fhzhlyskafjvcwcqjssmb.supabase.co');
+      console.log('Using anon key:', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZoemhseXNrZmp2Y3djcWpzc21iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgwNjIzMTksImV4cCI6MjA2MzYzODMxOX0.S2-LU5bi34Pcrg-XNEHj_SBQzxQncIe4tnOfhuyedNk');
+      console.log('Current timestamp:', new Date().toISOString());
+      console.log('Browser user agent:', navigator.userAgent);
+      console.log('Network connection status:', navigator.onLine);
       
-      // Test network connectivity
-      console.log('Testing network connectivity to Supabase...');
+      // Test basic fetch to Supabase
+      console.log('Testing basic fetch to Supabase...');
+      try {
+        const testResponse = await fetch('https://fhzhlyskafjvcwcqjssmb.supabase.co/rest/v1/', {
+          method: 'GET',
+          headers: {
+            'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZoemhseXNrZmp2Y3djcWpzc21iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgwNjIzMTksImV4cCI6MjA2MzYzODMxOX0.S2-LU5bi34Pcrg-XNEHj_SBQzxQncIe4tnOfhuyedNk'
+          }
+        });
+        console.log('Basic fetch test response status:', testResponse.status);
+        console.log('Basic fetch test response headers:', Object.fromEntries(testResponse.headers.entries()));
+      } catch (fetchError) {
+        console.error('Basic fetch test failed:', fetchError);
+      }
       
+      console.log('Attempting Supabase auth signup...');
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -80,21 +96,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           message: error.message,
           status: error.status,
           code: error.code || 'no_code',
-          name: error.name
+          name: error.name,
+          cause: error.cause
         });
         return { error: error.message };
       }
 
       console.log('Signup successful:', data);
+      console.log('=== SIGNUP DEBUG END ===');
       return { user: data.user };
     } catch (error) {
+      console.error('=== SIGNUP EXCEPTION ===');
       console.error('Signup failed with exception:', error);
       console.error('Error details:', {
         type: typeof error,
         constructor: error?.constructor?.name,
         message: error instanceof Error ? error.message : 'Unknown error',
-        stack: error instanceof Error ? error.stack : 'No stack trace'
+        stack: error instanceof Error ? error.stack : 'No stack trace',
+        cause: error?.cause
       });
+      
+      // Check if this is a network error
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        console.error('This appears to be a network connectivity issue');
+        console.error('Possible causes:');
+        console.error('1. Supabase project is paused or inactive');
+        console.error('2. CORS configuration issue');
+        console.error('3. Network firewall blocking requests');
+        console.error('4. Ad blocker or browser extension interference');
+      }
       
       return { error: 'Network connection failed. Please check your internet connection and try again.' };
     }
