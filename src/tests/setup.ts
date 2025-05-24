@@ -1,36 +1,37 @@
+// Test Setup Configuration
+// Configures testing environment for integration tests with Supabase
 
 import '@testing-library/jest-dom';
 
-// Mock Supabase client for testing
-jest.mock('../services/database', () => ({
-  supabase: {
-    rpc: jest.fn(),
-    from: jest.fn(() => ({
-      select: jest.fn(() => ({
-        eq: jest.fn(() => ({
-          single: jest.fn()
-        }))
-      })),
-      insert: jest.fn()
-    }))
-  }
-}));
+// Mock environment variables for testing
+process.env.VITE_SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://test.supabase.co';
+process.env.VITE_SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY || 'test-anon-key';
 
 // Global test configuration
-const originalConsole = global.console;
-global.console = {
-  ...originalConsole,
-  // Suppress console.log during tests unless needed
-  log: jest.fn(),
-  warn: jest.fn(), 
-  error: jest.fn()
-};
+beforeAll(async () => {
+  console.log('🧪 Setting up test environment...');
+});
 
-// Setup global test environment
+afterAll(async () => {
+  console.log('🧹 Cleaning up test environment...');
+});
+
+// Global error handler for tests
+beforeEach(() => {
+  jest.clearAllMocks();
+});
+
+// Suppress console logs during tests (except errors)
+const originalConsole = console;
 beforeAll(() => {
-  // Global test setup
+  console.log = jest.fn();
+  console.info = jest.fn();
+  console.warn = jest.fn();
+  // Keep console.error for debugging
 });
 
 afterAll(() => {
-  // Global test cleanup
+  console.log = originalConsole.log;
+  console.info = originalConsole.info;
+  console.warn = originalConsole.warn;
 });

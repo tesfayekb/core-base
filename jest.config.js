@@ -34,5 +34,8 @@ module.exports = {
         jsx: 'react-jsx'
       }
     }
-  }
+  },
+  // Integration test environment setup
+  testTimeout: 30000, // 30 seconds for database operations
+  maxWorkers: 1 // Run tests serially to avoid database conflicts
 };
