@@ -55,44 +55,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signUp = async (email: string, password: string, firstName?: string, lastName?: string) => {
     try {
-      console.log('🚀 Starting Supabase signup for:', email);
-      console.log('📍 Supabase URL:', 'https://fhzhlyskfjvcwcqjssmb.supabase.co');
+      console.log('🚀 Attempting Supabase signup for:', email);
       
-      // Test basic connectivity first
-      console.log('🔍 Testing basic connectivity...');
-      try {
-        const response = await fetch('https://httpbin.org/get', { 
-          method: 'GET',
-          signal: AbortSignal.timeout(5000) // 5 second timeout
-        });
-        console.log('✅ Basic internet connectivity working:', response.status);
-      } catch (connectivityError) {
-        console.error('❌ No internet connectivity:', connectivityError);
-        return { error: 'No internet connection detected. Please check your network.' };
-      }
-
-      // Test Supabase project accessibility
-      console.log('🔍 Testing Supabase project accessibility...');
-      try {
-        const supabaseResponse = await fetch('https://fhzhlyskfjvcwcqjssmb.supabase.co/rest/v1/', {
-          method: 'GET',
-          headers: {
-            'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZoemhseXNrZmp2Y3djcWpzc21iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgwNjIzMTksImV4cCI6MjA2MzYzODMxOX0.S2-LU5bi34Pcrg-XNEHj_SBQzxQncIe4tnOfhuyedNk'
-          },
-          signal: AbortSignal.timeout(10000) // 10 second timeout
-        });
-        console.log('✅ Supabase project accessible:', supabaseResponse.status);
-      } catch (supabaseError) {
-        console.error('❌ Cannot reach Supabase project:', supabaseError);
-        
-        if (supabaseError.name === 'AbortError') {
-          return { error: 'Connection to Supabase timed out. Please check your network or try again later.' };
-        }
-        
-        return { error: 'Cannot connect to authentication service. This may be due to network restrictions or firewall settings.' };
-      }
-
-      console.log('🔐 Attempting authentication signup...');
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -104,10 +68,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       });
 
-      console.log('📋 Signup response:', { data: !!data, error: error?.message });
+      console.log('📋 Signup response data:', !!data);
+      console.log('📋 Signup response error:', error?.message);
 
       if (error) {
         console.error('❌ Signup failed:', error.message);
+        
+        // Provide more user-friendly error messages
+        if (error.message.includes('Invalid login credentials')) {
+          return { error: 'Invalid email or password format' };
+        }
+        if (error.message.includes('User already registered')) {
+          return { error: 'An account with this email already exists' };
+        }
+        if (error.message.includes('Password should be')) {
+          return { error: 'Password must be at least 6 characters long' };
+        }
+        if (error.message.includes('Unable to validate email address')) {
+          return { error: 'Please enter a valid email address' };
+        }
+        
         return { error: error.message };
       }
 
@@ -117,6 +97,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (error) {
       console.error('💥 Signup exception:', error);
       
+      // Handle network/connection errors
       if (error instanceof TypeError && error.message.includes('fetch')) {
         return { error: 'Network connection failed. Please check your internet connection and try again.' };
       }
