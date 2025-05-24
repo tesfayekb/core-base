@@ -1,4 +1,3 @@
-
 import { supabase } from './database';
 import { z } from 'zod';
 import { measureAuthOperation } from './performance/DatabaseMeasurementUtilities';
@@ -189,6 +188,38 @@ export class AuthService {
       return {
         success: false,
         error: 'An unexpected error occurred during password reset'
+      };
+    }
+  }
+
+  async verifyEmail(token: string, type: 'email' | 'sms' = 'email'): Promise<AuthResult> {
+    try {
+      console.log('📧 AuthService: Verifying email with token');
+      
+      const { data, error } = await supabase.auth.verifyOtp({
+        token,
+        type
+      });
+
+      if (error) {
+        console.error('❌ Email verification error:', error.message);
+        return {
+          success: false,
+          error: error.message.includes('expired') ? 'Verification link has expired or is invalid' : error.message
+        };
+      }
+
+      console.log('✅ Email verification successful');
+      return {
+        success: true,
+        user: data.user
+      };
+
+    } catch (error) {
+      console.error('💥 Email verification exception:', error);
+      return {
+        success: false,
+        error: 'An unexpected error occurred during email verification'
       };
     }
   }
