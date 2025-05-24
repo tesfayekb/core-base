@@ -3,7 +3,7 @@
 // Following src/docs/integration/SESSION_AUTH_INTEGRATION.md
 
 import { AuthProvider, useAuth } from '../../components/auth/AuthProvider';
-import { render, waitFor, screen } from '@testing-library/react';
+import { render, waitFor } from '@testing-library/react';
 import React from 'react';
 
 const mockGetSession = jest.fn();
@@ -80,7 +80,7 @@ describe('Session Management', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText('No User')).toBeInTheDocument();
+      expect(document.body.textContent).toContain('No User');
     });
   });
 
