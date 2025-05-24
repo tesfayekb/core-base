@@ -1,73 +1,126 @@
 
-import { supabase } from './index';
+// Tenant Context Management Service
+// Version: 2.0.0
+// Phase 1.2: Database Foundation - Enhanced Tenant Context
+
+import { supabase } from './connection';
+import { DatabaseResult } from '@/types/database';
 
 export class TenantContextService {
+  private static instance: TenantContextService;
   private currentTenantId: string | null = null;
+  private currentUserId: string | null = null;
 
-  async setUserContext(userId: string): Promise<void> {
+  static getInstance(): TenantContextService {
+    if (!TenantContextService.instance) {
+      TenantContextService.instance = new TenantContextService();
+    }
+    return TenantContextService.instance;
+  }
+
+  async setTenantContext(tenantId: string): Promise<DatabaseResult<boolean>> {
     try {
-      // Get user's default tenant or first tenant
-      const { data: userTenants, error } = await supabase
-        .from('user_roles')
-        .select('tenant_id, tenants(id, name, slug)')
-        .eq('user_id', userId)
-        .limit(1);
+      const { error } = await supabase.rpc('set_tenant_context', { 
+        tenant_id: tenantId 
+      });
 
       if (error) {
-        console.error('Failed to get user tenant context:', error);
-        return;
+        return { 
+          success: false, 
+          error: error.message, 
+          code: 'TENANT_CONTEXT_ERROR' 
+        };
       }
 
-      if (userTenants && userTenants.length > 0) {
-        const tenantId = userTenants[0].tenant_id;
-        await this.setTenantContext(tenantId);
-        this.currentTenantId = tenantId;
-      }
+      this.currentTenantId = tenantId;
+      return { success: true, data: true };
     } catch (error) {
-      console.error('Error setting user context:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        code: 'TENANT_CONTEXT_FAILED'
+      };
     }
   }
 
-  async setTenantContext(tenantId: string): Promise<void> {
-    const { error } = await supabase.rpc('set_tenant_context', { tenant_id: tenantId });
-    if (error) {
-      console.error('Failed to set tenant context:', error);
-      throw error;
+  async setUserContext(userId: string): Promise<DatabaseResult<boolean>> {
+    try {
+      const { error } = await supabase.rpc('set_user_context', { 
+        user_id: userId 
+      });
+
+      if (error) {
+        return { 
+          success: false, 
+          error: error.message, 
+          code: 'USER_CONTEXT_ERROR' 
+        };
+      }
+
+      this.currentUserId = userId;
+      return { success: true, data: true };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        code: 'USER_CONTEXT_FAILED'
+      };
     }
-    this.currentTenantId = tenantId;
+  }
+
+  async validateTenantAccess(userId: string, tenantId: string): Promise<boolean> {
+    try {
+      const { data, error } = await supabase.rpc('validate_tenant_access', {
+        p_user_id: userId,
+        p_tenant_id: tenantId
+      });
+
+      return !error && !!data;
+    } catch (error) {
+      console.error('Tenant access validation failed:', error);
+      return false;
+    }
+  }
+
+  async switchTenantContext(userId: string, tenantId: string): Promise<DatabaseResult<boolean>> {
+    try {
+      const { data, error } = await supabase.rpc('switch_tenant_context', {
+        p_user_id: userId,
+        p_tenant_id: tenantId
+      });
+
+      if (error || !data) {
+        return { 
+          success: false, 
+          error: 'Failed to switch tenant context', 
+          code: 'TENANT_SWITCH_FAILED' 
+        };
+      }
+
+      this.currentTenantId = tenantId;
+      this.currentUserId = userId;
+      return { success: true, data: true };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        code: 'TENANT_SWITCH_ERROR'
+      };
+    }
   }
 
   getCurrentTenantId(): string | null {
     return this.currentTenantId;
   }
 
-  clearContext(): void {
-    this.currentTenantId = null;
+  getCurrentUserId(): string | null {
+    return this.currentUserId;
   }
 
-  async switchTenantContext(userId: string, tenantId: string): Promise<{ success: boolean; error?: string }> {
-    try {
-      // Verify user has access to this tenant
-      const { data: access, error: accessError } = await supabase
-        .from('user_roles')
-        .select('id')
-        .eq('user_id', userId)
-        .eq('tenant_id', tenantId)
-        .single();
-
-      if (accessError || !access) {
-        return { success: false, error: 'No access to specified tenant' };
-      }
-
-      // Set the new tenant context
-      await this.setTenantContext(tenantId);
-      return { success: true };
-
-    } catch (error) {
-      console.error('Error switching tenant context:', error);
-      return { success: false, error: 'Failed to switch tenant context' };
-    }
+  clearContext(): void {
+    this.currentTenantId = null;
+    this.currentUserId = null;
   }
 }
 
-export const tenantContextService = new TenantContextService();
+export const tenantContextService = TenantContextService.getInstance();

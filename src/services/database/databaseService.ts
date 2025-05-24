@@ -1,9 +1,11 @@
-// Database Service for Migration Management
-// Version: 1.1.0
-// Phase 1.2: Database Foundation - Real Supabase Integration
+
+// Database Service - Orchestration Layer
+// Version: 2.0.0
+// Phase 1.2: Database Foundation - Refactored with Focused Services
 
 import { MigrationRunner, Migration } from '../migrations/migrationRunner';
-import { supabase } from '../database';
+import { tenantContextService } from './tenantContext';
+import { testConnection } from './connection';
 
 // Import all migration files
 import migration000 from '../migrations/migrations/000_migration_infrastructure';
@@ -23,32 +25,14 @@ export class DatabaseService {
   private isInitialized = false;
 
   constructor(private config: DatabaseConfig = {}) {
-    // Use real Supabase connection
     this.migrationRunner = new MigrationRunner();
     this.registerMigrations();
   }
 
-  /**
-   * Test database connection using Supabase
-   */
   async testConnection(): Promise<boolean> {
-    try {
-      const { data, error } = await supabase.from('information_schema.tables').select('table_name').limit(1);
-      if (error) {
-        console.error('❌ Database connection test failed:', error);
-        return false;
-      }
-      console.log('✅ Database connection test successful');
-      return true;
-    } catch (error) {
-      console.error('❌ Database connection test failed:', error);
-      return false;
-    }
+    return await testConnection();
   }
 
-  /**
-   * Register all migration files
-   */
   private registerMigrations(): void {
     const migrations: Migration[] = [
       migration000,
@@ -65,9 +49,6 @@ export class DatabaseService {
     });
   }
 
-  /**
-   * Initialize the database with all migrations
-   */
   async initialize(appliedBy?: string): Promise<void> {
     if (this.isInitialized) {
       console.log('⏭️ Database already initialized, skipping');
@@ -75,28 +56,22 @@ export class DatabaseService {
     }
 
     try {
-      console.log('🚀 Initializing database with Supabase...');
+      console.log('🚀 Initializing database with enhanced security...');
 
-      // Test connection first
       const isConnected = await this.testConnection();
       if (!isConnected) {
         throw new Error('Database connection test failed');
       }
 
-      // Initialize migration system
       await this.migrationRunner.initialize();
-
-      // Validate existing migrations
       const isValid = await this.migrationRunner.validateMigrations();
       if (!isValid) {
         throw new Error('Migration validation failed');
       }
 
-      // Run all pending migrations
       await this.migrationRunner.runMigrations(appliedBy);
-
       this.isInitialized = true;
-      console.log('✅ Database initialization completed');
+      console.log('✅ Database initialization completed with enhanced security');
 
     } catch (error) {
       console.error('❌ Database initialization failed:', error);
@@ -104,72 +79,33 @@ export class DatabaseService {
     }
   }
 
-  /**
-   * Get migration status
-   */
   async getStatus() {
     return await this.migrationRunner.getStatus();
   }
 
-  /**
-   * Force re-initialization (for development)
-   */
   async forceReinitialize(appliedBy?: string): Promise<void> {
     this.isInitialized = false;
     await this.initialize(appliedBy);
   }
 
-  /**
-   * Set tenant context for current session
-   */
+  // Tenant context methods (delegated to focused service)
   async setTenantContext(tenantId: string): Promise<void> {
-    const { error } = await supabase.rpc('set_tenant_context', { tenant_id: tenantId });
-    if (error) {
-      throw new Error(`Failed to set tenant context: ${error.message}`);
+    const result = await tenantContextService.setTenantContext(tenantId);
+    if (!result.success) {
+      throw new Error(`Failed to set tenant context: ${result.error}`);
     }
   }
 
-  /**
-   * Set user context for current session
-   */
   async setUserContext(userId: string): Promise<void> {
-    const { error } = await supabase.rpc('set_user_context', { user_id: userId });
-    if (error) {
-      throw new Error(`Failed to set user context: ${error.message}`);
+    const result = await tenantContextService.setUserContext(userId);
+    if (!result.success) {
+      throw new Error(`Failed to set user context: ${result.error}`);
     }
   }
 
-  /**
-   * Clear all contexts
-   */
   async clearContexts(): Promise<void> {
-    const { error: tenantError } = await supabase.rpc('execute_sql', { 
-      sql_query: "SELECT set_config('app.current_tenant_id', NULL, false)" 
-    });
-    const { error: userError } = await supabase.rpc('execute_sql', { 
-      sql_query: "SELECT set_config('app.current_user_id', NULL, false)" 
-    });
-    
-    if (tenantError || userError) {
-      throw new Error('Failed to clear contexts');
-    }
-  }
-
-  /**
-   * Execute a custom query with Supabase
-   */
-  async query(sql: string, params?: any[]): Promise<any> {
-    console.log('🔍 Executing query with Supabase:', sql.substring(0, 50) + '...');
-    
-    const { data, error } = await supabase.rpc('execute_sql', { sql_query: sql });
-    
-    if (error) {
-      throw new Error(`Query execution failed: ${error.message}`);
-    }
-    
-    return { rows: data || [], rowCount: Array.isArray(data) ? data.length : 0 };
+    tenantContextService.clearContext();
   }
 }
 
-// Export singleton instance for application use
 export const databaseService = new DatabaseService();

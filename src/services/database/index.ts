@@ -1,17 +1,23 @@
 
-import { createClient } from '@supabase/supabase-js';
+// Database Services Entry Point
+// Version: 2.0.0
+// Phase 1.2: Database Foundation - Refactored Services
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+// Export connection
+export { supabase, testConnection } from './connection';
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Missing Supabase environment variables');
-}
+// Export focused services
+export { tenantContextService, TenantContextService } from './tenantContext';
+export { permissionService, PermissionService } from './permissionService';
+export { auditService, AuditService } from './auditService';
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
-
-// Re-export tenant context service
-export { tenantContextService } from './tenantContext';
-
-// Migration runner - correct export path
+// Export migration runner
 export { migrationRunner, MigrationRunner } from '../migrations/migrationRunner';
+
+// Re-export for backward compatibility
+export const database = {
+  supabase,
+  tenantContextService,
+  permissionService,
+  auditService
+};
