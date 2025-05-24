@@ -21,6 +21,9 @@ export class SharedTenantContextService {
   private userTenantCache: Map<string, { tenantId: string, expiresAt: number }> = new Map();
   private readonly CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes as per performance docs
   
+  // PERFORMANCE OPTIMIZATION: Connection pooling optimization
+  private pendingTenantQueries: Map<string, Promise<string | null>> = new Map();
+  
   static getInstance(): SharedTenantContextService {
     if (!SharedTenantContextService.instance) {
       SharedTenantContextService.instance = new SharedTenantContextService();
@@ -101,9 +104,11 @@ export class SharedTenantContextService {
 
   clearContext(): void {
     this.currentTenantId = null;
+    // PERFORMANCE OPTIMIZATION: Clear pending queries on context clear
+    this.pendingTenantQueries.clear();
   }
 
-  // OPTIMIZED: Non-blocking user context setup with caching
+  // OPTIMIZED: Non-blocking user context setup with caching and deduplication
   async setUserContextAsync(userId: string): Promise<void> {
     try {
       // Check cache first for performance
@@ -114,22 +119,21 @@ export class SharedTenantContextService {
         return;
       }
 
-      // Fetch tenant in background (non-blocking)
-      const tenantId = await measureAuthOperation('get_user_default_tenant', async () => {
-        const { data, error } = await supabase
-          .from('user_tenants')
-          .select('tenant_id')
-          .eq('user_id', userId)
-          .limit(1)
-          .single();
+      // PERFORMANCE OPTIMIZATION: Deduplicate concurrent requests
+      const pendingKey = `user_tenant_${userId}`;
+      let tenantPromise = this.pendingTenantQueries.get(pendingKey);
+      
+      if (!tenantPromise) {
+        tenantPromise = this.fetchUserDefaultTenant(userId);
+        this.pendingTenantQueries.set(pendingKey, tenantPromise);
+        
+        // Clean up after completion
+        tenantPromise.finally(() => {
+          this.pendingTenantQueries.delete(pendingKey);
+        });
+      }
 
-        if (error || !data) {
-          console.warn('No tenant access found for user:', userId);
-          return null;
-        }
-
-        return data.tenant_id;
-      });
+      const tenantId = await tenantPromise;
 
       if (tenantId) {
         // Cache the result for future use
@@ -145,6 +149,25 @@ export class SharedTenantContextService {
       console.warn('⚠️ Failed to set user context asynchronously:', error);
       // Non-blocking: Don't throw, just log the warning
     }
+  }
+
+  // PERFORMANCE OPTIMIZATION: Separate method for tenant fetching
+  private async fetchUserDefaultTenant(userId: string): Promise<string | null> {
+    return await measureAuthOperation('get_user_default_tenant', async () => {
+      const { data, error } = await supabase
+        .from('user_tenants')
+        .select('tenant_id')
+        .eq('user_id', userId)
+        .limit(1)
+        .single();
+
+      if (error || !data) {
+        console.warn('No tenant access found for user:', userId);
+        return null;
+      }
+
+      return data.tenant_id;
+    });
   }
 
   // LEGACY: Blocking user context setup (for backward compatibility)
@@ -164,20 +187,14 @@ export class SharedTenantContextService {
         return { success: true, data: cached.tenantId };
       }
 
-      const tenantId = await measureTenantQuery('get_user_default_tenant', async () => {
-        const { data, error } = await supabase
-          .from('user_tenants')
-          .select('tenant_id')
-          .eq('user_id', userId)
-          .limit(1)
-          .single();
-
-        if (error || !data) {
-          throw new Error('No tenant access found for user');
-        }
-
-        return data.tenant_id;
-      });
+      const tenantId = await this.fetchUserDefaultTenant(userId);
+      if (!tenantId) {
+        return {
+          success: false,
+          error: 'No tenant access found for user',
+          code: 'NO_TENANT_ACCESS'
+        };
+      }
 
       // Cache the result
       this.userTenantCache.set(userId, {

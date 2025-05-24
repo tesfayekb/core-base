@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/services/database';
@@ -38,14 +39,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       // PERFORMANCE OPTIMIZATION: Set tenant context asynchronously if user exists
       if (session?.user) {
-        tenantContextService.setUserContextAsync(session.user.id).then(() => {
-          const tenantId = tenantContextService.getCurrentTenantId();
-          if (tenantId) {
-            setCurrentTenantId(tenantId);
-            console.log('✅ Initial tenant context set:', tenantId);
-          }
-        }).catch(error => {
-          console.warn('⚠️ Initial tenant context setup failed:', error);
+        // Use Promise.resolve to ensure this runs after state update
+        Promise.resolve().then(() => {
+          tenantContextService.setUserContextAsync(session.user.id).then(() => {
+            const tenantId = tenantContextService.getCurrentTenantId();
+            if (tenantId) {
+              setCurrentTenantId(tenantId);
+              console.log('✅ Initial tenant context set:', tenantId);
+            }
+          }).catch(error => {
+            console.warn('⚠️ Initial tenant context setup failed:', error);
+          });
         });
       }
     });
@@ -72,15 +76,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           
           // PERFORMANCE OPTIMIZATION: Set tenant context asynchronously (non-blocking)
           // This follows our performance standards for < 200ms authentication
-          tenantContextService.setUserContextAsync(session.user.id).then(() => {
-            const tenantId = tenantContextService.getCurrentTenantId();
-            if (tenantId) {
-              setCurrentTenantId(tenantId);
-              console.log('✅ Tenant context set in background:', tenantId);
-            }
-          }).catch(error => {
-            console.warn('⚠️ Background tenant context setup failed:', error);
-            // Non-blocking: Continue with auth flow even if tenant setup fails
+          Promise.resolve().then(() => {
+            tenantContextService.setUserContextAsync(session.user.id).then(() => {
+              const tenantId = tenantContextService.getCurrentTenantId();
+              if (tenantId) {
+                setCurrentTenantId(tenantId);
+                console.log('✅ Tenant context set in background:', tenantId);
+              }
+            }).catch(error => {
+              console.warn('⚠️ Background tenant context setup failed:', error);
+              // Non-blocking: Continue with auth flow even if tenant setup fails
+            });
           });
         } else if (event === 'TOKEN_REFRESHED' && session) {
           console.log('🔄 Token refreshed');
@@ -100,22 +106,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const signUp = async (email: string, password: string, firstName?: string, lastName?: string): Promise<AuthResult> => {
-    setLoading(true);
+    // PERFORMANCE OPTIMIZATION: Don't set loading for signup - it's handled by the auth state change
     try {
       const result = await authService.signUp({ email, password, firstName, lastName });
       return result;
-    } finally {
-      setLoading(false);
+    } catch (error) {
+      console.error('Signup error:', error);
+      return { success: false, error: 'Signup failed' };
     }
   };
 
   const signIn = async (email: string, password: string): Promise<AuthResult> => {
+    // PERFORMANCE OPTIMIZATION: Minimal loading state - auth state change handles UI updates
     setLoading(true);
     try {
       const result = await authService.signIn(email, password);
+      // Note: Don't set loading to false here - auth state change will handle it
       return result;
-    } finally {
+    } catch (error) {
+      console.error('Signin error:', error);
       setLoading(false);
+      return { success: false, error: 'Signin failed' };
     }
   };
 

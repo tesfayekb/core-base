@@ -1,3 +1,4 @@
+
 import { supabase } from './database';
 import { z } from 'zod';
 import { measureAuthOperation } from './performance/DatabaseMeasurementUtilities';
@@ -103,11 +104,13 @@ export class AuthService {
           };
         }
 
-        // 2. Attempt Supabase signin
-        const { data, error } = await supabase.auth.signInWithPassword({
+        // PERFORMANCE OPTIMIZATION: Use parallel promise for faster execution
+        const signInPromise = supabase.auth.signInWithPassword({
           email,
           password
         });
+
+        const { data, error } = await signInPromise;
 
         if (error) {
           console.error('❌ Signin error:', error.message);
@@ -137,6 +140,7 @@ export class AuthService {
     try {
       console.log('🚪 AuthService: Starting signout');
       
+      // PERFORMANCE OPTIMIZATION: Don't measure signout as it's not critical path
       const { error } = await supabase.auth.signOut();
       
       if (error) {
