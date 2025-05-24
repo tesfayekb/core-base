@@ -12,7 +12,7 @@ import { PerformanceValidator } from './validators/PerformanceValidator';
 import { EndToEndValidator } from './validators/EndToEndValidator';
 import { ReportGenerator } from './ReportGenerator';
 
-export { ValidationReport };
+export type { ValidationReport };
 
 export class Phase1ValidationRunner {
   private static instance: Phase1ValidationRunner;
