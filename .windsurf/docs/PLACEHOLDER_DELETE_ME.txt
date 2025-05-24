@@ -1,0 +1,7 @@
+
+This is a temporary placeholder file to keep the .windsurf/docs directory structure.
+
+You can safely delete this file after copying your documentation from src/docs/ to this directory.
+
+Created: 2025-05-24
+Purpose: Temporary placeholder for git operations
