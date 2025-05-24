@@ -21,9 +21,6 @@ export class SharedTenantContextService {
   private userTenantCache: Map<string, { tenantId: string, expiresAt: number }> = new Map();
   private readonly CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes as per performance docs
   
-  // PERFORMANCE OPTIMIZATION: Connection pooling optimization
-  private pendingTenantQueries: Map<string, Promise<string | null>> = new Map();
-  
   static getInstance(): SharedTenantContextService {
     if (!SharedTenantContextService.instance) {
       SharedTenantContextService.instance = new SharedTenantContextService();
@@ -104,11 +101,9 @@ export class SharedTenantContextService {
 
   clearContext(): void {
     this.currentTenantId = null;
-    // PERFORMANCE OPTIMIZATION: Clear pending queries on context clear
-    this.pendingTenantQueries.clear();
   }
 
-  // OPTIMIZED: Non-blocking user context setup with caching and deduplication
+  // OPTIMIZED: Non-blocking user context setup with caching
   async setUserContextAsync(userId: string): Promise<void> {
     try {
       // Check cache first for performance
@@ -119,21 +114,8 @@ export class SharedTenantContextService {
         return;
       }
 
-      // PERFORMANCE OPTIMIZATION: Deduplicate concurrent requests
-      const pendingKey = `user_tenant_${userId}`;
-      let tenantPromise = this.pendingTenantQueries.get(pendingKey);
-      
-      if (!tenantPromise) {
-        tenantPromise = this.fetchUserDefaultTenant(userId);
-        this.pendingTenantQueries.set(pendingKey, tenantPromise);
-        
-        // Clean up after completion
-        tenantPromise.finally(() => {
-          this.pendingTenantQueries.delete(pendingKey);
-        });
-      }
-
-      const tenantId = await tenantPromise;
+      // Fetch user's default tenant
+      const tenantId = await this.fetchUserDefaultTenant(userId);
 
       if (tenantId) {
         // Cache the result for future use

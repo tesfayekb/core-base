@@ -33,24 +33,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.log('📱 Initial session:', !!session);
       setSession(session);
       setUser(session?.user ?? null);
-      
-      // PERFORMANCE OPTIMIZATION: Set loading to false immediately for fast UI response
       setLoading(false);
       
-      // PERFORMANCE OPTIMIZATION: Set tenant context asynchronously if user exists
+      // Set tenant context in background if user exists
       if (session?.user) {
-        // Use Promise.resolve to ensure this runs after state update
-        Promise.resolve().then(() => {
-          tenantContextService.setUserContextAsync(session.user.id).then(() => {
-            const tenantId = tenantContextService.getCurrentTenantId();
-            if (tenantId) {
-              setCurrentTenantId(tenantId);
-              console.log('✅ Initial tenant context set:', tenantId);
-            }
-          }).catch(error => {
-            console.warn('⚠️ Initial tenant context setup failed:', error);
-          });
-        });
+        setTenantContextInBackground(session.user.id);
       }
     });
 
@@ -59,45 +46,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       async (event, session) => {
         console.log('🔄 Auth state change:', event, session?.user?.email || 'no user');
         
+        setSession(session);
+        setUser(session?.user ?? null);
+        setLoading(false);
+        
         if (event === 'SIGNED_OUT') {
           console.log('🚪 User signed out - clearing state');
-          setSession(null);
-          setUser(null);
           setCurrentTenantId(null);
           tenantContextService.clearContext();
-          setLoading(false);
         } else if (event === 'SIGNED_IN' && session?.user) {
           console.log('🔐 User signed in:', session.user.email);
-          setSession(session);
-          setUser(session.user);
-          
-          // PERFORMANCE OPTIMIZATION: Set loading to false immediately for fast UI response
-          setLoading(false);
-          
-          // PERFORMANCE OPTIMIZATION: Set tenant context asynchronously (non-blocking)
-          // This follows our performance standards for < 200ms authentication
-          Promise.resolve().then(() => {
-            tenantContextService.setUserContextAsync(session.user.id).then(() => {
-              const tenantId = tenantContextService.getCurrentTenantId();
-              if (tenantId) {
-                setCurrentTenantId(tenantId);
-                console.log('✅ Tenant context set in background:', tenantId);
-              }
-            }).catch(error => {
-              console.warn('⚠️ Background tenant context setup failed:', error);
-              // Non-blocking: Continue with auth flow even if tenant setup fails
-            });
-          });
-        } else if (event === 'TOKEN_REFRESHED' && session) {
-          console.log('🔄 Token refreshed');
-          setSession(session);
-          setUser(session?.user ?? null);
-          setLoading(false);
-        } else {
-          console.log('🔄 Other auth event:', event);
-          setSession(session);
-          setUser(session?.user ?? null);
-          setLoading(false);
+          // Set tenant context in background - non-blocking
+          setTenantContextInBackground(session.user.id);
         }
       }
     );
@@ -105,8 +65,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
+  // Non-blocking tenant context setup
+  const setTenantContextInBackground = async (userId: string) => {
+    try {
+      await tenantContextService.setUserContextAsync(userId);
+      const tenantId = tenantContextService.getCurrentTenantId();
+      if (tenantId) {
+        setCurrentTenantId(tenantId);
+        console.log('✅ Tenant context set in background:', tenantId);
+      }
+    } catch (error) {
+      console.warn('⚠️ Background tenant context setup failed:', error);
+      // Continue without tenant context - non-blocking
+    }
+  };
+
   const signUp = async (email: string, password: string, firstName?: string, lastName?: string): Promise<AuthResult> => {
-    // PERFORMANCE OPTIMIZATION: Don't set loading for signup - it's handled by the auth state change
     try {
       const result = await authService.signUp({ email, password, firstName, lastName });
       return result;
@@ -117,15 +91,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signIn = async (email: string, password: string): Promise<AuthResult> => {
-    // PERFORMANCE OPTIMIZATION: Minimal loading state - auth state change handles UI updates
-    setLoading(true);
     try {
       const result = await authService.signIn(email, password);
-      // Note: Don't set loading to false here - auth state change will handle it
+      // Don't set loading here - auth state change will handle UI updates
       return result;
     } catch (error) {
       console.error('Signin error:', error);
-      setLoading(false);
       return { success: false, error: 'Signin failed' };
     }
   };
@@ -133,20 +104,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signOut = async (): Promise<void> => {
     try {
       console.log('🚪 Starting logout...');
-      
-      // Clear state immediately for instant UI response
-      setSession(null);
-      setUser(null);
-      setCurrentTenantId(null);
-      tenantContextService.clearContext();
-      
-      // Call auth service signout
       await authService.signOut();
-      
       console.log('✅ Logout completed');
     } catch (error) {
       console.error('💥 Logout failed:', error);
-      // Ensure state is cleared even on error
+      // Clear state even on error
       setSession(null);
       setUser(null);
       setCurrentTenantId(null);
