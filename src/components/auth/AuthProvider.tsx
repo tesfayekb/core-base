@@ -54,58 +54,97 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signUp = async (email: string, password: string, firstName?: string, lastName?: string) => {
     try {
-      console.log('=== SIGNUP DEBUG START ===');
-      console.log('Attempting signup for:', email);
-      console.log('Supabase URL:', 'https://fhzhlyskafjvcwcqjssmb.supabase.co');
-      console.log('Using anon key:', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZoemhseXNrZmp2Y3djcWpzc21iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgwNjIzMTksImV4cCI6MjA2MzYzODMxOX0.S2-LU5bi34Pcrg-XNEHj_SBQzxQncIe4tnOfhuyedNk');
-      console.log('Current timestamp:', new Date().toISOString());
-      console.log('Browser user agent:', navigator.userAgent);
-      console.log('Network connection status:', navigator.onLine);
+      console.log('🚀 === COMPREHENSIVE SIGNUP DEBUG START ===');
+      console.log('📧 Email:', email);
+      console.log('🌐 Supabase URL:', 'https://fhzhlyskafjvcwcqjssmb.supabase.co');
+      console.log('🔑 API Key (first 50 chars):', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFz...'.substring(0, 50));
+      console.log('⏰ Timestamp:', new Date().toISOString());
+      console.log('🖥️ User Agent:', navigator.userAgent);
+      console.log('📶 Online Status:', navigator.onLine);
+      console.log('🌍 Location:', window.location.href);
       
-      // Test basic connectivity to Supabase
-      console.log('Testing basic connectivity to Supabase...');
+      // Test if we can reach any external endpoint
+      console.log('🔍 Testing external connectivity...');
       try {
-        const testUrl = 'https://fhzhlyskafjvcwcqjssmb.supabase.co/rest/v1/';
-        console.log('Test URL:', testUrl);
-        
-        const testResponse = await fetch(testUrl, {
+        const externalTest = await fetch('https://httpbin.org/get', { 
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        console.log('✅ External connectivity test - Status:', externalTest.status);
+        console.log('✅ External connectivity: WORKING');
+      } catch (externalError) {
+        console.error('❌ External connectivity test failed:', externalError);
+        console.error('🚨 CRITICAL: No external internet connectivity detected');
+      }
+
+      // Test direct domain resolution
+      console.log('🔍 Testing Supabase domain resolution...');
+      try {
+        const domainTest = await fetch('https://supabase.com/favicon.ico', { 
+          method: 'HEAD',
+          mode: 'no-cors'
+        });
+        console.log('✅ Supabase domain resolution: WORKING');
+      } catch (domainError) {
+        console.error('❌ Supabase domain resolution failed:', domainError);
+      }
+
+      // Test specific project connectivity with detailed logging
+      console.log('🔍 Testing project-specific connectivity...');
+      const projectUrl = 'https://fhzhlyskafjvcwcqjssmb.supabase.co/rest/v1/';
+      console.log('🎯 Target URL:', projectUrl);
+      
+      try {
+        const projectTest = await fetch(projectUrl, {
           method: 'GET',
           headers: {
             'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZoemhseXNrZmp2Y3djcWpzc21iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgwNjIzMTksImV4cCI6MjA2MzYzODMxOX0.S2-LU5bi34Pcrg-XNEHj_SBQzxQncIe4tnOfhuyedNk',
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'Origin': window.location.origin
           }
         });
-        console.log('Basic connectivity test - Status:', testResponse.status);
-        console.log('Basic connectivity test - OK:', testResponse.ok);
-        console.log('Basic connectivity test - Headers:', Object.fromEntries(testResponse.headers.entries()));
+        console.log('✅ Project connectivity test - Status:', projectTest.status);
+        console.log('✅ Project connectivity test - Headers:', Object.fromEntries(projectTest.headers.entries()));
         
-        if (testResponse.ok) {
-          console.log('✅ Basic connectivity to Supabase is working');
+        if (projectTest.ok) {
+          console.log('🎉 Project connectivity: WORKING');
         } else {
-          console.warn('⚠️ Basic connectivity test returned non-200 status');
+          console.warn('⚠️ Project responded but with error status');
+          const responseText = await projectTest.text();
+          console.log('📄 Response body:', responseText);
         }
-      } catch (fetchError) {
-        console.error('❌ Basic connectivity test failed:', fetchError);
-        console.error('This indicates a fundamental network connectivity issue');
+      } catch (projectError) {
+        console.error('❌ Project connectivity test failed:', projectError);
+        console.error('🔍 Error name:', projectError.name);
+        console.error('🔍 Error message:', projectError.message);
+        
+        if (projectError.name === 'TypeError' && projectError.message.includes('fetch')) {
+          console.error('🚨 NETWORK ISSUE DETECTED:');
+          console.error('  • This is a fundamental network connectivity problem');
+          console.error('  • Request never reached Supabase servers');
+          console.error('  • Likely causes: CORS, firewall, or proxy blocking');
+        }
       }
-      
+
       // Test auth endpoint specifically
-      console.log('Testing auth endpoint connectivity...');
+      console.log('🔍 Testing auth endpoint...');
+      const authUrl = 'https://fhzhlyskafjvcwcqjssmb.supabase.co/auth/v1/settings';
       try {
-        const authTestUrl = 'https://fhzhlyskafjvcwcqjssmb.supabase.co/auth/v1/settings';
-        const authTestResponse = await fetch(authTestUrl, {
+        const authTest = await fetch(authUrl, {
           method: 'GET',
           headers: {
             'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZoemhseXNrZmp2Y3djcWpzc21iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgwNjIzMTksImV4cCI6MjA2MzYzODMxOX0.S2-LU5bi34Pcrg-XNEHj_SBQzxQncIe4tnOfhuyedNk'
           }
         });
-        console.log('Auth endpoint test - Status:', authTestResponse.status);
-        console.log('Auth endpoint test - OK:', authTestResponse.ok);
+        console.log('✅ Auth endpoint test - Status:', authTest.status);
+        if (authTest.ok) {
+          console.log('🎉 Auth endpoint connectivity: WORKING');
+        }
       } catch (authError) {
         console.error('❌ Auth endpoint test failed:', authError);
       }
-      
-      console.log('Attempting Supabase auth signup...');
+
+      console.log('🚀 Attempting Supabase signup...');
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -117,10 +156,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       });
 
-      console.log('Supabase signup response:', { data, error });
+      console.log('📋 Supabase signup response:', { data, error });
 
       if (error) {
-        console.error('Signup error details:', {
+        console.error('❌ Signup error details:', {
           message: error.message,
           status: error.status,
           code: error.code || 'no_code',
@@ -129,28 +168,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return { error: error.message };
       }
 
-      console.log('Signup successful:', data);
-      console.log('=== SIGNUP DEBUG END ===');
+      console.log('🎉 Signup successful:', data);
+      console.log('🏁 === SIGNUP DEBUG END ===');
       return { user: data.user };
     } catch (error) {
-      console.error('=== SIGNUP EXCEPTION ===');
-      console.error('Signup failed with exception:', error);
-      console.error('Error details:', {
+      console.error('💥 === SIGNUP EXCEPTION ===');
+      console.error('❌ Signup failed with exception:', error);
+      console.error('🔍 Error details:', {
         type: typeof error,
         constructor: error?.constructor?.name,
         message: error instanceof Error ? error.message : 'Unknown error',
         stack: error instanceof Error ? error.stack : 'No stack trace'
       });
       
-      // Check if this is a network error
       if (error instanceof TypeError && error.message.includes('fetch')) {
-        console.error('🔍 NETWORK CONNECTIVITY ANALYSIS:');
-        console.error('1. Check if Supabase project is active (not paused)');
-        console.error('2. Verify CORS settings in Supabase dashboard');
-        console.error('3. Check browser network developer tools');
-        console.error('4. Try disabling ad blockers or browser extensions');
-        console.error('5. Check if corporate firewall is blocking requests');
-        console.error('6. Verify project URL and API keys are correct');
+        console.error('🆘 TROUBLESHOOTING GUIDE:');
+        console.error('1. 🌐 Check your Supabase project dashboard');
+        console.error('2. 🛡️ Verify CORS settings include your domain:', window.location.origin);
+        console.error('3. 🚫 Disable ad blockers and browser extensions');
+        console.error('4. 🔒 Check if corporate firewall is blocking requests');
+        console.error('5. 🔄 Try opening your Supabase project URL directly in browser');
+        console.error('6. 📱 Test on different network/device');
+        console.error('7. 🔧 Check browser developer tools Network tab');
       }
       
       return { error: 'Network connection failed. Please check your internet connection and try again.' };
