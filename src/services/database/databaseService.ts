@@ -1,9 +1,9 @@
-
 // Database Service for Migration Management
-// Version: 1.0.0
-// Phase 1.2: Database Foundation
+// Version: 1.1.0
+// Phase 1.2: Database Foundation - Real Supabase Integration
 
 import { MigrationRunner, Migration } from '../migrations/migrationRunner';
+import { supabase } from '../database';
 
 // Import all migration files
 import migration000 from '../migrations/migrations/000_migration_infrastructure';
@@ -15,30 +15,35 @@ import migration005 from '../migrations/migrations/005_enable_rls_policies';
 import migration006 from '../migrations/migrations/006_create_utility_functions';
 
 export interface DatabaseConfig {
-  connectionString: string;
+  connectionString?: string;
 }
 
 export class DatabaseService {
   private migrationRunner: MigrationRunner;
   private isInitialized = false;
 
-  constructor(private config: DatabaseConfig) {
-    // Mock SQL execution for now - in real implementation this would use actual database connection
-    this.migrationRunner = new MigrationRunner(this.executeSQL.bind(this));
+  constructor(private config: DatabaseConfig = {}) {
+    // Use real Supabase connection
+    this.migrationRunner = new MigrationRunner();
     this.registerMigrations();
   }
 
   /**
-   * Mock SQL execution - replace with actual database connection
+   * Test database connection using Supabase
    */
-  private async executeSQL(sql: string): Promise<any> {
-    console.log('📊 Executing SQL:', sql.substring(0, 100) + '...');
-    
-    // Mock successful execution
-    return {
-      rows: [],
-      rowCount: 0
-    };
+  async testConnection(): Promise<boolean> {
+    try {
+      const { data, error } = await supabase.from('information_schema.tables').select('table_name').limit(1);
+      if (error) {
+        console.error('❌ Database connection test failed:', error);
+        return false;
+      }
+      console.log('✅ Database connection test successful');
+      return true;
+    } catch (error) {
+      console.error('❌ Database connection test failed:', error);
+      return false;
+    }
   }
 
   /**
@@ -70,7 +75,13 @@ export class DatabaseService {
     }
 
     try {
-      console.log('🚀 Initializing database...');
+      console.log('🚀 Initializing database with Supabase...');
+
+      // Test connection first
+      const isConnected = await this.testConnection();
+      if (!isConnected) {
+        throw new Error('Database connection test failed');
+      }
 
       // Initialize migration system
       await this.migrationRunner.initialize();
@@ -109,51 +120,56 @@ export class DatabaseService {
   }
 
   /**
-   * Test database connection
-   */
-  async testConnection(): Promise<boolean> {
-    try {
-      await this.executeSQL('SELECT 1');
-      return true;
-    } catch (error) {
-      console.error('❌ Database connection test failed:', error);
-      return false;
-    }
-  }
-
-  /**
    * Set tenant context for current session
    */
   async setTenantContext(tenantId: string): Promise<void> {
-    await this.executeSQL(`SELECT set_tenant_context('${tenantId}')`);
+    const { error } = await supabase.rpc('set_tenant_context', { tenant_id: tenantId });
+    if (error) {
+      throw new Error(`Failed to set tenant context: ${error.message}`);
+    }
   }
 
   /**
    * Set user context for current session
    */
   async setUserContext(userId: string): Promise<void> {
-    await this.executeSQL(`SELECT set_user_context('${userId}')`);
+    const { error } = await supabase.rpc('set_user_context', { user_id: userId });
+    if (error) {
+      throw new Error(`Failed to set user context: ${error.message}`);
+    }
   }
 
   /**
    * Clear all contexts
    */
   async clearContexts(): Promise<void> {
-    await this.executeSQL("SELECT set_config('app.current_tenant_id', NULL, false)");
-    await this.executeSQL("SELECT set_config('app.current_user_id', NULL, false)");
+    const { error: tenantError } = await supabase.rpc('execute_sql', { 
+      sql_query: "SELECT set_config('app.current_tenant_id', NULL, false)" 
+    });
+    const { error: userError } = await supabase.rpc('execute_sql', { 
+      sql_query: "SELECT set_config('app.current_user_id', NULL, false)" 
+    });
+    
+    if (tenantError || userError) {
+      throw new Error('Failed to clear contexts');
+    }
   }
 
   /**
-   * Execute a custom query (with context validation)
+   * Execute a custom query with Supabase
    */
   async query(sql: string, params?: any[]): Promise<any> {
-    // In real implementation, this would validate tenant context and execute query
-    console.log('🔍 Executing query with context validation:', sql.substring(0, 50) + '...');
-    return await this.executeSQL(sql);
+    console.log('🔍 Executing query with Supabase:', sql.substring(0, 50) + '...');
+    
+    const { data, error } = await supabase.rpc('execute_sql', { sql_query: sql });
+    
+    if (error) {
+      throw new Error(`Query execution failed: ${error.message}`);
+    }
+    
+    return { rows: data || [], rowCount: Array.isArray(data) ? data.length : 0 };
   }
 }
 
 // Export singleton instance for application use
-export const databaseService = new DatabaseService({
-  connectionString: process.env.DATABASE_URL || 'postgresql://localhost:5432/enterprise_system'
-});
+export const databaseService = new DatabaseService();

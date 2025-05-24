@@ -1,12 +1,12 @@
-
 // Main Migration Runner - Orchestrates all migration operations
-// Version: 1.0.0
-// Phase 1.2: Database Foundation
+// Version: 1.1.0
+// Phase 1.2: Database Foundation - Real Supabase Integration
 
 import { Migration, MigrationStatus, SQLExecutor } from './types/migrationTypes';
 import { MigrationValidator } from './core/migrationValidator';
 import { MigrationExecutor } from './core/migrationExecutor';
 import { MigrationStatusTracker } from './core/migrationStatusTracker';
+import { supabase } from '../database';
 
 export class MigrationRunner {
   private migrations: Migration[] = [];
@@ -14,12 +14,57 @@ export class MigrationRunner {
   private executor: MigrationExecutor;
   private statusTracker: MigrationStatusTracker;
 
-  constructor(executeSQL: SQLExecutor) {
-    this.validator = new MigrationValidator(executeSQL);
-    this.executor = new MigrationExecutor(executeSQL, this.validator);
+  constructor(executeSQL?: SQLExecutor) {
+    const sqlExecutor = executeSQL || this.createSupabaseExecutor();
+    this.validator = new MigrationValidator(sqlExecutor);
+    this.executor = new MigrationExecutor(sqlExecutor, this.validator);
     this.statusTracker = new MigrationStatusTracker(this.validator);
   }
 
+  /**
+   * Create Supabase SQL executor
+   */
+  private createSupabaseExecutor(): SQLExecutor {
+    return async (sql: string): Promise<any> => {
+      try {
+        console.log('🔄 Executing SQL via Supabase:', sql.substring(0, 100) + '...');
+        
+        // Use Supabase RPC for raw SQL execution
+        const { data, error } = await supabase.rpc('execute_sql', { sql_query: sql });
+        
+        if (error) {
+          console.error('❌ SQL execution error:', error);
+          throw new Error(`SQL execution failed: ${error.message}`);
+        }
+        
+        console.log('✅ SQL executed successfully');
+        return { rows: data || [], rowCount: Array.isArray(data) ? data.length : 0 };
+      } catch (error) {
+        console.error('❌ Supabase SQL execution failed:', error);
+        throw error;
+      }
+    };
+  }
+
+  /**
+   * Test database connection
+   */
+  async testConnection(): Promise<boolean> {
+    try {
+      const { data, error } = await supabase.from('information_schema.tables').select('table_name').limit(1);
+      if (error) {
+        console.error('❌ Database connection test failed:', error);
+        return false;
+      }
+      console.log('✅ Database connection test successful');
+      return true;
+    } catch (error) {
+      console.error('❌ Database connection test failed:', error);
+      return false;
+    }
+  }
+
+  
   /**
    * Register a migration for execution
    */
@@ -77,14 +122,8 @@ export class MigrationRunner {
   }
 }
 
-// Create a default mock execution function for development
-const mockExecuteSQL = async (sql: string): Promise<any> => {
-  console.log('📊 Mock SQL execution:', sql.substring(0, 100) + '...');
-  return { rows: [], rowCount: 0 };
-};
-
-// Export singleton instance
-export const migrationRunner = new MigrationRunner(mockExecuteSQL);
+// Export singleton instance with real Supabase connection
+export const migrationRunner = new MigrationRunner();
 
 // Re-export types and interfaces
 export type { Migration, MigrationRecord, MigrationStatus } from './types/migrationTypes';
