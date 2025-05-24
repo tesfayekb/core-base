@@ -25,5 +25,14 @@ module.exports = {
       lines: 80,
       statements: 80
     }
+  },
+  moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json'],
+  globals: {
+    'ts-jest': {
+      useESM: false,
+      tsconfig: {
+        jsx: 'react-jsx'
+      }
+    }
   }
 };

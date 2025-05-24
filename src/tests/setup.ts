@@ -17,10 +17,20 @@ jest.mock('../services/database', () => ({
 }));
 
 // Global test configuration
+const originalConsole = global.console;
 global.console = {
-  ...console,
+  ...originalConsole,
   // Suppress console.log during tests unless needed
   log: jest.fn(),
-  warn: jest.fn(),
+  warn: jest.fn(), 
   error: jest.fn()
 };
+
+// Setup global test environment
+beforeAll(() => {
+  // Global test setup
+});
+
+afterAll(() => {
+  // Global test cleanup
+});
