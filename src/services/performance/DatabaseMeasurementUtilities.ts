@@ -2,14 +2,13 @@
 import { PerformanceMeasurement } from './PerformanceMeasurement';
 
 export class DatabaseMeasurementUtilities {
-  private static measurement = PerformanceMeasurement.getInstance();
-  
   // MANDATORY: Use for all tenant-filtered queries
   static async measureTenantQuery<T>(
     queryName: string,
     queryFunction: () => Promise<T>
   ): Promise<T> {
-    const result = await this.measurement.measureOperation('simpleQuery', queryFunction);
+    const measurement = PerformanceMeasurement.getInstance();
+    const result = await measurement.measureOperation('simpleQuery', queryFunction);
     
     if (!result.success) {
       throw new Error(`Database query failed: ${result.error}`);
@@ -27,7 +26,8 @@ export class DatabaseMeasurementUtilities {
     permissionType: string,
     queryFunction: () => Promise<T>
   ): Promise<T> {
-    const result = await this.measurement.measureOperation('permissionCheck', queryFunction);
+    const measurement = PerformanceMeasurement.getInstance();
+    const result = await measurement.measureOperation('permissionCheck', queryFunction);
     
     if (!result.success) {
       throw new Error(`Permission query failed: ${result.error}`);
@@ -45,7 +45,8 @@ export class DatabaseMeasurementUtilities {
     auditType: string,
     writeFunction: () => Promise<T>
   ): Promise<T> {
-    const result = await this.measurement.measureOperation('auditWrite', writeFunction);
+    const measurement = PerformanceMeasurement.getInstance();
+    const result = await measurement.measureOperation('auditWrite', writeFunction);
     
     if (!result.success) {
       throw new Error(`Audit write failed: ${result.error}`);
@@ -63,7 +64,8 @@ export class DatabaseMeasurementUtilities {
     operationType: string,
     authFunction: () => Promise<T>
   ): Promise<T> {
-    const result = await this.measurement.measureOperation('authentication', authFunction);
+    const measurement = PerformanceMeasurement.getInstance();
+    const result = await measurement.measureOperation('authentication', authFunction);
     
     if (!result.success) {
       throw new Error(`Authentication operation failed: ${result.error}`);
