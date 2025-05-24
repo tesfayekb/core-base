@@ -4,6 +4,8 @@ import { supabase } from '@/services/database';
 import { tenantContextService } from '@/services/SharedTenantContextService';
 import { authService, AuthResult } from '@/services/authService';
 import { useCSRFProtection } from '@/hooks/useCSRFProtection';
+import { useErrorNotification } from '@/hooks/useErrorNotification';
+import { errorService } from '@/services/ErrorService';
 
 interface AuthContextType {
   user: User | null;
@@ -30,6 +32,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [currentTenantId, setCurrentTenantId] = useState<string | null>(null);
   const [authError, setAuthError] = useState<string | null>(null);
   const { token: csrfToken, isValid: csrfValid } = useCSRFProtection();
+  const { notifyError, notifySuccess } = useErrorNotification();
 
   useEffect(() => {
     console.log('🔄 AuthProvider: Initializing auth state...');
@@ -110,15 +113,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const result = await authService.signUp({ email, password, firstName, lastName });
       
       if (!result.success && result.error) {
-        setAuthError(result.error);
+        const errorDetails = errorService.handleError(result.error, { action: 'signup' });
+        setAuthError(errorDetails.userMessage);
+        notifyError(result.error, { action: 'signup' });
+      } else if (result.success) {
+        notifySuccess('Account created successfully! Please check your email to verify your account.');
       }
       
       return result;
     } catch (error) {
       console.error('Signup error in provider:', error);
-      const errorMessage = 'An unexpected error occurred during registration';
-      setAuthError(errorMessage);
-      return { success: false, error: errorMessage };
+      const errorDetails = notifyError(error as Error, { action: 'signup' });
+      setAuthError(errorDetails.userMessage);
+      return { success: false, error: errorDetails.userMessage };
     }
   };
 
@@ -128,15 +135,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const result = await authService.signIn(email, password);
       
       if (!result.success && result.error) {
-        setAuthError(result.error);
+        const errorDetails = errorService.handleError(result.error, { action: 'signin' });
+        setAuthError(errorDetails.userMessage);
+        notifyError(result.error, { action: 'signin' });
+      } else if (result.success) {
+        notifySuccess('Welcome back!');
       }
       
       return result;
     } catch (error) {
       console.error('Signin error in provider:', error);
-      const errorMessage = 'An unexpected error occurred during login';
-      setAuthError(errorMessage);
-      return { success: false, error: errorMessage };
+      const errorDetails = notifyError(error as Error, { action: 'signin' });
+      setAuthError(errorDetails.userMessage);
+      return { success: false, error: errorDetails.userMessage };
     }
   };
 
@@ -146,9 +157,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.log('🚪 Starting logout...');
       await authService.signOut();
       console.log('✅ Logout completed');
+      notifySuccess('You have been signed out successfully.');
     } catch (error) {
       console.error('💥 Logout failed:', error);
-      setAuthError('Logout failed. Please try again.');
+      const errorDetails = notifyError(error as Error, { action: 'signout' });
+      setAuthError(errorDetails.userMessage);
       // Clear state even on error
       setSession(null);
       setUser(null);
@@ -223,7 +236,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const value = {
     user,
     session,
-    loading: loading || !csrfValid, // Include CSRF readiness in loading state
+    loading: loading || !csrfValid,
     signUp,
     signIn,
     signOut,
