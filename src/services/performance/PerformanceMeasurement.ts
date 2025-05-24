@@ -15,17 +15,35 @@ export interface PerformanceResult<T> {
   };
 }
 
+export type OperationType = 
+  | 'simpleQuery' 
+  | 'complexQuery' 
+  | 'authentication' 
+  | 'permissionCheck' 
+  | 'tenantIsolation' 
+  | 'auditWrite'
+  | 'connectionPoolAcquire'
+  | 'errorRecovery'
+  | 'circuitBreakerResponse'
+  | 'metricsCollection'
+  | 'alertEvaluation';
+
 export class PerformanceMeasurement {
   private static instance: PerformanceMeasurement;
   
   // Performance targets from PERFORMANCE_STANDARDS.md
-  private readonly targets = {
+  private readonly targets: Record<OperationType, number> = {
     simpleQuery: 10, // ms
     complexQuery: 50, // ms
     authentication: 200, // ms
     permissionCheck: 15, // ms
     tenantIsolation: 20, // ms
-    auditWrite: 5 // ms
+    auditWrite: 5, // ms
+    connectionPoolAcquire: 100, // ms
+    errorRecovery: 50, // ms
+    circuitBreakerResponse: 5, // ms
+    metricsCollection: 30, // ms
+    alertEvaluation: 25 // ms
   };
 
   static getInstance(): PerformanceMeasurement {
@@ -36,7 +54,7 @@ export class PerformanceMeasurement {
   }
 
   async measureOperation<T>(
-    operationType: 'simpleQuery' | 'complexQuery' | 'authentication' | 'permissionCheck' | 'tenantIsolation' | 'auditWrite',
+    operationType: OperationType,
     operation: () => Promise<T>
   ): Promise<PerformanceResult<T>> {
     const startTime = performance.now();
@@ -74,7 +92,7 @@ export class PerformanceMeasurement {
     }
   }
 
-  private getRecommendations(operation: string, actual: number, target: number): string[] {
+  private getRecommendations(operation: OperationType, actual: number, target: number): string[] {
     const ratio = actual / target;
     const recommendations = [];
 
@@ -86,6 +104,7 @@ export class PerformanceMeasurement {
 
     switch (operation) {
       case 'simpleQuery':
+      case 'complexQuery':
         recommendations.push('Consider adding database indexes', 'Check query complexity');
         break;
       case 'authentication':
@@ -93,6 +112,21 @@ export class PerformanceMeasurement {
         break;
       case 'permissionCheck':
         recommendations.push('Verify permission cache is working', 'Check permission query optimization');
+        break;
+      case 'connectionPoolAcquire':
+        recommendations.push('Check connection pool size', 'Monitor connection pool health');
+        break;
+      case 'errorRecovery':
+        recommendations.push('Review retry configuration', 'Check circuit breaker settings');
+        break;
+      case 'circuitBreakerResponse':
+        recommendations.push('Circuit breaker may be degraded', 'Check failure threshold settings');
+        break;
+      case 'metricsCollection':
+        recommendations.push('Optimize metrics gathering', 'Consider metric sampling');
+        break;
+      case 'alertEvaluation':
+        recommendations.push('Simplify alert rules', 'Optimize alert evaluation logic');
         break;
     }
 

@@ -1,4 +1,3 @@
-
 // Database Service - Enhanced with Connection Pooling, Error Recovery & Monitoring
 // Version: 3.0.0
 // Phase 1.2: Database Foundation - Production-Ready Enhancements
@@ -256,7 +255,7 @@ export class DatabaseService {
     // Database performance health
     const dbHealth = phase1Monitor.getHealthStatus();
     components.database = dbHealth;
-    if (!dbHealth.status === 'healthy') {
+    if (dbHealth.status !== 'healthy') {
       issues.push(...dbHealth.issues);
     }
 

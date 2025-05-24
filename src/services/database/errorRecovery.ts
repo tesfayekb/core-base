@@ -1,4 +1,3 @@
-
 // Database Error Recovery System
 // Version: 1.0.0
 // Phase 1.2: Enhanced Database Foundation - Error Recovery
@@ -25,6 +24,7 @@ export interface RecoveryMetrics {
   retriedOperations: number;
   circuitBreakerTrips: number;
   averageRetryDelay: number;
+  reliability: number;
   lastError?: string;
   lastErrorTime?: Date;
 }
@@ -42,7 +42,8 @@ export class DatabaseErrorRecovery {
     failedOperations: 0,
     retriedOperations: 0,
     circuitBreakerTrips: 0,
-    averageRetryDelay: 0
+    averageRetryDelay: 0,
+    reliability: 1.0
   };
 
   private readonly defaultRetryConfig: RetryConfig = {
@@ -160,6 +161,9 @@ export class DatabaseErrorRecovery {
       // Reset failure count on success in normal operation
       this.failureCount = Math.max(0, this.failureCount - 1);
     }
+
+    // Update reliability metric
+    this.updateReliability();
   }
 
   /**
@@ -173,6 +177,9 @@ export class DatabaseErrorRecovery {
     this.failureCount++;
     this.lastFailureTime = Date.now();
 
+    // Update reliability metric
+    this.updateReliability();
+
     // Check if circuit breaker should trip
     if (this.circuitState === 'CLOSED' && 
         this.failureCount >= this.defaultCircuitConfig.failureThreshold) {
@@ -184,6 +191,15 @@ export class DatabaseErrorRecovery {
       this.circuitState = 'OPEN';
       this.successCount = 0;
       console.error(`🔴 Circuit breaker back to OPEN for ${operationName} - recovery failed`);
+    }
+  }
+
+  /**
+   * Update reliability metric
+   */
+  private updateReliability(): void {
+    if (this.metrics.totalOperations > 0) {
+      this.metrics.reliability = 1 - (this.metrics.failedOperations / this.metrics.totalOperations);
     }
   }
 
@@ -276,7 +292,8 @@ export class DatabaseErrorRecovery {
       failedOperations: 0,
       retriedOperations: 0,
       circuitBreakerTrips: 0,
-      averageRetryDelay: 0
+      averageRetryDelay: 0,
+      reliability: 1.0
     };
     console.log('📊 Recovery metrics reset');
   }
