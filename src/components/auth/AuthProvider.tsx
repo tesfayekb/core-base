@@ -42,18 +42,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setUser(null);
           setCurrentTenantId(null);
           tenantContextService.clearContext();
+          setLoading(false);
         } else if (event === 'SIGNED_IN' && session?.user) {
           console.log('🔐 User signed in:', session.user.email);
           setSession(session);
           setUser(session.user);
-          await tenantContextService.setUserContext(session.user.id);
+          
+          // Set loading to false immediately, don't wait for tenant context
+          setLoading(false);
+          
+          // Set tenant context in background (non-blocking)
+          try {
+            await tenantContextService.setUserContext(session.user.id);
+            console.log('✅ Tenant context set successfully');
+          } catch (error) {
+            console.warn('⚠️ Failed to set tenant context:', error);
+            // Don't block the auth flow for tenant context failures
+          }
         } else {
           console.log('🔄 Other auth event:', event);
           setSession(session);
           setUser(session?.user ?? null);
+          setLoading(false);
         }
-        
-        setLoading(false);
       }
     );
 
