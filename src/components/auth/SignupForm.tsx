@@ -4,7 +4,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, UserPlus } from 'lucide-react';
 import { useAuth } from './AuthProvider';
 import { PasswordStrengthIndicator } from './PasswordStrengthIndicator';
@@ -29,6 +28,18 @@ export function SignupForm({ onToggleMode, onSuccess }: SignupFormProps) {
   const { signUp, authError, clearAuthError } = useAuth();
   const { showError, showSuccess } = useErrorNotification();
 
+  const validatePasswordStrength = (password: string): boolean => {
+    const checks = [
+      password.length >= 8,
+      /[a-z]/.test(password),
+      /[A-Z]/.test(password),
+      /\d/.test(password),
+      /[!@#$%^&*(),.?":{}|<>]/.test(password)
+    ];
+    
+    return checks.filter(Boolean).length >= 4; // At least 4 out of 5 checks must pass
+  };
+
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     
@@ -44,6 +55,11 @@ export function SignupForm({ onToggleMode, onSuccess }: SignupFormProps) {
     
     if (formData.password !== formData.confirmPassword) {
       showError('Passwords do not match');
+      return;
+    }
+
+    if (!validatePasswordStrength(formData.password)) {
+      showError('Password does not meet security requirements');
       return;
     }
 
@@ -79,7 +95,7 @@ export function SignupForm({ onToggleMode, onSuccess }: SignupFormProps) {
                      formData.password && 
                      formData.confirmPassword && 
                      !passwordMismatch &&
-                     formData.password.length >= 8;
+                     validatePasswordStrength(formData.password);
 
   return (
     <Card className="w-full max-w-md mx-auto">
@@ -140,7 +156,7 @@ export function SignupForm({ onToggleMode, onSuccess }: SignupFormProps) {
               <Input
                 id="password"
                 type="password"
-                placeholder="Create a password"
+                placeholder="Create a secure password"
                 value={formData.password}
                 onChange={(e) => handleInputChange('password', e.target.value)}
                 required

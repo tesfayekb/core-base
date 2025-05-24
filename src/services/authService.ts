@@ -1,12 +1,37 @@
+
 import { supabase } from './database';
 import { z } from 'zod';
 import { measureAuthOperation } from './performance/DatabaseMeasurementUtilities';
 import { rateLimitService } from './auth/RateLimitService';
 import { csrfProtectionService } from './auth/CSRFProtectionService';
 
-// Validation schemas
+// Enhanced validation schemas with better password security
 const EmailSchema = z.string().email().min(1).max(255);
-const PasswordSchema = z.string().min(8).max(128);
+
+// Enhanced password schema with comprehensive validation
+const PasswordSchema = z.string()
+  .min(8, 'Password must be at least 8 characters long')
+  .max(128, 'Password must not exceed 128 characters')
+  .refine((password) => /[a-z]/.test(password), 'Password must contain at least one lowercase letter')
+  .refine((password) => /[A-Z]/.test(password), 'Password must contain at least one uppercase letter')
+  .refine((password) => /\d/.test(password), 'Password must contain at least one number')
+  .refine((password) => /[!@#$%^&*(),.?":{}|<>]/.test(password), 'Password must contain at least one special character')
+  .refine((password) => !isCommonPattern(password), 'Password contains common patterns and is not secure');
+
+// Helper function to check for common password patterns
+function isCommonPattern(password: string): boolean {
+  const commonPatterns = [
+    /123456/,
+    /abcdef/,
+    /qwerty/i,
+    /password/i,
+    /(.)\1{2,}/, // repeated characters like "aaa"
+    /012345/,
+    /987654/
+  ];
+  
+  return commonPatterns.some(pattern => pattern.test(password));
+}
 
 const UserCredentialsSchema = z.object({
   email: EmailSchema,
@@ -52,7 +77,7 @@ export class AuthService {
           };
         }
 
-        // 1. Check rate limit first
+        // 2. Check rate limit first
         const rateLimitStatus = rateLimitService.checkRateLimit(credentials.email);
         if (rateLimitStatus.isLocked) {
           const lockoutMinutes = Math.ceil((rateLimitStatus.lockoutEndTime! - Date.now()) / (60 * 1000));
@@ -62,18 +87,31 @@ export class AuthService {
           };
         }
 
-        // 2. Validate input
+        // 3. Enhanced validation with detailed password requirements
         const validation = UserCredentialsSchema.safeParse(credentials);
         if (!validation.success) {
           console.error('❌ Validation failed:', validation.error.errors);
           rateLimitService.recordAttempt(credentials.email, false);
+          
+          // Return specific password validation errors
+          const passwordErrors = validation.error.errors
+            .filter(error => error.path.includes('password'))
+            .map(error => error.message);
+          
+          if (passwordErrors.length > 0) {
+            return {
+              success: false,
+              error: passwordErrors[0] // Return the first password error
+            };
+          }
+          
           return {
             success: false,
             error: 'Invalid input: ' + validation.error.errors.map(e => e.message).join(', ')
           };
         }
 
-        // 3. Check minimum delay between attempts
+        // 4. Check minimum delay between attempts
         if (Date.now() < rateLimitStatus.nextAttemptAllowed) {
           return {
             success: false,
@@ -81,7 +119,7 @@ export class AuthService {
           };
         }
 
-        // 4. Attempt Supabase signup with CSRF headers
+        // 5. Attempt Supabase signup
         const { data, error } = await supabase.auth.signUp({
           email: credentials.email,
           password: credentials.password,
@@ -106,7 +144,7 @@ export class AuthService {
         console.log('✅ Signup successful:', data.user?.email);
         rateLimitService.recordAttempt(credentials.email, true);
         
-        // 5. Check if email confirmation is required
+        // 6. Check if email confirmation is required
         if (data.user && !data.session) {
           return {
             success: true,
@@ -293,11 +331,13 @@ export class AuthService {
         };
       }
 
+      // Enhanced password validation
       const passwordValidation = PasswordSchema.safeParse(newPassword);
       if (!passwordValidation.success) {
+        const errorMessage = passwordValidation.error.errors[0]?.message || 'Password does not meet security requirements';
         return {
           success: false,
-          error: 'Password must be at least 8 characters long'
+          error: errorMessage
         };
       }
 
