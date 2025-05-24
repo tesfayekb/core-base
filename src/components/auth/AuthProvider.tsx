@@ -25,6 +25,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
+      console.log('Initial session:', session);
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
@@ -33,13 +34,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log('Auth state change:', event);
+        console.log('Auth state change:', event, session);
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
 
         // Set user context when authenticated
         if (session?.user) {
+          console.log('Setting user context for:', session.user.id);
           await tenantContextService.setUserContext(session.user.id);
         } else {
           tenantContextService.clearContext();
@@ -53,6 +55,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signUp = async (email: string, password: string, firstName?: string, lastName?: string) => {
     try {
+      console.log('Attempting signup for:', email);
+      
+      // Simple signup without tenant context initially
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -69,6 +74,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return { error: error.message };
       }
 
+      console.log('Signup successful:', data);
       return { user: data.user };
     } catch (error) {
       console.error('Signup failed:', error);
@@ -78,6 +84,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signIn = async (email: string, password: string) => {
     try {
+      console.log('Attempting signin for:', email);
+      
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password
@@ -88,6 +96,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return { error: error.message };
       }
 
+      console.log('Signin successful:', data);
       return { user: data.user };
     } catch (error) {
       console.error('Signin failed:', error);

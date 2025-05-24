@@ -22,30 +22,38 @@ export function LoginForm() {
     e.preventDefault();
     setIsLoading(true);
 
+    console.log('Form submitted:', { isLogin, email, hasPassword: !!password });
+
     try {
       if (isLogin) {
+        console.log('Attempting login...');
         const result = await signIn(email, password);
         if (result.error) {
+          console.error('Login failed:', result.error);
           toast({
             variant: "destructive",
             title: "Login Failed",
             description: result.error,
           });
         } else {
+          console.log('Login successful');
           toast({
             title: "Welcome back!",
             description: "You have successfully logged in.",
           });
         }
       } else {
+        console.log('Attempting registration...');
         const result = await signUp(email, password, firstName, lastName);
         if (result.error) {
+          console.error('Registration failed:', result.error);
           toast({
             variant: "destructive",
             title: "Registration Failed",
             description: result.error,
           });
         } else {
+          console.log('Registration successful');
           toast({
             title: "Registration Successful",
             description: "Please check your email to verify your account.",
@@ -53,6 +61,7 @@ export function LoginForm() {
         }
       }
     } catch (error) {
+      console.error('Auth error:', error);
       toast({
         variant: "destructive",
         title: "Error",
