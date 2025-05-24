@@ -5,7 +5,11 @@ const migration: Migration = {
   version: '001',
   name: 'create_core_tables',
   script: `
--- Enable Row Level Security globally
+-- Core Database Schema for Multi-Tenant Enterprise System
+-- Version: 1.0.0
+-- Phase 1.1: Database Foundation
+
+-- Enable Row Level Security
 ALTER DATABASE postgres SET row_security = on;
 
 -- Create custom types
@@ -157,18 +161,19 @@ CREATE INDEX IF NOT EXISTS idx_audit_logs_tenant_timestamp ON audit_logs(tenant_
 CREATE INDEX IF NOT EXISTS idx_user_sessions_user_tenant ON user_sessions(user_id, tenant_id);
 CREATE INDEX IF NOT EXISTS idx_user_tenants_user_id ON user_tenants(user_id);
 
--- Add tenant_id to auth.users if not exists (for Supabase integration)
-DO $$
+-- Create updated_at trigger function
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
 BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM information_schema.columns 
-    WHERE table_schema = 'auth' 
-    AND table_name = 'users' 
-    AND column_name = 'tenant_id'
-  ) THEN
-    ALTER TABLE auth.users ADD COLUMN tenant_id UUID REFERENCES tenants(id);
-  END IF;
-END $$;
+    NEW.updated_at = CURRENT_TIMESTAMP;
+    RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+-- Apply updated_at triggers
+CREATE TRIGGER update_tenants_updated_at BEFORE UPDATE ON tenants FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON users FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_roles_updated_at BEFORE UPDATE ON roles FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
   `
 };
 
