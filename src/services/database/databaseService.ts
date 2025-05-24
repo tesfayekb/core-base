@@ -1,5 +1,6 @@
-// Database Service - Enhanced with Connection Pooling, Error Recovery & Monitoring
-// Version: 3.0.0
+
+// Database Service - Refactored with Extracted Components
+// Version: 4.0.0
 // Phase 1.2: Database Foundation - Production-Ready Enhancements
 
 import { MigrationRunner, Migration } from '../migrations/migrationRunner';
@@ -7,7 +8,7 @@ import { tenantContextService } from './tenantContext';
 import { testConnection, supabase } from './connection';
 import { connectionPool } from './connectionPool';
 import { errorRecovery } from './errorRecovery';
-import { alertingSystem } from '../monitoring/alertingSystem';
+import { databaseHealthMonitor } from './monitoring/DatabaseHealthMonitor';
 import { phase1Monitor } from '../performance/Phase1Monitor';
 
 // Import all migration files
@@ -29,7 +30,6 @@ export interface DatabaseConfig {
 export class DatabaseService {
   private migrationRunner: MigrationRunner;
   private isInitialized = false;
-  private monitoringInterval?: NodeJS.Timeout;
 
   constructor(private config: DatabaseConfig = {}) {
     this.migrationRunner = new MigrationRunner();
@@ -41,7 +41,7 @@ export class DatabaseService {
     }
     
     if (this.config.enableMonitoring !== false) {
-      this.startMonitoring();
+      databaseHealthMonitor.startMonitoring();
     }
   }
 
@@ -55,35 +55,6 @@ export class DatabaseService {
     } catch (error) {
       console.error('❌ Failed to initialize connection pool:', error);
     }
-  }
-
-  /**
-   * Start performance monitoring and alerting
-   */
-  private startMonitoring(): void {
-    this.monitoringInterval = setInterval(async () => {
-      try {
-        // Collect metrics from various sources
-        const metrics = {
-          database: phase1Monitor.getMetrics(),
-          connectionPool: connectionPool.getMetrics(),
-          errorRecovery: errorRecovery.getMetrics(),
-          rbac: phase1Monitor.getMetrics().rbac,
-          multiTenant: phase1Monitor.getMetrics().multiTenant
-        };
-
-        // Check for alerts
-        await alertingSystem.checkAlerts(metrics);
-        
-        // Log health status periodically
-        const health = this.getHealthStatus();
-        if (!health.healthy) {
-          console.warn('⚠️ Database service health issues:', health.issues);
-        }
-      } catch (error) {
-        console.error('❌ Monitoring check failed:', error);
-      }
-    }, 60000); // Check every minute
   }
 
   /**
@@ -101,8 +72,6 @@ export class DatabaseService {
 
   /**
    * Execute SQL query with enhanced error handling and monitoring
-   * @param sql - SQL query to execute
-   * @returns Query result with rows and metadata
    */
   async query(sql: string): Promise<any> {
     const startTime = performance.now();
@@ -249,39 +218,10 @@ export class DatabaseService {
     issues: string[];
     components: Record<string, any>;
   } {
-    const issues: string[] = [];
-    const components: Record<string, any> = {};
-
-    // Database performance health
-    const dbHealth = phase1Monitor.getHealthStatus();
-    components.database = dbHealth;
-    if (dbHealth.status !== 'healthy') {
-      issues.push(...dbHealth.issues);
-    }
-
-    // Connection pool health
-    if (this.config.enableConnectionPooling !== false) {
-      const poolHealth = connectionPool.getHealthStatus();
-      components.connectionPool = poolHealth;
-      if (!poolHealth.healthy) {
-        issues.push(...poolHealth.issues);
-      }
-    }
-
-    // Error recovery health
-    if (this.config.enableErrorRecovery !== false) {
-      const recoveryHealth = errorRecovery.getHealthStatus();
-      components.errorRecovery = recoveryHealth;
-      if (!recoveryHealth.healthy) {
-        issues.push(...recoveryHealth.issues);
-      }
-    }
-
-    return {
-      healthy: issues.length === 0,
-      issues,
-      components
-    };
+    return databaseHealthMonitor.getHealthStatus(
+      this.config.enableConnectionPooling !== false,
+      this.config.enableErrorRecovery !== false
+    );
   }
 
   /**
@@ -293,32 +233,18 @@ export class DatabaseService {
     errorRecovery?: any;
     alerts?: any;
   } {
-    const metrics: any = {
-      database: phase1Monitor.getMetrics()
-    };
-
-    if (this.config.enableConnectionPooling !== false) {
-      metrics.connectionPool = connectionPool.getMetrics();
-    }
-
-    if (this.config.enableErrorRecovery !== false) {
-      metrics.errorRecovery = errorRecovery.getMetrics();
-    }
-
-    if (this.config.enableMonitoring !== false) {
-      metrics.alerts = alertingSystem.getAlertStats();
-    }
-
-    return metrics;
+    return databaseHealthMonitor.getMetrics(
+      this.config.enableConnectionPooling !== false,
+      this.config.enableErrorRecovery !== false,
+      this.config.enableMonitoring !== false
+    );
   }
 
   /**
    * Cleanup resources
    */
   async cleanup(): Promise<void> {
-    if (this.monitoringInterval) {
-      clearInterval(this.monitoringInterval);
-    }
+    databaseHealthMonitor.cleanup();
 
     if (this.config.enableConnectionPooling !== false) {
       await connectionPool.cleanup();

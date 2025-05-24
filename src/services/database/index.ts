@@ -1,6 +1,6 @@
 
-// Database Services Entry Point
-// Version: 2.0.0
+// Database Services Entry Point - Updated with Refactored Components
+// Version: 3.0.0
 // Phase 1.2: Database Foundation - Refactored Services
 
 // Export connection
@@ -10,6 +10,14 @@ export { supabase, testConnection } from './connection';
 export { tenantContextService, TenantContextService } from './tenantContext';
 export { permissionService, PermissionService } from './permissionService';
 export { auditService, AuditService } from './auditService';
+
+// Export enhanced infrastructure
+export { databaseService, DatabaseService } from './databaseService';
+export { connectionPool, DatabaseConnectionPool } from './connectionPool';
+export { errorRecovery, DatabaseErrorRecovery } from './errorRecovery';
+
+// Export monitoring
+export { databaseHealthMonitor, DatabaseHealthMonitor } from './monitoring/DatabaseHealthMonitor';
 
 // Export migration runner
 export { migrationRunner, MigrationRunner } from '../migrations/migrationRunner';

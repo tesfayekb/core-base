@@ -1,22 +1,10 @@
-// Database Error Recovery System
-// Version: 1.0.0
+
+// Database Error Recovery System - Refactored
+// Version: 2.0.0
 // Phase 1.2: Enhanced Database Foundation - Error Recovery
 
-export interface RetryConfig {
-  maxAttempts: number;
-  initialDelayMs: number;
-  maxDelayMs: number;
-  backoffMultiplier: number;
-  retryableErrors: string[];
-}
-
-export interface CircuitBreakerConfig {
-  failureThreshold: number;
-  recoveryTimeMs: number;
-  monitoringWindowMs: number;
-}
-
-export type CircuitState = 'CLOSED' | 'OPEN' | 'HALF_OPEN';
+import { CircuitBreaker, CircuitBreakerConfig, CircuitState } from './errorRecovery/CircuitBreaker';
+import { RetryManager, RetryConfig } from './errorRecovery/RetryManager';
 
 export interface RecoveryMetrics {
   totalOperations: number;
@@ -32,10 +20,8 @@ export interface RecoveryMetrics {
 export class DatabaseErrorRecovery {
   private static instance: DatabaseErrorRecovery;
   
-  private circuitState: CircuitState = 'CLOSED';
-  private failureCount = 0;
-  private lastFailureTime = 0;
-  private successCount = 0;
+  private circuitBreaker: CircuitBreaker;
+  private retryManager: RetryManager;
   
   private metrics: RecoveryMetrics = {
     totalOperations: 0,
@@ -68,6 +54,11 @@ export class DatabaseErrorRecovery {
     monitoringWindowMs: 300000 // 5 minutes
   };
 
+  constructor() {
+    this.circuitBreaker = new CircuitBreaker(this.defaultCircuitConfig);
+    this.retryManager = new RetryManager();
+  }
+
   static getInstance(): DatabaseErrorRecovery {
     if (!DatabaseErrorRecovery.instance) {
       DatabaseErrorRecovery.instance = new DatabaseErrorRecovery();
@@ -87,82 +78,25 @@ export class DatabaseErrorRecovery {
     this.metrics.totalOperations++;
 
     // Check circuit breaker
-    if (this.circuitState === 'OPEN') {
-      if (Date.now() - this.lastFailureTime < this.defaultCircuitConfig.recoveryTimeMs) {
-        throw new Error(`Circuit breaker OPEN for ${operationName}. Recovery time not elapsed.`);
-      } else {
-        this.circuitState = 'HALF_OPEN';
-        console.log(`🔄 Circuit breaker moving to HALF_OPEN for ${operationName}`);
-      }
+    if (!this.circuitBreaker.canExecute()) {
+      throw new Error(`Circuit breaker OPEN for ${operationName}. Recovery time not elapsed.`);
     }
 
-    let lastError: Error;
-    let totalDelay = 0;
-
-    for (let attempt = 1; attempt <= config.maxAttempts; attempt++) {
-      try {
-        console.log(`🎯 Executing ${operationName} (attempt ${attempt}/${config.maxAttempts})`);
-        
-        const result = await operation();
-        
-        // Success - reset circuit breaker if needed
-        this.onSuccess(operationName);
-        return result;
-
-      } catch (error) {
-        lastError = error instanceof Error ? error : new Error(String(error));
-        console.error(`❌ ${operationName} failed (attempt ${attempt}):`, lastError.message);
-
-        // Check if error is retryable
-        if (!this.isRetryableError(lastError, config.retryableErrors)) {
-          console.log(`🚫 Non-retryable error for ${operationName}, failing immediately`);
-          this.onFailure(operationName, lastError);
-          throw lastError;
-        }
-
-        // Don't retry on last attempt
-        if (attempt === config.maxAttempts) {
-          break;
-        }
-
-        // Calculate delay with exponential backoff
-        const delay = Math.min(
-          config.initialDelayMs * Math.pow(config.backoffMultiplier, attempt - 1),
-          config.maxDelayMs
-        );
-        
-        totalDelay += delay;
-        this.metrics.retriedOperations++;
-        
-        console.log(`⏳ Retrying ${operationName} in ${delay}ms...`);
-        await this.sleep(delay);
-      }
+    try {
+      const result = await this.retryManager.executeWithRetry(operation, operationName, config);
+      this.onSuccess(operationName);
+      return result;
+    } catch (error) {
+      this.onFailure(operationName, error instanceof Error ? error : new Error(String(error)));
+      throw error;
     }
-
-    // All attempts failed
-    this.onFailure(operationName, lastError!);
-    this.updateAverageRetryDelay(totalDelay);
-    throw lastError!;
   }
 
   /**
    * Handle successful operation
    */
   private onSuccess(operationName: string): void {
-    if (this.circuitState === 'HALF_OPEN') {
-      this.successCount++;
-      if (this.successCount >= 3) { // Require 3 successes to close circuit
-        this.circuitState = 'CLOSED';
-        this.failureCount = 0;
-        this.successCount = 0;
-        console.log(`✅ Circuit breaker CLOSED for ${operationName} after recovery`);
-      }
-    } else if (this.circuitState === 'CLOSED') {
-      // Reset failure count on success in normal operation
-      this.failureCount = Math.max(0, this.failureCount - 1);
-    }
-
-    // Update reliability metric
+    this.circuitBreaker.onSuccess(operationName);
     this.updateReliability();
   }
 
@@ -174,24 +108,8 @@ export class DatabaseErrorRecovery {
     this.metrics.lastError = error.message;
     this.metrics.lastErrorTime = new Date();
     
-    this.failureCount++;
-    this.lastFailureTime = Date.now();
-
-    // Update reliability metric
+    this.circuitBreaker.onFailure(operationName);
     this.updateReliability();
-
-    // Check if circuit breaker should trip
-    if (this.circuitState === 'CLOSED' && 
-        this.failureCount >= this.defaultCircuitConfig.failureThreshold) {
-      this.circuitState = 'OPEN';
-      this.metrics.circuitBreakerTrips++;
-      console.error(`🔴 Circuit breaker OPEN for ${operationName} after ${this.failureCount} failures`);
-    } else if (this.circuitState === 'HALF_OPEN') {
-      // Failure in half-open state - go back to open
-      this.circuitState = 'OPEN';
-      this.successCount = 0;
-      console.error(`🔴 Circuit breaker back to OPEN for ${operationName} - recovery failed`);
-    }
   }
 
   /**
@@ -204,33 +122,18 @@ export class DatabaseErrorRecovery {
   }
 
   /**
-   * Check if error is retryable
-   */
-  private isRetryableError(error: Error, retryableErrors: string[]): boolean {
-    const errorMessage = error.message.toLowerCase();
-    return retryableErrors.some(retryableError => 
-      errorMessage.includes(retryableError.toLowerCase())
-    );
-  }
-
-  /**
-   * Update average retry delay metric
-   */
-  private updateAverageRetryDelay(totalDelay: number): void {
-    const currentAverage = this.metrics.averageRetryDelay;
-    const retriedOps = this.metrics.retriedOperations;
-    
-    this.metrics.averageRetryDelay = 
-      (currentAverage * (retriedOps - 1) + totalDelay) / retriedOps;
-  }
-
-  /**
    * Get current recovery metrics
    */
   getMetrics(): RecoveryMetrics & { circuitState: CircuitState } {
+    const retryMetrics = this.retryManager.getMetrics();
+    const circuitMetrics = this.circuitBreaker.getMetrics();
+    
     return {
       ...this.metrics,
-      circuitState: this.circuitState
+      retriedOperations: retryMetrics.retriedOperations,
+      averageRetryDelay: retryMetrics.averageRetryDelay,
+      circuitBreakerTrips: circuitMetrics.circuitBreakerTrips,
+      circuitState: circuitMetrics.state
     };
   }
 
@@ -248,8 +151,9 @@ export class DatabaseErrorRecovery {
       : 0;
     
     const reliability = 1 - failureRate;
+    const circuitState = this.circuitBreaker.getState();
 
-    if (this.circuitState === 'OPEN') {
+    if (circuitState === 'OPEN') {
       issues.push('Circuit breaker is OPEN - blocking operations');
     }
 
@@ -257,12 +161,14 @@ export class DatabaseErrorRecovery {
       issues.push(`High failure rate: ${(failureRate * 100).toFixed(1)}%`);
     }
 
-    if (this.metrics.circuitBreakerTrips > 5) {
-      issues.push(`Frequent circuit breaker trips: ${this.metrics.circuitBreakerTrips}`);
+    const circuitTrips = this.circuitBreaker.getMetrics().circuitBreakerTrips;
+    if (circuitTrips > 5) {
+      issues.push(`Frequent circuit breaker trips: ${circuitTrips}`);
     }
 
-    if (this.metrics.averageRetryDelay > 5000) {
-      issues.push(`High average retry delay: ${this.metrics.averageRetryDelay.toFixed(0)}ms`);
+    const avgRetryDelay = this.retryManager.getMetrics().averageRetryDelay;
+    if (avgRetryDelay > 5000) {
+      issues.push(`High average retry delay: ${avgRetryDelay.toFixed(0)}ms`);
     }
 
     return {
@@ -273,14 +179,10 @@ export class DatabaseErrorRecovery {
   }
 
   /**
-   * Reset circuit breaker manually (for testing/emergency)
+   * Reset circuit breaker manually
    */
   resetCircuitBreaker(): void {
-    this.circuitState = 'CLOSED';
-    this.failureCount = 0;
-    this.successCount = 0;
-    this.lastFailureTime = 0;
-    console.log('🔄 Circuit breaker manually reset to CLOSED');
+    this.circuitBreaker.reset();
   }
 
   /**
@@ -295,16 +197,13 @@ export class DatabaseErrorRecovery {
       averageRetryDelay: 0,
       reliability: 1.0
     };
+    this.retryManager.resetMetrics();
     console.log('📊 Recovery metrics reset');
-  }
-
-  /**
-   * Utility sleep function
-   */
-  private sleep(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
   }
 }
 
 // Export singleton instance
 export const errorRecovery = DatabaseErrorRecovery.getInstance();
+
+// Re-export types for convenience
+export type { RetryConfig, CircuitBreakerConfig, CircuitState };

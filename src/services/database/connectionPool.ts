@@ -1,9 +1,10 @@
 
-// Database Connection Pool Manager
-// Version: 1.0.0
+// Database Connection Pool Manager - Refactored
+// Version: 2.0.0
 // Phase 1.2: Enhanced Database Foundation - Connection Pooling
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { PoolHealthMonitor } from './connectionPool/PoolHealthMonitor';
 
 export interface ConnectionPoolConfig {
   maxConnections: number;
@@ -43,10 +44,10 @@ export class DatabaseConnectionPool {
     healthyConnections: 0
   };
 
-  private healthCheckInterval?: NodeJS.Timeout;
+  private healthMonitor: PoolHealthMonitor;
 
   constructor(private config: ConnectionPoolConfig) {
-    this.startHealthCheck();
+    this.healthMonitor = new PoolHealthMonitor();
   }
 
   static getInstance(config?: ConnectionPoolConfig): DatabaseConnectionPool {
@@ -75,6 +76,13 @@ export class DatabaseConnectionPool {
       this.metrics.totalConnections++;
       this.metrics.idleConnections++;
     }
+    
+    // Start health monitoring
+    this.healthMonitor.startHealthCheck(
+      this.activeConnections,
+      this.pool,
+      this.config.healthCheckIntervalMs
+    );
     
     console.log(`✅ Connection pool initialized with ${this.pool.length} connections`);
   }
@@ -153,7 +161,7 @@ export class DatabaseConnectionPool {
     }
 
     // Return to pool if healthy
-    const isHealthy = await this.isConnectionHealthy(client);
+    const isHealthy = await this.healthMonitor.checkConnectionHealth(client);
     if (isHealthy) {
       this.pool.push(client);
       this.metrics.idleConnections++;
@@ -175,7 +183,11 @@ export class DatabaseConnectionPool {
    * Get current pool metrics
    */
   getMetrics(): PoolMetrics {
-    return { ...this.metrics };
+    const healthMetrics = this.healthMonitor.getMetrics();
+    return { 
+      ...this.metrics,
+      healthyConnections: healthMetrics.healthyConnections
+    };
   }
 
   /**
@@ -186,26 +198,12 @@ export class DatabaseConnectionPool {
     issues: string[];
     utilization: number;
   } {
-    const issues: string[] = [];
-    const utilization = this.metrics.activeConnections / this.config.maxConnections;
-
-    if (this.metrics.healthyConnections < this.config.minConnections) {
-      issues.push('Below minimum healthy connections');
-    }
-
-    if (utilization > 0.8) {
-      issues.push('High connection utilization (>80%)');
-    }
-
-    if (this.waitingQueue.length > 0) {
-      issues.push(`${this.waitingQueue.length} requests waiting for connections`);
-    }
-
-    return {
-      healthy: issues.length === 0,
-      issues,
-      utilization
-    };
+    return this.healthMonitor.getHealthStatus(
+      this.metrics.activeConnections,
+      this.config.maxConnections,
+      this.config.minConnections,
+      this.waitingQueue.length
+    );
   }
 
   /**
@@ -228,7 +226,7 @@ export class DatabaseConnectionPool {
     });
 
     // Validate connection
-    const isHealthy = await this.isConnectionHealthy(client);
+    const isHealthy = await this.healthMonitor.checkConnectionHealth(client);
     if (!isHealthy) {
       throw new Error('Failed to create healthy database connection');
     }
@@ -237,50 +235,10 @@ export class DatabaseConnectionPool {
   }
 
   /**
-   * Check if a connection is healthy
-   */
-  private async isConnectionHealthy(client: SupabaseClient): Promise<boolean> {
-    try {
-      const { error } = await client.auth.getSession();
-      this.metrics.healthyConnections++;
-      return !error;
-    } catch (error) {
-      console.error('❌ Connection health check failed:', error);
-      return false;
-    }
-  }
-
-  /**
-   * Start periodic health checks
-   */
-  private startHealthCheck(): void {
-    this.healthCheckInterval = setInterval(async () => {
-      this.metrics.healthyConnections = 0;
-      
-      // Check active connections
-      for (const client of this.activeConnections) {
-        await this.isConnectionHealthy(client);
-      }
-      
-      // Check idle connections
-      for (const client of this.pool) {
-        await this.isConnectionHealthy(client);
-      }
-      
-      const health = this.getHealthStatus();
-      if (!health.healthy) {
-        console.warn('⚠️ Connection pool health issues:', health.issues);
-      }
-    }, this.config.healthCheckIntervalMs);
-  }
-
-  /**
    * Cleanup and close all connections
    */
   async cleanup(): Promise<void> {
-    if (this.healthCheckInterval) {
-      clearInterval(this.healthCheckInterval);
-    }
+    this.healthMonitor.stopHealthCheck();
 
     // Clear waiting queue
     this.waitingQueue.forEach(req => {
