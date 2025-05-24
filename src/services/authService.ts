@@ -2,6 +2,7 @@ import { supabase } from './database';
 import { z } from 'zod';
 import { measureAuthOperation } from './performance/DatabaseMeasurementUtilities';
 import { rateLimitService } from './auth/RateLimitService';
+import { csrfProtectionService } from './auth/CSRFProtectionService';
 
 // Validation schemas
 const EmailSchema = z.string().email().min(1).max(255);
@@ -22,6 +23,17 @@ export interface AuthResult {
 }
 
 export class AuthService {
+  private validateCSRFForSensitiveOperation(operation: string): boolean {
+    const token = csrfProtectionService.getCurrentToken();
+    const isValid = csrfProtectionService.validateToken(token);
+    
+    if (!isValid) {
+      console.warn(`🛡️ CSRF validation failed for ${operation}`);
+    }
+    
+    return isValid;
+  }
+
   async signUp(credentials: {
     email: string;
     password: string;
@@ -32,6 +44,14 @@ export class AuthService {
       try {
         console.log('🚀 AuthService: Starting signup for:', credentials.email);
         
+        // 1. CSRF Protection for sensitive signup operation
+        if (!this.validateCSRFForSensitiveOperation('signup')) {
+          return {
+            success: false,
+            error: 'Security validation failed. Please refresh the page and try again.'
+          };
+        }
+
         // 1. Check rate limit first
         const rateLimitStatus = rateLimitService.checkRateLimit(credentials.email);
         if (rateLimitStatus.isLocked) {
@@ -61,7 +81,7 @@ export class AuthService {
           };
         }
 
-        // 4. Attempt Supabase signup
+        // 4. Attempt Supabase signup with CSRF headers
         const { data, error } = await supabase.auth.signUp({
           email: credentials.email,
           password: credentials.password,
@@ -116,6 +136,14 @@ export class AuthService {
       try {
         console.log('🔐 AuthService: Starting signin for:', email);
         
+        // 1. CSRF Protection for sensitive signin operation
+        if (!this.validateCSRFForSensitiveOperation('signin')) {
+          return {
+            success: false,
+            error: 'Security validation failed. Please refresh the page and try again.'
+          };
+        }
+
         // 1. Check rate limit first
         const rateLimitStatus = rateLimitService.checkRateLimit(email);
         if (rateLimitStatus.isLocked) {
@@ -192,7 +220,9 @@ export class AuthService {
     try {
       console.log('🚪 AuthService: Starting signout');
       
-      // PERFORMANCE OPTIMIZATION: Don't measure signout as it's not critical path
+      // Clear CSRF tokens on logout
+      csrfProtectionService.clearToken();
+      
       const { error } = await supabase.auth.signOut();
       
       if (error) {
@@ -211,6 +241,14 @@ export class AuthService {
     try {
       console.log('🔄 AuthService: Password reset for:', email);
       
+      // CSRF Protection for password reset
+      if (!this.validateCSRFForSensitiveOperation('password_reset')) {
+        return {
+          success: false,
+          error: 'Security validation failed. Please refresh the page and try again.'
+        };
+      }
+
       const emailValidation = EmailSchema.safeParse(email);
       if (!emailValidation.success) {
         return {
@@ -247,6 +285,14 @@ export class AuthService {
 
   async updatePassword(newPassword: string): Promise<AuthResult> {
     try {
+      // CSRF Protection for password update
+      if (!this.validateCSRFForSensitiveOperation('password_update')) {
+        return {
+          success: false,
+          error: 'Security validation failed. Please refresh the page and try again.'
+        };
+      }
+
       const passwordValidation = PasswordSchema.safeParse(newPassword);
       if (!passwordValidation.success) {
         return {

@@ -1,9 +1,9 @@
-
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/services/database';
 import { tenantContextService } from '@/services/SharedTenantContextService';
 import { authService, AuthResult } from '@/services/authService';
+import { useCSRFProtection } from '@/hooks/useCSRFProtection';
 
 interface AuthContextType {
   user: User | null;
@@ -29,10 +29,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [currentTenantId, setCurrentTenantId] = useState<string | null>(null);
   const [authError, setAuthError] = useState<string | null>(null);
+  const { token: csrfToken, isValid: csrfValid } = useCSRFProtection();
 
   useEffect(() => {
     console.log('🔄 AuthProvider: Initializing auth state...');
     
+    // Only proceed if CSRF protection is ready
+    if (!csrfValid) {
+      console.log('🛡️ Waiting for CSRF protection to initialize...');
+      return;
+    }
+
     // Get initial session
     supabase.auth.getSession().then(({ data: { session }, error }) => {
       if (error) {
@@ -80,7 +87,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     );
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [csrfValid]);
 
   // Non-blocking tenant context setup
   const setTenantContextInBackground = async (userId: string) => {
@@ -216,7 +223,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const value = {
     user,
     session,
-    loading,
+    loading: loading || !csrfValid, // Include CSRF readiness in loading state
     signUp,
     signIn,
     signOut,
