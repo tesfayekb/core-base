@@ -1,8 +1,8 @@
 
 # Testing Framework
 
-> **Version**: 1.2.0  
-> **Last Updated**: 2025-05-22
+> **Version**: 1.3.0  
+> **Last Updated**: 2025-05-24
 
 This document outlines the comprehensive testing architecture for the project, ensuring code quality, functionality, and security.
 
@@ -100,6 +100,17 @@ For comprehensive documentation on how tests are automatically generated when re
 - Test data factories customized to each resource
 - Complete coverage of CRUD operations and permissions
 
+## Implementation Examples
+
+For practical implementation guidance with real-world code samples, see:
+
+- **[testing/IMPLEMENTATION_EXAMPLES.md](testing/IMPLEMENTATION_EXAMPLES.md)**: Comprehensive implementation examples
+  - Unit testing patterns for RBAC and multi-tenancy
+  - Component testing with authentication flows
+  - Integration testing for API workflows
+  - Performance testing benchmarks
+  - E2E testing scenarios
+
 ## Test Data Management Architecture
 
 ### Database Test Data Strategy
@@ -163,6 +174,7 @@ For comprehensive documentation on how tests are automatically generated when re
 
 For comprehensive understanding of the testing architecture:
 
+- **[testing/IMPLEMENTATION_EXAMPLES.md](testing/IMPLEMENTATION_EXAMPLES.md)**: **NEW** - Practical implementation examples
 - **[GLOSSARY.md](GLOSSARY.md)**: Standardized terminology for testing concepts
 - **[SECURITY_IMPLEMENTATION.md](SECURITY_IMPLEMENTATION.md)**: Security testing approach
 - **[RBAC_SYSTEM.md](RBAC_SYSTEM.md)**: Permission system testing methodology
@@ -175,6 +187,7 @@ For comprehensive understanding of the testing architecture:
 
 ## Version History
 
+- **1.3.0**: Added comprehensive implementation examples and enhanced testing guidance (2025-05-24)
 - **1.2.0**: Added comprehensive test data management section for database interactions
 - **1.1.0**: Added reference to TEST_SCAFFOLDING.md and enhanced test coverage requirements
 - **1.0.1**: Enhanced with detailed sections on security testing for special areas and compliance validation
