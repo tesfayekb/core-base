@@ -1,7 +1,7 @@
-
 import { supabase } from './database';
 import { z } from 'zod';
 import { measureAuthOperation } from './performance/DatabaseMeasurementUtilities';
+import { rateLimitService } from './auth/RateLimitService';
 
 // Validation schemas
 const EmailSchema = z.string().email().min(1).max(255);
@@ -32,17 +32,36 @@ export class AuthService {
       try {
         console.log('🚀 AuthService: Starting signup for:', credentials.email);
         
-        // 1. Validate input
+        // 1. Check rate limit first
+        const rateLimitStatus = rateLimitService.checkRateLimit(credentials.email);
+        if (rateLimitStatus.isLocked) {
+          const lockoutMinutes = Math.ceil((rateLimitStatus.lockoutEndTime! - Date.now()) / (60 * 1000));
+          return {
+            success: false,
+            error: `Account temporarily locked. Please try again in ${lockoutMinutes} minutes.`
+          };
+        }
+
+        // 2. Validate input
         const validation = UserCredentialsSchema.safeParse(credentials);
         if (!validation.success) {
           console.error('❌ Validation failed:', validation.error.errors);
+          rateLimitService.recordAttempt(credentials.email, false);
           return {
             success: false,
             error: 'Invalid input: ' + validation.error.errors.map(e => e.message).join(', ')
           };
         }
 
-        // 2. Attempt Supabase signup
+        // 3. Check minimum delay between attempts
+        if (Date.now() < rateLimitStatus.nextAttemptAllowed) {
+          return {
+            success: false,
+            error: 'Please wait a moment before trying again.'
+          };
+        }
+
+        // 4. Attempt Supabase signup
         const { data, error } = await supabase.auth.signUp({
           email: credentials.email,
           password: credentials.password,
@@ -57,6 +76,7 @@ export class AuthService {
 
         if (error) {
           console.error('❌ Supabase signup error:', error.message);
+          rateLimitService.recordAttempt(credentials.email, false);
           return {
             success: false,
             error: this.formatAuthError(error.message)
@@ -64,8 +84,9 @@ export class AuthService {
         }
 
         console.log('✅ Signup successful:', data.user?.email);
+        rateLimitService.recordAttempt(credentials.email, true);
         
-        // 3. Check if email confirmation is required
+        // 5. Check if email confirmation is required
         if (data.user && !data.session) {
           return {
             success: true,
@@ -81,6 +102,7 @@ export class AuthService {
 
       } catch (error) {
         console.error('💥 Signup exception:', error);
+        rateLimitService.recordAttempt(credentials.email, false);
         return {
           success: false,
           error: 'An unexpected error occurred during registration'
@@ -94,33 +116,62 @@ export class AuthService {
       try {
         console.log('🔐 AuthService: Starting signin for:', email);
         
-        // 1. Validate email format only (not password format for login)
+        // 1. Check rate limit first
+        const rateLimitStatus = rateLimitService.checkRateLimit(email);
+        if (rateLimitStatus.isLocked) {
+          const lockoutMinutes = Math.ceil((rateLimitStatus.lockoutEndTime! - Date.now()) / (60 * 1000));
+          return {
+            success: false,
+            error: `Account temporarily locked due to too many failed attempts. Please try again in ${lockoutMinutes} minutes.`
+          };
+        }
+
+        // 2. Validate email format only
         const emailValidation = EmailSchema.safeParse(email);
-        
         if (!emailValidation.success) {
+          rateLimitService.recordAttempt(email, false);
           return {
             success: false,
             error: 'Invalid email format'
           };
         }
 
-        // PERFORMANCE OPTIMIZATION: Use parallel promise for faster execution
-        const signInPromise = supabase.auth.signInWithPassword({
+        // 3. Check minimum delay between attempts
+        if (Date.now() < rateLimitStatus.nextAttemptAllowed) {
+          return {
+            success: false,
+            error: 'Please wait a moment before trying again.'
+          };
+        }
+
+        // 4. Attempt authentication
+        const { data, error } = await supabase.auth.signInWithPassword({
           email,
           password
         });
 
-        const { data, error } = await signInPromise;
-
         if (error) {
           console.error('❌ Signin error:', error.message);
+          rateLimitService.recordAttempt(email, false);
+          
+          // Provide remaining attempts info for failed login
+          const updatedStatus = rateLimitService.checkRateLimit(email);
+          const remainingText = updatedStatus.remainingAttempts > 0 
+            ? ` (${updatedStatus.remainingAttempts} attempts remaining)`
+            : '';
+          
           return {
             success: false,
-            error: this.formatAuthError(error.message)
+            error: this.formatAuthError(error.message) + remainingText
           };
         }
 
         console.log('✅ Signin successful:', data.user?.email);
+        rateLimitService.recordAttempt(email, true);
+        
+        // Clear all failed attempts on successful login
+        rateLimitService.clearAttempts(email);
+        
         return {
           success: true,
           user: data.user
@@ -128,6 +179,7 @@ export class AuthService {
 
       } catch (error) {
         console.error('💥 Signin exception:', error);
+        rateLimitService.recordAttempt(email, false);
         return {
           success: false,
           error: 'An unexpected error occurred during login'
