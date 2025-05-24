@@ -1,8 +1,8 @@
 
 # Integration Architecture Overview
 
-> **Version**: 1.0.0  
-> **Last Updated**: 2025-05-22
+> **Version**: 1.1.0  
+> **Last Updated**: 2025-05-24
 
 ## Overview
 
@@ -62,19 +62,39 @@ The major integration points between subsystems are:
    - Authentication results feed into permission resolution
    - User roles and permissions included in security context
    - Session management coordinated between systems
-   - See details in [SECURITY_RBAC_INTEGRATION.md](SECURITY_RBAC_INTEGRATION.md)
+   - See details in [SECURITY_RBAC_INTEGRATION.md](src/docs/integration/SECURITY_RBAC_INTEGRATION.md)
 
 2. **RBAC ↔ Audit Integration**
    - Permission changes logged to audit system
    - Access attempts recorded with context
    - Administrative actions tracked for compliance
-   - See details in [RBAC_AUDIT_INTEGRATION.md](RBAC_AUDIT_INTEGRATION.md)
+   - See details in [RBAC_AUDIT_INTEGRATION.md](src/docs/integration/RBAC_AUDIT_INTEGRATION.md)
 
 3. **Security ↔ Audit Integration**
    - Authentication events recorded
    - Security configuration changes logged
    - Security policy enforcement monitored
-   - See details in [SECURITY_AUDIT_INTEGRATION.md](SECURITY_AUDIT_INTEGRATION.md)
+   - See details in [SECURITY_AUDIT_INTEGRATION.md](src/docs/integration/SECURITY_AUDIT_INTEGRATION.md)
+
+4. **Session ↔ Authentication Integration**
+   - Session state synchronized with authentication
+   - Multi-tenant session context maintained
+   - Session security enforcement
+   - See details in [SESSION_AUTH_INTEGRATION.md](src/docs/integration/SESSION_AUTH_INTEGRATION.md)
+
+## Explicit Integration Requirements
+
+### Cross-System Data Flow
+- **Authentication Context**: User identity flows from auth to RBAC to audit
+- **Permission Context**: Permission results affect UI rendering and API access
+- **Tenant Context**: Tenant boundaries enforced across all system interactions
+- **Audit Context**: All system actions generate standardized audit events
+
+### Integration Validation Points
+- **Authentication Propagation**: User context reaches all dependent systems
+- **Permission Enforcement**: RBAC decisions respected by all components
+- **Audit Coverage**: All significant actions generate audit events
+- **Tenant Isolation**: Cross-tenant data leakage prevented
 
 ## Implementation Approach
 
@@ -104,13 +124,15 @@ The integration architecture follows these implementation guidelines:
 
 For detailed implementation specifications of each integration point, please refer to:
 
-- **[SECURITY_RBAC_INTEGRATION.md](SECURITY_RBAC_INTEGRATION.md)**: Security and RBAC integration
-- **[RBAC_AUDIT_INTEGRATION.md](RBAC_AUDIT_INTEGRATION.md)**: RBAC and Audit integration
-- **[SECURITY_AUDIT_INTEGRATION.md](SECURITY_AUDIT_INTEGRATION.md)**: Security and Audit integration
-- **[EVENT_ARCHITECTURE.md](EVENT_ARCHITECTURE.md)**: Event architecture details
-- **[API_CONTRACTS.md](API_CONTRACTS.md)**: API contract specifications
-- **[TECHNICAL_DEPENDENCIES.md](TECHNICAL_DEPENDENCIES.md)**: Shared dependencies
+- **[SECURITY_RBAC_INTEGRATION.md](src/docs/integration/SECURITY_RBAC_INTEGRATION.md)**: Security and RBAC integration
+- **[RBAC_AUDIT_INTEGRATION.md](src/docs/integration/RBAC_AUDIT_INTEGRATION.md)**: RBAC and Audit integration
+- **[SECURITY_AUDIT_INTEGRATION.md](src/docs/integration/SECURITY_AUDIT_INTEGRATION.md)**: Security and Audit integration
+- **[SESSION_AUTH_INTEGRATION.md](src/docs/integration/SESSION_AUTH_INTEGRATION.md)**: Session and Authentication integration
+- **[EVENT_ARCHITECTURE.md](src/docs/integration/EVENT_ARCHITECTURE.md)**: Event architecture details
+- **[API_CONTRACTS.md](src/docs/integration/API_CONTRACTS.md)**: API contract specifications
+- **[TECHNICAL_DEPENDENCIES.md](src/docs/integration/TECHNICAL_DEPENDENCIES.md)**: Shared dependencies
 
 ## Version History
 
+- **1.1.0**: Fixed cross-reference consistency and added explicit integration requirements (2025-05-24)
 - **1.0.0**: Initial integration architecture overview

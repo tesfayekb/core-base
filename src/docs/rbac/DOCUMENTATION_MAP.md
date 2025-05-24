@@ -1,8 +1,8 @@
 
 # RBAC Documentation Map
 
-> **Version**: 1.0.0  
-> **Last Updated**: 2025-05-20
+> **Version**: 1.1.0  
+> **Last Updated**: 2025-05-24
 
 This document provides a visual guide to the relationships between RBAC documentation files.
 
@@ -81,23 +81,40 @@ graph TD
 
 ## Navigation Guide
 
-1. Start with **[README.md](README.md)** for a high-level overview of the RBAC system
-2. For **role management**, continue to **[ROLE_ARCHITECTURE.md](ROLE_ARCHITECTURE.md)**
-3. For **permission types**, see **[PERMISSION_TYPES.md](PERMISSION_TYPES.md)**
-4. For **permission resolution**, refer to **[PERMISSION_RESOLUTION.md](PERMISSION_RESOLUTION.md)**
-5. For **multi-tenant boundaries**, check **[ENTITY_BOUNDARIES.md](ENTITY_BOUNDARIES.md)**
+1. Start with **[README.md](src/docs/rbac/README.md)** for a high-level overview of the RBAC system
+2. For **role management**, continue to **[ROLE_ARCHITECTURE.md](src/docs/rbac/ROLE_ARCHITECTURE.md)**
+3. For **permission types**, see **[PERMISSION_TYPES.md](src/docs/rbac/PERMISSION_TYPES.md)**
+4. For **permission resolution**, refer to **[PERMISSION_RESOLUTION.md](src/docs/rbac/PERMISSION_RESOLUTION.md)**
+5. For **multi-tenant boundaries**, check **[ENTITY_BOUNDARIES.md](src/docs/rbac/ENTITY_BOUNDARIES.md)**
 6. For **performance and optimization**:
-   - **[CACHING_STRATEGY.md](CACHING_STRATEGY.md)**: Caching implementation
-   - **[DATABASE_OPTIMIZATION.md](DATABASE_OPTIMIZATION.md)**: Database design
-   - **[PERFORMANCE_OPTIMIZATION.md](PERFORMANCE_OPTIMIZATION.md)**: Advanced optimization
-7. For **monitoring and analytics**, see **[MONITORING_ANALYTICS.md](MONITORING_ANALYTICS.md)**
+   - **[CACHING_STRATEGY.md](src/docs/rbac/CACHING_STRATEGY.md)**: Caching implementation
+   - **[DATABASE_OPTIMIZATION.md](src/docs/rbac/DATABASE_OPTIMIZATION.md)**: Database design
+   - **[PERFORMANCE_OPTIMIZATION.md](src/docs/rbac/PERFORMANCE_OPTIMIZATION.md)**: Advanced optimization
+7. For **monitoring and analytics**, see **[MONITORING_ANALYTICS.md](src/docs/rbac/MONITORING_ANALYTICS.md)**
 
-## Integration Points
+## Explicit Integration Points
 
-- **Security System**: The RBAC system integrates with the security implementation documented in **[../security/README.md](../security/README.md)**
-- **Audit System**: Permission changes are logged through the audit system detailed in **[../audit/README.md](../audit/README.md)**
-- **Mobile Platform**: Mobile-specific permission considerations are covered in **[../mobile/README.md](../mobile/README.md)**
+### Authentication System Integration
+- **Entry Point**: [src/docs/integration/SECURITY_RBAC_INTEGRATION.md](src/docs/integration/SECURITY_RBAC_INTEGRATION.md)
+- **Flow**: User authentication context → Permission resolution
+- **Validation**: Authenticated user permissions cached and validated
+
+### Audit System Integration
+- **Entry Point**: [src/docs/integration/RBAC_AUDIT_INTEGRATION.md](src/docs/integration/RBAC_AUDIT_INTEGRATION.md)
+- **Flow**: Permission changes → Standardized audit events
+- **Validation**: All role/permission modifications logged
+
+### Multi-Tenant Integration
+- **Entry Point**: [src/docs/multitenancy/RBAC_INTEGRATION.md](src/docs/multitenancy/RBAC_INTEGRATION.md)
+- **Flow**: Tenant context → Permission boundary enforcement
+- **Validation**: Cross-tenant permission access prevented
+
+### Mobile Platform Integration
+- **Entry Point**: [src/docs/mobile/SECURITY.md](src/docs/mobile/SECURITY.md)
+- **Flow**: Mobile auth context → RBAC permission resolution
+- **Validation**: Mobile permissions align with web permissions
 
 ## Version History
 
+- **1.1.0**: Fixed cross-reference consistency and added explicit integration points (2025-05-24)
 - **1.0.0**: Initial document created for RBAC system documentation
