@@ -123,7 +123,7 @@ describe('Phase 1.2 Performance Benchmarks', () => {
       
       expect(metrics.reliability).toBeGreaterThanOrEqual(0.9);
       expect(metrics.totalOperations).toBeGreaterThan(0);
-      expect(metrics.reliability).toBeLessThanOrEqualTo(1.0);
+      expect(metrics.reliability).toBeLessThanOrEqual(1.0);
     });
   });
 
