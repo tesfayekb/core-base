@@ -2,439 +2,258 @@
 # Design System Implementation
 
 > **Version**: 1.0.0  
-> **Last Updated**: 2025-05-23
+> **Last Updated**: 2025-05-24
 
 ## Overview
 
-This document details the implementation of our design system, including color tokens, typography scales, spacing systems, and component variants.
+Comprehensive design system built on Tailwind CSS and shadcn/ui, providing consistent visual language and interaction patterns across the application.
 
-## Color System Implementation
+## Color System
 
-### CSS Custom Properties
-
+### Primary Color Palette
 ```css
-/* Light theme variables */
 :root {
-  /* Primary colors */
-  --primary: 222.2 47.4% 11.2%;
-  --primary-foreground: 210 40% 98%;
-  
-  /* Secondary colors */
-  --secondary: 210 40% 96.1%;
-  --secondary-foreground: 222.2 47.4% 11.2%;
-  
-  /* Accent colors */
-  --accent: 210 40% 96.1%;
-  --accent-foreground: 222.2 47.4% 11.2%;
-  
-  /* Semantic colors */
-  --destructive: 0 84.2% 60.2%;
-  --destructive-foreground: 210 40% 98%;
-  
-  /* Neutral colors */
-  --background: 0 0% 100%;
-  --foreground: 222.2 84% 4.9%;
-  --muted: 210 40% 96.1%;
-  --muted-foreground: 215.4 16.3% 46.9%;
-  
-  /* Interactive elements */
-  --border: 214.3 31.8% 91.4%;
-  --input: 214.3 31.8% 91.4%;
-  --ring: 222.2 84% 4.9%;
-}
+  /* Primary Colors */
+  --primary-50: #eff6ff;
+  --primary-100: #dbeafe;
+  --primary-500: #3b82f6;
+  --primary-600: #2563eb;
+  --primary-700: #1d4ed8;
+  --primary-900: #1e3a8a;
 
-/* Dark theme variables */
-.dark {
-  --primary: 210 40% 98%;
-  --primary-foreground: 222.2 47.4% 11.2%;
-  --background: 222.2 84% 4.9%;
-  --foreground: 210 40% 98%;
-  /* ... other dark theme colors */
+  /* Secondary Colors */
+  --secondary-50: #f8fafc;
+  --secondary-100: #f1f5f9;
+  --secondary-500: #64748b;
+  --secondary-600: #475569;
+  --secondary-700: #334155;
+  --secondary-900: #0f172a;
+
+  /* Status Colors */
+  --success-500: #10b981;
+  --warning-500: #f59e0b;
+  --error-500: #ef4444;
+  --info-500: #06b6d4;
 }
 ```
 
-### Color Utility Classes
-
-```typescript
-// Color token implementation
-export const colorTokens = {
-  primary: 'hsl(var(--primary))',
-  'primary-foreground': 'hsl(var(--primary-foreground))',
-  secondary: 'hsl(var(--secondary))',
-  'secondary-foreground': 'hsl(var(--secondary-foreground))',
-  destructive: 'hsl(var(--destructive))',
-  'destructive-foreground': 'hsl(var(--destructive-foreground))',
-  background: 'hsl(var(--background))',
-  foreground: 'hsl(var(--foreground))',
-  muted: 'hsl(var(--muted))',
-  'muted-foreground': 'hsl(var(--muted-foreground))',
-  border: 'hsl(var(--border))',
-  input: 'hsl(var(--input))',
-  ring: 'hsl(var(--ring))'
-} as const;
-```
+### Semantic Color Usage
+- **Primary**: Main actions, links, active states
+- **Secondary**: Supporting content, borders, backgrounds
+- **Success**: Confirmations, completed states
+- **Warning**: Cautions, pending states
+- **Error**: Errors, destructive actions
+- **Info**: Information, neutral notifications
 
 ## Typography System
 
-### Font Scale Implementation
-
-```typescript
-// Typography configuration
-export const typography = {
-  fontFamily: {
-    sans: ['Inter', 'system-ui', 'sans-serif'],
-    mono: ['JetBrains Mono', 'Consolas', 'monospace']
-  },
-  fontSize: {
-    xs: ['0.75rem', { lineHeight: '1rem' }],
-    sm: ['0.875rem', { lineHeight: '1.25rem' }],
-    base: ['1rem', { lineHeight: '1.5rem' }],
-    lg: ['1.125rem', { lineHeight: '1.75rem' }],
-    xl: ['1.25rem', { lineHeight: '1.75rem' }],
-    '2xl': ['1.5rem', { lineHeight: '2rem' }],
-    '3xl': ['1.875rem', { lineHeight: '2.25rem' }],
-    '4xl': ['2.25rem', { lineHeight: '2.5rem' }],
-    '5xl': ['3rem', { lineHeight: '1' }],
-    '6xl': ['3.75rem', { lineHeight: '1' }]
-  },
-  fontWeight: {
-    normal: '400',
-    medium: '500',
-    semibold: '600',
-    bold: '700'
-  }
-} as const;
+### Font Families
+```css
+:root {
+  --font-primary: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+}
 ```
 
-### Typography Components
+### Type Scale
+```css
+/* Heading Styles */
+.text-h1 { font-size: 2.25rem; line-height: 2.5rem; font-weight: 700; }
+.text-h2 { font-size: 1.875rem; line-height: 2.25rem; font-weight: 600; }
+.text-h3 { font-size: 1.5rem; line-height: 2rem; font-weight: 600; }
+.text-h4 { font-size: 1.25rem; line-height: 1.75rem; font-weight: 500; }
 
-```typescript
-// Typography component implementation
-interface TypographyProps {
-  variant?: 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6' | 'p' | 'small' | 'large';
-  children: React.ReactNode;
-  className?: string;
-}
+/* Body Styles */
+.text-body-lg { font-size: 1.125rem; line-height: 1.75rem; }
+.text-body { font-size: 1rem; line-height: 1.5rem; }
+.text-body-sm { font-size: 0.875rem; line-height: 1.25rem; }
 
-const typographyVariants = cva("", {
-  variants: {
-    variant: {
-      h1: "scroll-m-20 text-4xl font-extrabold tracking-tight lg:text-5xl",
-      h2: "scroll-m-20 border-b pb-2 text-3xl font-semibold tracking-tight first:mt-0",
-      h3: "scroll-m-20 text-2xl font-semibold tracking-tight",
-      h4: "scroll-m-20 text-xl font-semibold tracking-tight",
-      h5: "scroll-m-20 text-lg font-semibold tracking-tight",
-      h6: "scroll-m-20 text-base font-semibold tracking-tight",
-      p: "leading-7 [&:not(:first-child)]:mt-6",
-      large: "text-lg font-semibold",
-      small: "text-sm font-medium leading-none"
-    }
-  },
-  defaultVariants: {
-    variant: "p"
-  }
-});
-
-export function Typography({ variant = "p", children, className, ...props }: TypographyProps) {
-  const Comp = variant === 'p' || variant === 'small' || variant === 'large' ? 'p' : variant;
-  
-  return (
-    <Comp
-      className={cn(typographyVariants({ variant }), className)}
-      {...props}
-    >
-      {children}
-    </Comp>
-  );
-}
+/* Utility Styles */
+.text-caption { font-size: 0.75rem; line-height: 1rem; }
+.text-overline { font-size: 0.75rem; line-height: 1rem; text-transform: uppercase; }
 ```
 
 ## Spacing System
 
 ### Spacing Scale
-
-```typescript
-// Spacing configuration
-export const spacing = {
-  0: '0px',
-  0.5: '0.125rem',  // 2px
-  1: '0.25rem',     // 4px
-  1.5: '0.375rem',  // 6px
-  2: '0.5rem',      // 8px
-  2.5: '0.625rem',  // 10px
-  3: '0.75rem',     // 12px
-  3.5: '0.875rem',  // 14px
-  4: '1rem',        // 16px
-  5: '1.25rem',     // 20px
-  6: '1.5rem',      // 24px
-  7: '1.75rem',     // 28px
-  8: '2rem',        // 32px
-  9: '2.25rem',     // 36px
-  10: '2.5rem',     // 40px
-  11: '2.75rem',    // 44px
-  12: '3rem',       // 48px
-  14: '3.5rem',     // 56px
-  16: '4rem',       // 64px
-  20: '5rem',       // 80px
-  24: '6rem',       // 96px
-  28: '7rem',       // 112px
-  32: '8rem',       // 128px
-  36: '9rem',       // 144px
-  40: '10rem',      // 160px
-  44: '11rem',      // 176px
-  48: '12rem',      // 192px
-  52: '13rem',      // 208px
-  56: '14rem',      // 224px
-  60: '15rem',      // 240px
-  64: '16rem',      // 256px
-  72: '18rem',      // 288px
-  80: '20rem',      // 320px
-  96: '24rem'       // 384px
-} as const;
+```css
+/* Spacing based on 4px grid */
+.space-1 { margin: 0.25rem; } /* 4px */
+.space-2 { margin: 0.5rem; }  /* 8px */
+.space-3 { margin: 0.75rem; } /* 12px */
+.space-4 { margin: 1rem; }    /* 16px */
+.space-6 { margin: 1.5rem; }  /* 24px */
+.space-8 { margin: 2rem; }    /* 32px */
+.space-12 { margin: 3rem; }   /* 48px */
+.space-16 { margin: 4rem; }   /* 64px */
 ```
 
-### Layout Components
+### Component Spacing
+- **Card Padding**: space-6 (24px) for desktop, space-4 (16px) for mobile
+- **Section Spacing**: space-12 (48px) between major sections
+- **Element Spacing**: space-4 (16px) between related elements
+- **Form Spacing**: space-4 (16px) between form fields
 
+## Component Design Tokens
+
+### Button Variants
 ```typescript
-// Layout components using spacing system
-interface StackProps {
-  children: React.ReactNode;
-  spacing?: keyof typeof spacing;
-  direction?: 'vertical' | 'horizontal';
-  align?: 'start' | 'center' | 'end' | 'stretch';
-  justify?: 'start' | 'center' | 'end' | 'between' | 'around' | 'evenly';
-  className?: string;
-}
+const buttonVariants = {
+  default: "bg-primary-600 text-white hover:bg-primary-700",
+  secondary: "bg-secondary-100 text-secondary-900 hover:bg-secondary-200",
+  outline: "border border-primary-600 text-primary-600 hover:bg-primary-50",
+  ghost: "text-primary-600 hover:bg-primary-50",
+  destructive: "bg-error-500 text-white hover:bg-error-600"
+};
 
-export function Stack({ 
-  children, 
-  spacing = 4, 
-  direction = 'vertical',
-  align = 'stretch',
-  justify = 'start',
-  className 
-}: StackProps) {
-  const isHorizontal = direction === 'horizontal';
-  
-  return (
-    <div
-      className={cn(
-        'flex',
-        isHorizontal ? 'flex-row' : 'flex-col',
-        isHorizontal ? `gap-x-${spacing}` : `gap-y-${spacing}`,
-        `items-${align}`,
-        `justify-${justify}`,
-        className
-      )}
-    >
-      {children}
-    </div>
-  );
-}
+const buttonSizes = {
+  sm: "h-8 px-3 text-sm",
+  default: "h-10 px-4",
+  lg: "h-12 px-6 text-lg"
+};
 ```
 
-## Component Variants System
-
-### Variant Implementation with CVA
-
+### Input Components
 ```typescript
-// Button variants using class-variance-authority
-const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
-  {
-    variants: {
-      variant: {
-        default: "bg-primary text-primary-foreground hover:bg-primary/90",
-        destructive: "bg-destructive text-destructive-foreground hover:bg-destructive/90",
-        outline: "border border-input bg-background hover:bg-accent hover:text-accent-foreground",
-        secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80",
-        ghost: "hover:bg-accent hover:text-accent-foreground",
-        link: "text-primary underline-offset-4 hover:underline"
-      },
-      size: {
-        default: "h-10 px-4 py-2",
-        sm: "h-9 rounded-md px-3",
-        lg: "h-11 rounded-md px-8",
-        icon: "h-10 w-10"
-      }
-    },
-    defaultVariants: {
-      variant: "default",
-      size: "default"
-    }
-  }
-);
-
-// Card variants
-const cardVariants = cva(
-  "rounded-lg border bg-card text-card-foreground shadow-sm",
-  {
-    variants: {
-      variant: {
-        default: "",
-        outlined: "border-2",
-        elevated: "shadow-lg",
-        flat: "shadow-none border-none"
-      },
-      padding: {
-        none: "",
-        sm: "p-4",
-        md: "p-6",
-        lg: "p-8"
-      }
-    },
-    defaultVariants: {
-      variant: "default",
-      padding: "md"
-    }
-  }
-);
+const inputVariants = {
+  default: "border border-secondary-300 focus:border-primary-500 focus:ring-primary-500",
+  error: "border-error-500 focus:border-error-500 focus:ring-error-500",
+  success: "border-success-500 focus:border-success-500 focus:ring-success-500"
+};
 ```
 
-## Theme Implementation
+## Layout System
 
-### Theme Provider
+### Grid System
+```css
+/* 12-column grid system */
+.grid-cols-1 { grid-template-columns: repeat(1, minmax(0, 1fr)); }
+.grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.grid-cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.grid-cols-12 { grid-template-columns: repeat(12, minmax(0, 1fr)); }
+```
 
-```typescript
-// Theme provider implementation
-type Theme = 'light' | 'dark' | 'system';
-
-interface ThemeContextType {
-  theme: Theme;
-  setTheme: (theme: Theme) => void;
-  actualTheme: 'light' | 'dark';
+### Container System
+```css
+.container {
+  width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 1rem;
+  padding-right: 1rem;
 }
 
-export const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
+@media (min-width: 640px) { .container { max-width: 640px; } }
+@media (min-width: 768px) { .container { max-width: 768px; } }
+@media (min-width: 1024px) { .container { max-width: 1024px; } }
+@media (min-width: 1280px) { .container { max-width: 1280px; } }
+```
 
-export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>('system');
-  const [actualTheme, setActualTheme] = useState<'light' | 'dark'>('light');
-  
-  useEffect(() => {
-    const root = window.document.documentElement;
-    
-    if (theme === 'system') {
-      const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches 
-        ? 'dark' 
-        : 'light';
-      setActualTheme(systemTheme);
-      root.classList.toggle('dark', systemTheme === 'dark');
-    } else {
-      setActualTheme(theme);
-      root.classList.toggle('dark', theme === 'dark');
-    }
-  }, [theme]);
-  
-  const setTheme = (newTheme: Theme) => {
-    setThemeState(newTheme);
-    localStorage.setItem('theme', newTheme);
+## Iconography
+
+### Icon System
+- **Primary Icon Library**: Lucide React icons
+- **Icon Sizes**: 16px, 20px, 24px, 32px
+- **Icon Colors**: Inherit from parent or semantic colors
+- **Icon Usage**: Consistent meaning across application
+
+### Icon Guidelines
+```typescript
+// Icon size utilities
+const iconSizes = {
+  sm: "w-4 h-4",    // 16px
+  default: "w-5 h-5", // 20px
+  lg: "w-6 h-6",    // 24px
+  xl: "w-8 h-8"     // 32px
+};
+```
+
+## Animation and Motion
+
+### Transition System
+```css
+/* Standard transitions */
+.transition-fast { transition-duration: 150ms; }
+.transition-normal { transition-duration: 300ms; }
+.transition-slow { transition-duration: 500ms; }
+
+/* Easing functions */
+.ease-out { transition-timing-function: cubic-bezier(0, 0, 0.2, 1); }
+.ease-in-out { transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1); }
+```
+
+### Animation Patterns
+- **Hover Effects**: Subtle scale and color transitions
+- **Loading States**: Skeleton loading and spinners
+- **Page Transitions**: Smooth page-to-page navigation
+- **Microinteractions**: Button clicks, form submissions
+
+## Theming System
+
+### Theme Structure
+```typescript
+interface Theme {
+  colors: {
+    primary: ColorScale;
+    secondary: ColorScale;
+    success: ColorScale;
+    warning: ColorScale;
+    error: ColorScale;
   };
-  
-  return (
-    <ThemeContext.Provider value={{ theme, setTheme, actualTheme }}>
-      {children}
-    </ThemeContext.Provider>
-  );
-}
-
-export function useTheme() {
-  const context = useContext(ThemeContext);
-  if (!context) {
-    throw new Error('useTheme must be used within ThemeProvider');
-  }
-  return context;
+  typography: TypographyScale;
+  spacing: SpacingScale;
+  breakpoints: BreakpointScale;
 }
 ```
 
-### Custom Theme Properties
-
-```typescript
-// Custom theme properties for tenant-specific theming
-interface CustomThemeProperties {
-  primaryColor?: string;
-  secondaryColor?: string;
-  logoUrl?: string;
-  fontFamily?: string;
-  borderRadius?: 'none' | 'sm' | 'md' | 'lg' | 'full';
+### Dark Mode Support
+```css
+@media (prefers-color-scheme: dark) {
+  :root {
+    --primary-50: #1e3a8a;
+    --primary-900: #eff6ff;
+    --secondary-50: #0f172a;
+    --secondary-900: #f8fafc;
+  }
 }
 
-export function applyCustomTheme(properties: CustomThemeProperties) {
-  const root = document.documentElement;
-  
-  if (properties.primaryColor) {
-    root.style.setProperty('--primary', properties.primaryColor);
-  }
-  
-  if (properties.secondaryColor) {
-    root.style.setProperty('--secondary', properties.secondaryColor);
-  }
-  
-  if (properties.fontFamily) {
-    root.style.setProperty('--font-sans', properties.fontFamily);
-  }
-  
-  if (properties.borderRadius) {
-    const radiusValues = {
-      none: '0',
-      sm: '0.125rem',
-      md: '0.375rem',
-      lg: '0.5rem',
-      full: '9999px'
-    };
-    root.style.setProperty('--radius', radiusValues[properties.borderRadius]);
-  }
+[data-theme="dark"] {
+  /* Dark theme overrides */
 }
 ```
 
-## Icon System
+## Accessibility Integration
 
-### Icon Component Implementation
+### Color Contrast
+- **Normal Text**: Minimum 4.5:1 contrast ratio
+- **Large Text**: Minimum 3:1 contrast ratio
+- **Interactive Elements**: Minimum 3:1 contrast ratio
+- **Focus Indicators**: High contrast focus rings
 
-```typescript
-// Icon system using Lucide React
-import { LucideProps } from 'lucide-react';
-import dynamicIconImports from 'lucide-react/dynamicIconImports';
-
-interface IconProps extends Omit<LucideProps, 'ref'> {
-  name: keyof typeof dynamicIconImports;
-  fallback?: React.ReactNode;
+### Focus Management
+```css
+.focus-visible {
+  outline: 2px solid var(--primary-500);
+  outline-offset: 2px;
 }
-
-export function Icon({ name, fallback, ...props }: IconProps) {
-  const LucideIcon = lazy(dynamicIconImports[name]);
-  
-  return (
-    <Suspense fallback={fallback || <div className="w-4 h-4 bg-muted animate-pulse rounded" />}>
-      <LucideIcon {...props} />
-    </Suspense>
-  );
-}
-
-// Predefined icon variants for common use cases
-export const iconVariants = cva("", {
-  variants: {
-    size: {
-      sm: "w-4 h-4",
-      md: "w-5 h-5",
-      lg: "w-6 h-6",
-      xl: "w-8 h-8"
-    }
-  },
-  defaultVariants: {
-    size: "md"
-  }
-});
 ```
+
+## Component Documentation
+
+### Usage Guidelines
+- **Consistent Implementation**: Use design tokens for all styling
+- **Responsive Design**: Mobile-first approach with breakpoint utilities
+- **Accessibility**: Built-in ARIA attributes and keyboard navigation
+- **Performance**: Optimized CSS with utility classes
 
 ## Related Documentation
 
 - **[COMPONENT_ARCHITECTURE.md](COMPONENT_ARCHITECTURE.md)**: Component design patterns
 - **[RESPONSIVE_DESIGN.md](RESPONSIVE_DESIGN.md)**: Responsive implementation
-- **[ACCESSIBILITY.md](ACCESSIBILITY.md)**: Accessibility standards
-- **[../UI_STANDARDS.md](../UI_STANDARDS.md)**: Core UI standards
-- **[../security/THEME_SECURITY.md](../security/THEME_SECURITY.md)**: Theme security considerations
+- **[ACCESSIBILITY.md](ACCESSIBILITY.md)**: Accessibility guidelines
+- **[../UI_STANDARDS.md](../UI_STANDARDS.md)**: UI implementation standards
 
 ## Version History
 
-- **1.0.0**: Initial design system implementation documentation (2025-05-23)
+- **1.0.0**: Initial comprehensive design system documentation (2025-05-24)

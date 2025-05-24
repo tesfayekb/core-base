@@ -2,112 +2,172 @@
 # UI Testing Patterns
 
 > **Version**: 1.0.0  
-> **Last Updated**: 2025-05-23
+> **Last Updated**: 2025-05-24
 
 ## Overview
 
-Focused UI component testing patterns with React Testing Library examples.
+UI-specific testing patterns for React components using React Testing Library and Jest.
 
-## Form Component Testing
+## Component Testing Patterns
 
-### Registration Form Testing
+### Basic Component Testing
 ```typescript
-describe('User Registration Form', () => {
+import { render, screen, fireEvent } from '@testing-library/react';
+import { Button } from '@/components/ui/button';
+
+describe('Button Component', () => {
+  test('should render with correct text', () => {
+    render(<Button>Click me</Button>);
+    expect(screen.getByRole('button', { name: /click me/i })).toBeInTheDocument();
+  });
+
+  test('should handle click events', () => {
+    const handleClick = jest.fn();
+    render(<Button onClick={handleClick}>Click me</Button>);
+    
+    fireEvent.click(screen.getByRole('button'));
+    expect(handleClick).toHaveBeenCalledTimes(1);
+  });
+});
+```
+
+### Form Component Testing
+```typescript
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { UserForm } from '@/components/forms/UserForm';
+
+describe('UserForm Component', () => {
   test('should validate required fields', async () => {
     const user = userEvent.setup();
-    const mockOnSubmit = jest.fn();
-    
-    render(<RegistrationForm onSubmit={mockOnSubmit} />);
+    render(<UserForm onSubmit={jest.fn()} />);
 
-    const submitButton = screen.getByRole('button', { name: /register/i });
+    const submitButton = screen.getByRole('button', { name: /submit/i });
     await user.click(submitButton);
 
-    expect(screen.getByText('Email is required')).toBeInTheDocument();
-    expect(screen.getByText('Password is required')).toBeInTheDocument();
-    expect(mockOnSubmit).not.toHaveBeenCalled();
+    await waitFor(() => {
+      expect(screen.getByText(/email is required/i)).toBeInTheDocument();
+    });
   });
 
   test('should submit form with valid data', async () => {
+    const mockSubmit = jest.fn();
     const user = userEvent.setup();
-    const mockOnSubmit = jest.fn();
     
-    render(<RegistrationForm onSubmit={mockOnSubmit} />);
+    render(<UserForm onSubmit={mockSubmit} />);
 
     await user.type(screen.getByLabelText(/email/i), 'test@example.com');
-    await user.type(screen.getByLabelText(/password/i), 'SecurePassword123!');
+    await user.type(screen.getByLabelText(/name/i), 'John Doe');
+    await user.click(screen.getByRole('button', { name: /submit/i }));
 
-    await user.click(screen.getByRole('button', { name: /register/i }));
-
-    expect(mockOnSubmit).toHaveBeenCalledWith({
-      email: 'test@example.com',
-      password: 'SecurePassword123!'
+    await waitFor(() => {
+      expect(mockSubmit).toHaveBeenCalledWith({
+        email: 'test@example.com',
+        name: 'John Doe'
+      });
     });
   });
 });
 ```
 
-## Permission-Based Component Testing
-
-### Conditional Rendering Testing
+### Permission-Aware Component Testing
 ```typescript
-describe('Permission-Based UI Components', () => {
-  test('should show admin actions for admin users', () => {
-    const adminUser = createMockUser({ role: 'admin' });
-    
-    render(
-      <UserProvider user={adminUser}>
-        <DocumentActions documentId="123" />
-      </UserProvider>
+import { render, screen } from '@testing-library/react';
+import { PermissionBoundary } from '@/components/auth/PermissionBoundary';
+import { RBACProvider } from '@/providers/RBACProvider';
+
+const renderWithPermissions = (component: React.ReactElement, permissions: string[]) => {
+  const mockRBACContext = {
+    hasPermission: (permission: string) => permissions.includes(permission),
+    userRoles: [],
+    loading: false
+  };
+
+  return render(
+    <RBACProvider value={mockRBACContext}>
+      {component}
+    </RBACProvider>
+  );
+};
+
+describe('PermissionBoundary Component', () => {
+  test('should render children when user has permission', () => {
+    renderWithPermissions(
+      <PermissionBoundary action="edit" resource="users">
+        <button>Edit User</button>
+      </PermissionBoundary>,
+      ['users:edit']
     );
 
-    expect(screen.getByRole('button', { name: /delete/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /edit/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /edit user/i })).toBeInTheDocument();
   });
 
-  test('should hide admin actions for regular users', () => {
-    const regularUser = createMockUser({ role: 'viewer' });
-    
-    render(
-      <UserProvider user={regularUser}>
-        <DocumentActions documentId="123" />
-      </UserProvider>
+  test('should not render children when user lacks permission', () => {
+    renderWithPermissions(
+      <PermissionBoundary action="edit" resource="users">
+        <button>Edit User</button>
+      </PermissionBoundary>,
+      []
     );
 
-    expect(screen.queryByRole('button', { name: /delete/i })).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /view/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /edit user/i })).not.toBeInTheDocument();
   });
 });
 ```
 
-## Test Utilities
-
-### Mock Helpers
+### Multi-Tenant Component Testing
 ```typescript
-export const createMockUser = (overrides: Partial<User> = {}) => ({
-  id: 'mock-user-id',
-  email: 'mock@example.com',
-  role: 'viewer',
-  ...overrides
-});
+import { render, screen } from '@testing-library/react';
+import { TenantProvider } from '@/providers/TenantProvider';
+import { TenantAwareComponent } from '@/components/tenant/TenantAwareComponent';
 
-export const renderWithProviders = (component: React.ReactElement, options?: RenderOptions) => {
-  const Wrapper = ({ children }: { children: React.ReactNode }) => (
-    <QueryClient>
-      <UserProvider>
-        {children}
-      </UserProvider>
-    </QueryClient>
+const renderWithTenant = (component: React.ReactElement, tenantId: string) => {
+  const mockTenantContext = {
+    currentTenant: { id: tenantId, name: 'Test Tenant' },
+    switchTenant: jest.fn(),
+    loading: false
+  };
+
+  return render(
+    <TenantProvider value={mockTenantContext}>
+      {component}
+    </TenantProvider>
   );
-
-  return render(component, { wrapper: Wrapper, ...options });
 };
+
+describe('TenantAwareComponent', () => {
+  test('should display tenant-specific content', () => {
+    renderWithTenant(<TenantAwareComponent />, 'tenant-123');
+    
+    expect(screen.getByText(/test tenant/i)).toBeInTheDocument();
+  });
+});
+```
+
+## Accessibility Testing Patterns
+
+### Basic Accessibility Testing
+```typescript
+import { render } from '@testing-library/react';
+import { axe, toHaveNoViolations } from 'jest-axe';
+
+expect.extend(toHaveNoViolations);
+
+describe('Accessibility Tests', () => {
+  test('should not have accessibility violations', async () => {
+    const { container } = render(<YourComponent />);
+    const results = await axe(container);
+    expect(results).toHaveNoViolations();
+  });
+});
 ```
 
 ## Related Documentation
 
 - **[CORE_TESTING_PATTERNS.md](CORE_TESTING_PATTERNS.md)**: Basic testing patterns
-- **[ADVANCED_TESTING_PATTERNS.md](ADVANCED_TESTING_PATTERNS.md)**: Integration patterns
+- **[ADVANCED_TESTING_PATTERNS.md](ADVANCED_TESTING_PATTERNS.md)**: Complex testing scenarios
+- **[../UI_STANDARDS.md](../UI_STANDARDS.md)**: UI component standards
 
 ## Version History
 
-- **1.0.0**: Extracted UI patterns from TESTING_PATTERNS.md (2025-05-23)
+- **1.0.0**: Extracted UI patterns from TESTING_PATTERNS.md for better AI processing (2025-05-24)
