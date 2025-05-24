@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase, tenantContextService } from '@/services/database';
@@ -151,11 +150,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.log('🚪 Starting logout process...');
       
       // Clear local state first
+      console.log('🧹 Clearing local context...');
       tenantContextService.clearContext();
       setCurrentTenantId(null);
       
       console.log('🚪 Calling supabase.auth.signOut()...');
-      const { error } = await supabase.auth.signOut();
+      
+      // Add timeout to catch hanging requests
+      const signOutPromise = supabase.auth.signOut();
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Signout timeout after 10 seconds')), 10000)
+      );
+      
+      const { error } = await Promise.race([signOutPromise, timeoutPromise]) as any;
       
       if (error) {
         console.error('❌ Supabase signout error:', error);
@@ -169,10 +176,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (error) {
       console.error('💥 Signout failed:', error);
       // Even if there's an error, try to clear local state
+      console.log('🆘 Force clearing local state due to error');
       setSession(null);
       setUser(null);
       setCurrentTenantId(null);
       tenantContextService.clearContext();
+      setLoading(false);
     }
   };
 
