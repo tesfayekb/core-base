@@ -1,14 +1,17 @@
+
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase, tenantContextService } from '@/services/database';
+import { authService, AuthResult } from '@/services/authService';
 
 interface AuthContextType {
   user: User | null;
   session: Session | null;
   loading: boolean;
-  signUp: (email: string, password: string, firstName?: string, lastName?: string) => Promise<{ error?: string; user?: User }>;
-  signIn: (email: string, password: string) => Promise<{ error?: string; user?: User }>;
+  signUp: (email: string, password: string, firstName?: string, lastName?: string) => Promise<AuthResult>;
+  signIn: (email: string, password: string) => Promise<AuthResult>;
   signOut: () => Promise<void>;
+  resetPassword: (email: string) => Promise<AuthResult>;
   currentTenantId: string | null;
   switchTenant: (tenantId: string) => Promise<boolean>;
 }
@@ -22,9 +25,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [currentTenantId, setCurrentTenantId] = useState<string | null>(null);
 
   useEffect(() => {
+    console.log('🔄 AuthProvider: Initializing auth state...');
+    
     // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
-      console.log('Initial session:', session);
+      console.log('📱 Initial session:', !!session);
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
@@ -47,7 +52,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setSession(session);
           setUser(session.user);
           
-          // Set loading to false immediately, don't wait for tenant context
+          // Set loading to false immediately
           setLoading(false);
           
           // Set tenant context in background (non-blocking)
@@ -56,8 +61,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             console.log('✅ Tenant context set successfully');
           } catch (error) {
             console.warn('⚠️ Failed to set tenant context:', error);
-            // Don't block the auth flow for tenant context failures
           }
+        } else if (event === 'TOKEN_REFRESHED' && session) {
+          console.log('🔄 Token refreshed');
+          setSession(session);
+          setUser(session?.user ?? null);
+          setLoading(false);
         } else {
           console.log('🔄 Other auth event:', event);
           setSession(session);
@@ -70,104 +79,43 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
-  const signUp = async (email: string, password: string, firstName?: string, lastName?: string) => {
+  const signUp = async (email: string, password: string, firstName?: string, lastName?: string): Promise<AuthResult> => {
+    setLoading(true);
     try {
-      console.log('🚀 Attempting Supabase signup for:', email);
-      
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            first_name: firstName,
-            last_name: lastName,
-          }
-        }
-      });
-
-      console.log('📋 Signup response data:', !!data);
-      console.log('📋 Signup response error:', error?.message);
-
-      if (error) {
-        console.error('❌ Signup failed:', error.message);
-        
-        // Provide more user-friendly error messages
-        if (error.message.includes('Invalid login credentials')) {
-          return { error: 'Invalid email or password format' };
-        }
-        if (error.message.includes('User already registered')) {
-          return { error: 'An account with this email already exists' };
-        }
-        if (error.message.includes('Password should be')) {
-          return { error: 'Password must be at least 6 characters long' };
-        }
-        if (error.message.includes('Unable to validate email address')) {
-          return { error: 'Please enter a valid email address' };
-        }
-        
-        return { error: error.message };
-      }
-
-      console.log('🎉 Signup successful!');
-      return { user: data.user };
-      
-    } catch (error) {
-      console.error('💥 Signup exception:', error);
-      
-      // Handle network/connection errors
-      if (error instanceof TypeError && error.message.includes('fetch')) {
-        return { error: 'Network connection failed. Please check your internet connection and try again.' };
-      }
-      
-      return { error: 'An unexpected error occurred during signup. Please try again.' };
+      const result = await authService.signUp({ email, password, firstName, lastName });
+      return result;
+    } finally {
+      setLoading(false);
     }
   };
 
-  const signIn = async (email: string, password: string) => {
+  const signIn = async (email: string, password: string): Promise<AuthResult> => {
+    setLoading(true);
     try {
-      console.log('Attempting signin for:', email);
-      
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password
-      });
-
-      if (error) {
-        console.error('Signin error:', error);
-        return { error: error.message };
-      }
-
-      console.log('Signin successful:', data);
-      return { user: data.user };
-    } catch (error) {
-      console.error('Signin failed:', error);
-      return { error: 'An unexpected error occurred during signin' };
+      const result = await authService.signIn(email, password);
+      return result;
+    } finally {
+      setLoading(false);
     }
   };
 
-  const signOut = async () => {
+  const signOut = async (): Promise<void> => {
     try {
-      console.log('🚪 Starting instant logout...');
+      console.log('🚪 Starting logout...');
       
-      // Clear all state immediately - no loading spinner
-      console.log('🧹 Instant state clear...');
+      // Clear state immediately for instant UI response
       setSession(null);
       setUser(null);
       setCurrentTenantId(null);
       tenantContextService.clearContext();
       
-      console.log('🚪 Background supabase signout...');
+      // Call auth service signout
+      await authService.signOut();
       
-      // Fire and forget - don't wait for supabase response
-      supabase.auth.signOut().catch((error) => {
-        console.warn('⚠️ Background signout failed (ignored):', error);
-      });
-      
-      console.log('✅ Instant logout completed');
-      
+      console.log('✅ Logout completed');
     } catch (error) {
-      console.error('💥 Signout failed:', error);
-      // Ensure we always clear state
+      console.error('💥 Logout failed:', error);
+      // Ensure state is cleared even on error
       setSession(null);
       setUser(null);
       setCurrentTenantId(null);
@@ -175,7 +123,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const switchTenant = async (tenantId: string) => {
+  const resetPassword = async (email: string): Promise<AuthResult> => {
+    return authService.resetPassword(email);
+  };
+
+  const switchTenant = async (tenantId: string): Promise<boolean> => {
     if (!user) return false;
 
     const result = await tenantContextService.switchTenantContext(user.id, tenantId);
@@ -193,6 +145,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     signUp,
     signIn,
     signOut,
+    resetPassword,
     currentTenantId,
     switchTenant
   };
