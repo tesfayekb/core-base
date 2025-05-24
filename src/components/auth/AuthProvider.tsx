@@ -62,19 +62,47 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.log('Browser user agent:', navigator.userAgent);
       console.log('Network connection status:', navigator.onLine);
       
-      // Test basic fetch to Supabase
-      console.log('Testing basic fetch to Supabase...');
+      // Test basic connectivity to Supabase
+      console.log('Testing basic connectivity to Supabase...');
       try {
-        const testResponse = await fetch('https://fhzhlyskafjvcwcqjssmb.supabase.co/rest/v1/', {
+        const testUrl = 'https://fhzhlyskafjvcwcqjssmb.supabase.co/rest/v1/';
+        console.log('Test URL:', testUrl);
+        
+        const testResponse = await fetch(testUrl, {
+          method: 'GET',
+          headers: {
+            'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZoemhseXNrZmp2Y3djcWpzc21iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgwNjIzMTksImV4cCI6MjA2MzYzODMxOX0.S2-LU5bi34Pcrg-XNEHj_SBQzxQncIe4tnOfhuyedNk',
+            'Content-Type': 'application/json'
+          }
+        });
+        console.log('Basic connectivity test - Status:', testResponse.status);
+        console.log('Basic connectivity test - OK:', testResponse.ok);
+        console.log('Basic connectivity test - Headers:', Object.fromEntries(testResponse.headers.entries()));
+        
+        if (testResponse.ok) {
+          console.log('✅ Basic connectivity to Supabase is working');
+        } else {
+          console.warn('⚠️ Basic connectivity test returned non-200 status');
+        }
+      } catch (fetchError) {
+        console.error('❌ Basic connectivity test failed:', fetchError);
+        console.error('This indicates a fundamental network connectivity issue');
+      }
+      
+      // Test auth endpoint specifically
+      console.log('Testing auth endpoint connectivity...');
+      try {
+        const authTestUrl = 'https://fhzhlyskafjvcwcqjssmb.supabase.co/auth/v1/settings';
+        const authTestResponse = await fetch(authTestUrl, {
           method: 'GET',
           headers: {
             'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZoemhseXNrZmp2Y3djcWpzc21iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgwNjIzMTksImV4cCI6MjA2MzYzODMxOX0.S2-LU5bi34Pcrg-XNEHj_SBQzxQncIe4tnOfhuyedNk'
           }
         });
-        console.log('Basic fetch test response status:', testResponse.status);
-        console.log('Basic fetch test response headers:', Object.fromEntries(testResponse.headers.entries()));
-      } catch (fetchError) {
-        console.error('Basic fetch test failed:', fetchError);
+        console.log('Auth endpoint test - Status:', authTestResponse.status);
+        console.log('Auth endpoint test - OK:', authTestResponse.ok);
+      } catch (authError) {
+        console.error('❌ Auth endpoint test failed:', authError);
       }
       
       console.log('Attempting Supabase auth signup...');
@@ -96,8 +124,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           message: error.message,
           status: error.status,
           code: error.code || 'no_code',
-          name: error.name,
-          cause: error.cause
+          name: error.name
         });
         return { error: error.message };
       }
@@ -112,18 +139,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         type: typeof error,
         constructor: error?.constructor?.name,
         message: error instanceof Error ? error.message : 'Unknown error',
-        stack: error instanceof Error ? error.stack : 'No stack trace',
-        cause: error?.cause
+        stack: error instanceof Error ? error.stack : 'No stack trace'
       });
       
       // Check if this is a network error
       if (error instanceof TypeError && error.message.includes('fetch')) {
-        console.error('This appears to be a network connectivity issue');
-        console.error('Possible causes:');
-        console.error('1. Supabase project is paused or inactive');
-        console.error('2. CORS configuration issue');
-        console.error('3. Network firewall blocking requests');
-        console.error('4. Ad blocker or browser extension interference');
+        console.error('🔍 NETWORK CONNECTIVITY ANALYSIS:');
+        console.error('1. Check if Supabase project is active (not paused)');
+        console.error('2. Verify CORS settings in Supabase dashboard');
+        console.error('3. Check browser network developer tools');
+        console.error('4. Try disabling ad blockers or browser extensions');
+        console.error('5. Check if corporate firewall is blocking requests');
+        console.error('6. Verify project URL and API keys are correct');
       }
       
       return { error: 'Network connection failed. Please check your internet connection and try again.' };
