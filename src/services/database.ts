@@ -1,4 +1,3 @@
-
 // Database Service with Tenant Context Management
 // Version: 1.0.0
 // Phase 1.1: Database Foundation
@@ -6,9 +5,9 @@
 import { createClient } from '@supabase/supabase-js';
 import { DatabaseResult, PermissionCheck, EffectivePermission } from '@/types/database';
 
-// Initialize Supabase client (you'll need to add your actual URL and anon key)
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'your-supabase-url';
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'your-supabase-anon-key';
+// Initialize Supabase client with your project details
+const supabaseUrl = 'https://fhzhlyskafjvcwcqjssmb.supabase.co';
+const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZoemhseXNrZmp2Y3djcWpzc21iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgwNjIzMTksImV4cCI6MjA2MzYzODMxOX0.S2-LU5bi34Pcrg-XNEHj_SBQzxQncIe4tnOfhuyedNk';
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
