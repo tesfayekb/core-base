@@ -6,11 +6,23 @@ import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { AuthProvider, useAuth } from '../../components/auth/AuthProvider';
-import { supabase } from '../../services/database';
 
-// Mock Supabase
-jest.mock('../../services/database');
-const mockSupabase = supabase as jest.Mocked<typeof supabase>;
+// Create proper mock for Supabase
+const mockSignInWithPassword = jest.fn();
+const mockSignOut = jest.fn();
+const mockGetSession = jest.fn();
+const mockOnAuthStateChange = jest.fn();
+
+jest.mock('../../services/database', () => ({
+  supabase: {
+    auth: {
+      signInWithPassword: mockSignInWithPassword,
+      signOut: mockSignOut,
+      getSession: mockGetSession,
+      onAuthStateChange: mockOnAuthStateChange
+    }
+  }
+}));
 
 // Test component to access auth context
 function TestComponent() {
@@ -38,13 +50,12 @@ describe('AuthProvider Integration Tests', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     
-    // Mock auth state subscription
-    mockSupabase.auth.onAuthStateChange.mockReturnValue({
+    // Setup default mock implementations
+    mockOnAuthStateChange.mockReturnValue({
       data: { subscription: { unsubscribe: jest.fn() } }
     });
     
-    // Mock initial session
-    mockSupabase.auth.getSession.mockResolvedValue({
+    mockGetSession.mockResolvedValue({
       data: { session: null },
       error: null
     });
@@ -65,7 +76,7 @@ describe('AuthProvider Integration Tests', () => {
     });
 
     // Mock successful login
-    mockSupabase.auth.signInWithPassword.mockResolvedValue({
+    mockSignInWithPassword.mockResolvedValue({
       data: { 
         user: { id: 'test-id', email: 'test@example.com' }, 
         session: { access_token: 'token' } 
@@ -86,7 +97,7 @@ describe('AuthProvider Integration Tests', () => {
     const mockUser = { id: 'test-id', email: 'test@example.com' };
     
     // Mock successful session
-    mockSupabase.auth.getSession.mockResolvedValue({
+    mockGetSession.mockResolvedValue({
       data: { session: { user: mockUser } },
       error: null
     });

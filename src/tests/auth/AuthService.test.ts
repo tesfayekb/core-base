@@ -3,12 +3,24 @@
 // Following src/docs/implementation/testing/PHASE1_CORE_TESTING.md
 
 import { AuthService, authService } from '../../services/authService';
-import { supabase } from '../../services/database';
 import { testHelpers } from '../utils/test-helpers';
 
-// Mock Supabase for isolated testing
-jest.mock('../../services/database');
-const mockSupabase = supabase as jest.Mocked<typeof supabase>;
+// Create proper mocks for Supabase
+const mockSignUp = jest.fn();
+const mockSignInWithPassword = jest.fn();
+const mockSignOut = jest.fn();
+const mockResetPasswordForEmail = jest.fn();
+
+jest.mock('../../services/database', () => ({
+  supabase: {
+    auth: {
+      signUp: mockSignUp,
+      signInWithPassword: mockSignInWithPassword,
+      signOut: mockSignOut,
+      resetPasswordForEmail: mockResetPasswordForEmail
+    }
+  }
+}));
 
 describe('AuthService Unit Tests', () => {
   let service: AuthService;
@@ -21,7 +33,7 @@ describe('AuthService Unit Tests', () => {
   describe('signUp', () => {
     test('should register user successfully', async () => {
       const mockUser = { id: 'test-id', email: 'test@example.com' };
-      mockSupabase.auth.signUp.mockResolvedValue({
+      mockSignUp.mockResolvedValue({
         data: { user: mockUser, session: null },
         error: null
       });
@@ -64,7 +76,7 @@ describe('AuthService Unit Tests', () => {
       const mockUser = { id: 'test-id', email: 'test@example.com' };
       const mockSession = { access_token: 'token', user: mockUser };
       
-      mockSupabase.auth.signInWithPassword.mockResolvedValue({
+      mockSignInWithPassword.mockResolvedValue({
         data: { user: mockUser, session: mockSession },
         error: null
       });
@@ -76,7 +88,7 @@ describe('AuthService Unit Tests', () => {
     });
 
     test('should handle invalid credentials', async () => {
-      mockSupabase.auth.signInWithPassword.mockResolvedValue({
+      mockSignInWithPassword.mockResolvedValue({
         data: { user: null, session: null },
         error: { message: 'Invalid login credentials' }
       });
@@ -90,7 +102,7 @@ describe('AuthService Unit Tests', () => {
 
   describe('Performance Requirements', () => {
     test('should complete authentication within 1000ms', async () => {
-      mockSupabase.auth.signInWithPassword.mockResolvedValue({
+      mockSignInWithPassword.mockResolvedValue({
         data: { user: { id: 'test', email: 'test@example.com' }, session: {} },
         error: null
       });

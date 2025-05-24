@@ -3,10 +3,17 @@
 // Following src/docs/PERFORMANCE_STANDARDS.md requirements
 
 import { authService } from '../../services/authService';
-import { supabase } from '../../services/database';
 
-jest.mock('../../services/database');
-const mockSupabase = supabase as jest.Mocked<typeof supabase>;
+// Create proper mocks
+const mockSignInWithPassword = jest.fn();
+
+jest.mock('../../services/database', () => ({
+  supabase: {
+    auth: {
+      signInWithPassword: mockSignInWithPassword
+    }
+  }
+}));
 
 describe('Authentication Performance Tests', () => {
   beforeEach(() => {
@@ -14,7 +21,7 @@ describe('Authentication Performance Tests', () => {
   });
 
   test('should meet authentication time target (<1000ms)', async () => {
-    mockSupabase.auth.signInWithPassword.mockResolvedValue({
+    mockSignInWithPassword.mockResolvedValue({
       data: { user: { id: 'test', email: 'test@example.com' }, session: {} },
       error: null
     });
@@ -37,7 +44,7 @@ describe('Authentication Performance Tests', () => {
   });
 
   test('should handle concurrent authentication requests', async () => {
-    mockSupabase.auth.signInWithPassword.mockResolvedValue({
+    mockSignInWithPassword.mockResolvedValue({
       data: { user: { id: 'test', email: 'test@example.com' }, session: {} },
       error: null
     });

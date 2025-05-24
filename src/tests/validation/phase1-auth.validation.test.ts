@@ -4,11 +4,20 @@
 
 import { authService } from '../../services/authService';
 import { tenantContextService } from '../../services/SharedTenantContextService';
-import { supabase } from '../../services/database';
 import { performanceTargets } from '../utils/test-helpers';
 
-jest.mock('../../services/database');
-const mockSupabase = supabase as jest.Mocked<typeof supabase>;
+// Create proper mocks
+const mockSignUp = jest.fn();
+const mockSignInWithPassword = jest.fn();
+
+jest.mock('../../services/database', () => ({
+  supabase: {
+    auth: {
+      signUp: mockSignUp,
+      signInWithPassword: mockSignInWithPassword
+    }
+  }
+}));
 
 describe('Phase 1 Authentication Validation', () => {
   beforeEach(() => {
@@ -17,7 +26,7 @@ describe('Phase 1 Authentication Validation', () => {
 
   describe('Functional Requirements Validation', () => {
     test('should complete full registration workflow', async () => {
-      mockSupabase.auth.signUp.mockResolvedValue({
+      mockSignUp.mockResolvedValue({
         data: { 
           user: { id: 'test-id', email: 'test@example.com' }, 
           session: null 
@@ -34,7 +43,7 @@ describe('Phase 1 Authentication Validation', () => {
 
       expect(result.success).toBe(true);
       expect(result.requiresVerification).toBe(true);
-      expect(mockSupabase.auth.signUp).toHaveBeenCalledWith({
+      expect(mockSignUp).toHaveBeenCalledWith({
         email: 'test@example.com',
         password: 'SecurePassword123!',
         options: {
@@ -48,7 +57,7 @@ describe('Phase 1 Authentication Validation', () => {
     });
 
     test('should complete full login workflow', async () => {
-      mockSupabase.auth.signInWithPassword.mockResolvedValue({
+      mockSignInWithPassword.mockResolvedValue({
         data: { 
           user: { id: 'test-id', email: 'test@example.com' }, 
           session: { access_token: 'token' } 
@@ -65,7 +74,7 @@ describe('Phase 1 Authentication Validation', () => {
 
   describe('Performance Validation', () => {
     test('should meet all authentication performance targets', async () => {
-      mockSupabase.auth.signInWithPassword.mockResolvedValue({
+      mockSignInWithPassword.mockResolvedValue({
         data: { user: { id: 'test' }, session: {} },
         error: null
       });
@@ -99,7 +108,7 @@ describe('Phase 1 Authentication Validation', () => {
       // This test validates that authentication doesn't break tenant context
       const contextSpy = jest.spyOn(tenantContextService, 'setUserContextAsync');
       
-      mockSupabase.auth.signInWithPassword.mockResolvedValue({
+      mockSignInWithPassword.mockResolvedValue({
         data: { user: { id: 'test-id' }, session: {} },
         error: null
       });

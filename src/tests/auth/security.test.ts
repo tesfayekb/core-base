@@ -3,10 +3,21 @@
 // Following src/docs/security/SECURITY_TESTING.md
 
 import { authService } from '../../services/authService';
-import { supabase } from '../../services/database';
 
-jest.mock('../../services/database');
-const mockSupabase = supabase as jest.Mocked<typeof supabase>;
+// Create proper mocks
+const mockSignInWithPassword = jest.fn();
+const mockSignUp = jest.fn();
+const mockSignOut = jest.fn();
+
+jest.mock('../../services/database', () => ({
+  supabase: {
+    auth: {
+      signInWithPassword: mockSignInWithPassword,
+      signUp: mockSignUp,
+      signOut: mockSignOut
+    }
+  }
+}));
 
 describe('Authentication Security Tests', () => {
   beforeEach(() => {
@@ -46,7 +57,7 @@ describe('Authentication Security Tests', () => {
       });
 
       // Should validate input but not execute scripts
-      expect(mockSupabase.auth.signUp).not.toHaveBeenCalledWith(
+      expect(mockSignUp).not.toHaveBeenCalledWith(
         expect.objectContaining({
           options: expect.objectContaining({
             data: expect.objectContaining({
@@ -60,7 +71,7 @@ describe('Authentication Security Tests', () => {
 
   describe('Session Security', () => {
     test('should handle session timeout gracefully', async () => {
-      mockSupabase.auth.signOut.mockResolvedValue({ error: null });
+      mockSignOut.mockResolvedValue({ error: null });
       
       await expect(authService.signOut()).resolves.not.toThrow();
     });
@@ -70,7 +81,7 @@ describe('Authentication Security Tests', () => {
       const mockSession1 = { access_token: 'token1', user: { id: '1' } };
       const mockSession2 = { access_token: 'token2', user: { id: '2' } };
       
-      mockSupabase.auth.signInWithPassword
+      mockSignInWithPassword
         .mockResolvedValueOnce({
           data: { user: { id: '1' }, session: mockSession1 },
           error: null
@@ -84,7 +95,7 @@ describe('Authentication Security Tests', () => {
       await authService.signIn('user2@example.com', 'password');
 
       // Each login should create a new session
-      expect(mockSupabase.auth.signInWithPassword).toHaveBeenCalledTimes(2);
+      expect(mockSignInWithPassword).toHaveBeenCalledTimes(2);
     });
   });
 });
