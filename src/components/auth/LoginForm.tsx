@@ -150,7 +150,7 @@ export function LoginForm() {
                     onChange={handleInputChange}
                     placeholder="••••••••"
                     required
-                    minLength={8}
+                    minLength={isSignUp ? 8 : undefined}
                   />
                   <Button
                     type="button"
