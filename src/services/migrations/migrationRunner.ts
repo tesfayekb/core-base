@@ -12,11 +12,42 @@ export interface Migration {
 
 export class MigrationRunner {
   private async ensureMigrationsTable(): Promise<void> {
+    // First run migration 000 if it exists to set up infrastructure
+    const infrastructureMigration = await this.loadInfrastructureMigration();
+    if (infrastructureMigration && !await this.isMigrationApplied('000')) {
+      console.log('🔧 Setting up migration infrastructure...');
+      await this.executeRawMigration(infrastructureMigration);
+    }
+
     const { error } = await supabase.rpc('create_migrations_table_if_not_exists');
     if (error) {
       console.error('Failed to create migrations table:', error);
       throw new Error(`Migration table creation failed: ${error.message}`);
     }
+  }
+
+  private async loadInfrastructureMigration(): Promise<Migration | null> {
+    try {
+      const module = await import('./migrations/000_migration_infrastructure.ts');
+      return module.default;
+    } catch {
+      return null; // Infrastructure migration doesn't exist
+    }
+  }
+
+  private async executeRawMigration(migration: Migration): Promise<void> {
+    // Execute migration script directly for infrastructure setup
+    const { error } = await supabase.rpc('execute_migration', {
+      migration_script: migration.script
+    });
+
+    if (error) {
+      throw new Error(`Infrastructure migration failed: ${error.message}`);
+    }
+
+    // Record the migration
+    const hash = await this.calculateHash(migration.script);
+    await this.recordMigration({ ...migration, hash });
   }
 
   private async calculateHash(script: string): Promise<string> {
@@ -61,7 +92,7 @@ export class MigrationRunner {
   async runMigration(migration: Migration): Promise<void> {
     console.log(`🔄 Running migration ${migration.version}: ${migration.name}`);
 
-    // Ensure migrations table exists
+    // Ensure migrations table exists (will set up infrastructure if needed)
     await this.ensureMigrationsTable();
 
     // Check if already applied
