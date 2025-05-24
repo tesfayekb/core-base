@@ -40,6 +40,8 @@ export function LoginForm() {
     setSuccess('');
 
     try {
+      console.log('🔄 LoginForm: Starting form submission...', { isSignUp, email: formData.email });
+      
       if (isSignUp) {
         const result = await signUp(
           formData.email,
@@ -47,6 +49,8 @@ export function LoginForm() {
           formData.firstName,
           formData.lastName
         );
+        
+        console.log('📝 Signup result:', result);
         
         if (result.error) {
           setError(result.error);
@@ -56,12 +60,21 @@ export function LoginForm() {
       } else {
         const result = await signIn(formData.email, formData.password);
         
+        console.log('🔐 Signin result:', result);
+        
         if (result.error) {
+          console.error('❌ Login error:', result.error);
           setError(result.error);
+        } else if (result.success) {
+          console.log('✅ Login successful');
+          // Success will be handled by auth context redirect
+        } else {
+          console.warn('⚠️ Unexpected login result:', result);
+          setError('Login failed. Please try again.');
         }
-        // Success will be handled by auth context redirect
       }
     } catch (err) {
+      console.error('💥 Form submission error:', err);
       setError('An unexpected error occurred. Please try again.');
     } finally {
       setIsLoading(false);
