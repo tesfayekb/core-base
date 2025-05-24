@@ -1,5 +1,6 @@
 import { supabase } from './database';
 import { z } from 'zod';
+import { measureAuthOperation } from './performance/DatabaseMeasurementUtilities';
 
 // Validation schemas
 const EmailSchema = z.string().email().min(1).max(255);
@@ -26,106 +27,110 @@ export class AuthService {
     firstName?: string;
     lastName?: string;
   }): Promise<AuthResult> {
-    try {
-      console.log('🚀 AuthService: Starting signup for:', credentials.email);
-      
-      // 1. Validate input
-      const validation = UserCredentialsSchema.safeParse(credentials);
-      if (!validation.success) {
-        console.error('❌ Validation failed:', validation.error.errors);
-        return {
-          success: false,
-          error: 'Invalid input: ' + validation.error.errors.map(e => e.message).join(', ')
-        };
-      }
-
-      // 2. Attempt Supabase signup
-      const { data, error } = await supabase.auth.signUp({
-        email: credentials.email,
-        password: credentials.password,
-        options: {
-          data: {
-            first_name: credentials.firstName,
-            last_name: credentials.lastName,
-            full_name: `${credentials.firstName || ''} ${credentials.lastName || ''}`.trim()
-          }
+    return await measureAuthOperation('user_signup', async () => {
+      try {
+        console.log('🚀 AuthService: Starting signup for:', credentials.email);
+        
+        // 1. Validate input
+        const validation = UserCredentialsSchema.safeParse(credentials);
+        if (!validation.success) {
+          console.error('❌ Validation failed:', validation.error.errors);
+          return {
+            success: false,
+            error: 'Invalid input: ' + validation.error.errors.map(e => e.message).join(', ')
+          };
         }
-      });
 
-      if (error) {
-        console.error('❌ Supabase signup error:', error.message);
-        return {
-          success: false,
-          error: this.formatAuthError(error.message)
-        };
-      }
+        // 2. Attempt Supabase signup
+        const { data, error } = await supabase.auth.signUp({
+          email: credentials.email,
+          password: credentials.password,
+          options: {
+            data: {
+              first_name: credentials.firstName,
+              last_name: credentials.lastName,
+              full_name: `${credentials.firstName || ''} ${credentials.lastName || ''}`.trim()
+            }
+          }
+        });
 
-      console.log('✅ Signup successful:', data.user?.email);
-      
-      // 3. Check if email confirmation is required
-      if (data.user && !data.session) {
+        if (error) {
+          console.error('❌ Supabase signup error:', error.message);
+          return {
+            success: false,
+            error: this.formatAuthError(error.message)
+          };
+        }
+
+        console.log('✅ Signup successful:', data.user?.email);
+        
+        // 3. Check if email confirmation is required
+        if (data.user && !data.session) {
+          return {
+            success: true,
+            user: data.user,
+            requiresVerification: true
+          };
+        }
+
         return {
           success: true,
-          user: data.user,
-          requiresVerification: true
+          user: data.user
+        };
+
+      } catch (error) {
+        console.error('💥 Signup exception:', error);
+        return {
+          success: false,
+          error: 'An unexpected error occurred during registration'
         };
       }
-
-      return {
-        success: true,
-        user: data.user
-      };
-
-    } catch (error) {
-      console.error('💥 Signup exception:', error);
-      return {
-        success: false,
-        error: 'An unexpected error occurred during registration'
-      };
-    }
+    });
   }
 
   async signIn(email: string, password: string): Promise<AuthResult> {
-    try {
-      console.log('🔐 AuthService: Starting signin for:', email);
-      
-      // 1. Validate email format only (not password format for login)
-      const emailValidation = EmailSchema.safeParse(email);
-      
-      if (!emailValidation.success) {
+    return await measureAuthOperation('user_signin', async () => {
+      try {
+        console.log('🔐 AuthService: Starting signin for:', email);
+        
+        // 1. Validate email format only (not password format for login)
+        const emailValidation = EmailSchema.safeParse(email);
+        
+        if (!emailValidation.success) {
+          return {
+            success: false,
+            error: 'Invalid email format'
+          };
+        }
+
+        // 2. Attempt Supabase signin
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email,
+          password
+        });
+
+        if (error) {
+          console.error('❌ Signin error:', error.message);
+          return {
+            success: false,
+            error: this.formatAuthError(error.message)
+          };
+        }
+
+        console.log('✅ Signin successful:', data.user?.email);
+        return {
+          success: true,
+          user: data.user
+        };
+
+      } catch (error) {
+        console.error('💥 Signin exception:', error);
         return {
           success: false,
-          error: 'Invalid email format'
+          error: 'An unexpected error occurred during login'
         };
       }
-
-      // 2. Attempt Supabase signin
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password
-      });
-
-      if (error) {
-        console.error('❌ Signin error:', error.message);
-        return {
-          success: false,
-          error: this.formatAuthError(error.message)
-        };
-      }
-
-      console.log('✅ Signin successful:', data.user?.email);
-      return {
-        success: true,
-        user: data.user
-      };
-
-    } catch (error) {
-      console.error('💥 Signin exception:', error);
-      return {
-        success: false,
-        error: 'An unexpected error occurred during login'
-      };
-    }
+    });
   }
 
   async signOut(): Promise<void> {

@@ -1,7 +1,7 @@
-
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, Session } from '@supabase/supabase-js';
-import { supabase, tenantContextService } from '@/services/database';
+import { supabase } from '@/services/database';
+import { tenantContextService } from '@/services/SharedTenantContextService';
 import { authService, AuthResult } from '@/services/authService';
 
 interface AuthContextType {
@@ -57,8 +57,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           
           // Set tenant context in background (non-blocking)
           try {
-            await tenantContextService.setUserContext(session.user.id);
-            console.log('✅ Tenant context set successfully');
+            const contextResult = await tenantContextService.setUserContext(session.user.id);
+            if (contextResult.success && contextResult.data) {
+              setCurrentTenantId(contextResult.data);
+              console.log('✅ Tenant context set successfully:', contextResult.data);
+            } else {
+              console.warn('⚠️ Failed to set tenant context:', contextResult.error);
+            }
           } catch (error) {
             console.warn('⚠️ Failed to set tenant context:', error);
           }
