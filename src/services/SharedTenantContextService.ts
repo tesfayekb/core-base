@@ -116,9 +116,13 @@ export class SharedTenantContextService {
         return data.tenant_id;
       });
 
-      const result = await this.setTenantContext(tenantId);
-      if (!result.success) {
-        return result;
+      const setContextResult = await this.setTenantContext(tenantId);
+      if (!setContextResult.success) {
+        return {
+          success: false,
+          error: setContextResult.error,
+          code: setContextResult.code
+        };
       }
 
       return { success: true, data: tenantId };
