@@ -56,7 +56,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signUp = async (email: string, password: string, firstName?: string, lastName?: string) => {
     try {
       console.log('🚀 Starting Supabase signup for:', email);
-      console.log('📍 Supabase URL:', 'https://fhzhlyskafjvcwcqjssmb.supabase.co');
+      console.log('📍 Supabase URL:', 'https://fhzhlyskfjvcwcqjssmb.supabase.co');
       
       // Test basic connectivity first
       console.log('🔍 Testing basic connectivity...');
@@ -74,7 +74,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Test Supabase project accessibility
       console.log('🔍 Testing Supabase project accessibility...');
       try {
-        const supabaseResponse = await fetch('https://fhzhlyskafjvcwcqjssmb.supabase.co/rest/v1/', {
+        const supabaseResponse = await fetch('https://fhzhlyskfjvcwcqjssmb.supabase.co/rest/v1/', {
           method: 'GET',
           headers: {
             'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZoemhseXNrZmp2Y3djcWpzc21iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgwNjIzMTksImV4cCI6MjA2MzYzODMxOX0.S2-LU5bi34Pcrg-XNEHj_SBQzxQncIe4tnOfhuyedNk'
