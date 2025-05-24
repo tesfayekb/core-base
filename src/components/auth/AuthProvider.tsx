@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase, tenantContextService } from '@/services/database';
@@ -148,49 +147,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = async () => {
     try {
-      console.log('🚪 Starting logout process...');
+      console.log('🚪 Starting instant logout...');
       
-      // Clear local state immediately for better UX
-      console.log('🧹 Clearing local state immediately...');
-      setLoading(true);
+      // Clear all state immediately - no loading spinner
+      console.log('🧹 Instant state clear...');
       setSession(null);
       setUser(null);
       setCurrentTenantId(null);
       tenantContextService.clearContext();
       
-      console.log('🚪 Calling supabase.auth.signOut()...');
+      console.log('🚪 Background supabase signout...');
       
-      // Reduced timeout to 3 seconds for better UX
-      const signOutPromise = supabase.auth.signOut();
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Signout timeout after 3 seconds')), 3000)
-      );
+      // Fire and forget - don't wait for supabase response
+      supabase.auth.signOut().catch((error) => {
+        console.warn('⚠️ Background signout failed (ignored):', error);
+      });
       
-      try {
-        const { error } = await Promise.race([signOutPromise, timeoutPromise]) as any;
-        
-        if (error) {
-          console.error('❌ Supabase signout error:', error);
-        } else {
-          console.log('✅ Supabase signout successful');
-        }
-      } catch (timeoutError) {
-        console.warn('⏰ Signout timed out, but local state cleared');
-        // Don't throw - we've already cleared local state
-      }
-      
-      setLoading(false);
-      console.log('✅ Logout process completed');
+      console.log('✅ Instant logout completed');
       
     } catch (error) {
       console.error('💥 Signout failed:', error);
-      // Ensure we always clear state and stop loading
-      console.log('🆘 Ensuring clean state after error');
+      // Ensure we always clear state
       setSession(null);
       setUser(null);
       setCurrentTenantId(null);
       tenantContextService.clearContext();
-      setLoading(false);
     }
   };
 
