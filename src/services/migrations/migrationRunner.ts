@@ -1,3 +1,4 @@
+
 // Migration System Infrastructure
 // Version: 1.0.0
 // Phase 1.2: Database Foundation
@@ -148,7 +149,7 @@ export class MigrationRunner {
         const isApplied = await this.isMigrationApplied(migration.version);
         
         if (!isApplied) {
-          await this.executeMigration(migration, appliedBy);
+          await this.runMigration(migration, appliedBy);
         } else {
           console.log(`⏭️ Migration ${migration.version} already applied, skipping`);
         }
