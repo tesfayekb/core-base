@@ -1,15 +1,23 @@
 
 -- Core Database Schema for Multi-Tenant Enterprise System
 -- Version: 1.0.0
--- Phase 1.1: Database Foundation
+-- Phase 1.2: Database Foundation
 
--- Enable Row Level Security
+-- Enable required extensions
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+
+-- Enable Row Level Security globally
 ALTER DATABASE postgres SET row_security = on;
 
 -- Create custom types
 CREATE TYPE user_status AS ENUM ('active', 'inactive', 'suspended', 'pending_verification');
 CREATE TYPE audit_event_type AS ENUM ('authentication', 'authorization', 'data_access', 'data_modification', 'system_event', 'security_event');
 CREATE TYPE permission_action AS ENUM ('create', 'read', 'update', 'delete', 'manage', 'view', 'edit');
+
+-- =============================================================================
+-- CORE TENANT INFRASTRUCTURE
+-- =============================================================================
 
 -- Tenants table (foundational for multi-tenancy)
 CREATE TABLE IF NOT EXISTS tenants (
@@ -24,6 +32,10 @@ CREATE TABLE IF NOT EXISTS tenants (
     created_by UUID,
     updated_by UUID
 );
+
+-- =============================================================================
+-- USER MANAGEMENT TABLES
+-- =============================================================================
 
 -- Users table with tenant association
 CREATE TABLE IF NOT EXISTS users (
@@ -42,6 +54,33 @@ CREATE TABLE IF NOT EXISTS users (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
+-- User profiles (extended user information)
+CREATE TABLE IF NOT EXISTS user_profiles (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    avatar_url TEXT,
+    phone_number VARCHAR(20),
+    timezone VARCHAR(50) DEFAULT 'UTC',
+    language VARCHAR(10) DEFAULT 'en',
+    bio TEXT,
+    preferences JSONB DEFAULT '{}',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(user_id)
+);
+
+-- Password history for security policy enforcement
+CREATE TABLE IF NOT EXISTS password_history (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    password_hash TEXT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- =============================================================================
+-- RBAC SYSTEM TABLES
+-- =============================================================================
 
 -- Roles table (tenant-scoped)
 CREATE TABLE IF NOT EXISTS roles (
@@ -78,6 +117,7 @@ CREATE TABLE IF NOT EXISTS user_roles (
     assigned_by UUID REFERENCES users(id),
     assigned_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     expires_at TIMESTAMP WITH TIME ZONE,
+    metadata JSONB DEFAULT '{}',
     UNIQUE(tenant_id, user_id, role_id)
 );
 
@@ -91,6 +131,7 @@ CREATE TABLE IF NOT EXISTS user_permissions (
     granted_by UUID REFERENCES users(id),
     granted_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     expires_at TIMESTAMP WITH TIME ZONE,
+    metadata JSONB DEFAULT '{}',
     UNIQUE(tenant_id, user_id, permission_id, resource_id)
 );
 
@@ -102,8 +143,13 @@ CREATE TABLE IF NOT EXISTS role_permissions (
     permission_id UUID NOT NULL REFERENCES permissions(id) ON DELETE CASCADE,
     assigned_by UUID REFERENCES users(id),
     assigned_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    metadata JSONB DEFAULT '{}',
     UNIQUE(tenant_id, role_id, permission_id)
 );
+
+-- =============================================================================
+-- MULTI-TENANT ASSOCIATION TABLES
+-- =============================================================================
 
 -- User tenants (multi-tenant user access)
 CREATE TABLE IF NOT EXISTS user_tenants (
@@ -112,8 +158,13 @@ CREATE TABLE IF NOT EXISTS user_tenants (
     tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
     is_primary BOOLEAN DEFAULT FALSE,
     joined_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    metadata JSONB DEFAULT '{}',
     UNIQUE(user_id, tenant_id)
 );
+
+-- =============================================================================
+-- AUDIT AND SESSION TABLES
+-- =============================================================================
 
 -- Audit logs table (tenant-aware)
 CREATE TABLE IF NOT EXISTS audit_logs (
@@ -143,17 +194,44 @@ CREATE TABLE IF NOT EXISTS user_sessions (
     last_accessed_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     ip_address INET,
     user_agent TEXT,
-    is_active BOOLEAN DEFAULT TRUE
+    is_active BOOLEAN DEFAULT TRUE,
+    metadata JSONB DEFAULT '{}'
 );
 
--- Create indexes for performance
+-- =============================================================================
+-- PERFORMANCE INDEXES
+-- =============================================================================
+
+-- Core tenant lookup indexes
+CREATE INDEX IF NOT EXISTS idx_tenants_slug ON tenants(slug);
+CREATE INDEX IF NOT EXISTS idx_tenants_status ON tenants(status);
+
+-- User lookup optimization
 CREATE INDEX IF NOT EXISTS idx_users_tenant_id ON users(tenant_id);
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+CREATE INDEX IF NOT EXISTS idx_users_status ON users(status);
+CREATE INDEX IF NOT EXISTS idx_users_tenant_email ON users(tenant_id, email);
+
+-- RBAC optimization indexes
 CREATE INDEX IF NOT EXISTS idx_user_roles_tenant_user ON user_roles(tenant_id, user_id);
+CREATE INDEX IF NOT EXISTS idx_user_roles_user_role ON user_roles(user_id, role_id);
 CREATE INDEX IF NOT EXISTS idx_user_permissions_tenant_user ON user_permissions(tenant_id, user_id);
-CREATE INDEX IF NOT EXISTS idx_audit_logs_tenant_timestamp ON audit_logs(tenant_id, timestamp);
-CREATE INDEX IF NOT EXISTS idx_user_sessions_user_tenant ON user_sessions(user_id, tenant_id);
+CREATE INDEX IF NOT EXISTS idx_role_permissions_tenant_role ON role_permissions(tenant_id, role_id);
+CREATE INDEX IF NOT EXISTS idx_permissions_tenant_resource ON permissions(tenant_id, resource);
+
+-- Multi-tenant association indexes
 CREATE INDEX IF NOT EXISTS idx_user_tenants_user_id ON user_tenants(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_tenants_tenant_id ON user_tenants(tenant_id);
+
+-- Audit and session indexes
+CREATE INDEX IF NOT EXISTS idx_audit_logs_tenant_timestamp ON audit_logs(tenant_id, timestamp);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_user_timestamp ON audit_logs(user_id, timestamp);
+CREATE INDEX IF NOT EXISTS idx_user_sessions_user_tenant ON user_sessions(user_id, tenant_id);
+CREATE INDEX IF NOT EXISTS idx_user_sessions_expires_active ON user_sessions(expires_at, is_active);
+
+-- =============================================================================
+-- TRIGGERS FOR AUTOMATIC TIMESTAMP UPDATES
+-- =============================================================================
 
 -- Create updated_at trigger function
 CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -164,7 +242,8 @@ BEGIN
 END;
 $$ language 'plpgsql';
 
--- Apply updated_at triggers
+-- Apply updated_at triggers to relevant tables
 CREATE TRIGGER update_tenants_updated_at BEFORE UPDATE ON tenants FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON users FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_user_profiles_updated_at BEFORE UPDATE ON user_profiles FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_roles_updated_at BEFORE UPDATE ON roles FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();

@@ -7,18 +7,21 @@ const migration: Migration = {
   script: `
 -- Migration Infrastructure Setup
 -- Version: 1.0.0
--- Phase 1.0: Migration System Foundation
+-- Phase 1.2: Migration System Foundation
 
 -- Create migrations tracking table
 CREATE TABLE IF NOT EXISTS migrations (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  version CHARACTER VARYING NOT NULL UNIQUE,
-  name CHARACTER VARYING NOT NULL,
+  version VARCHAR NOT NULL UNIQUE,
+  name VARCHAR NOT NULL,
   script TEXT NOT NULL,
-  hash CHARACTER VARYING NOT NULL,
-  applied_by CHARACTER VARYING,
+  hash VARCHAR NOT NULL,
+  applied_by VARCHAR,
   applied_at TIMESTAMP WITH TIME ZONE DEFAULT now()
 );
+
+-- Create index for faster lookups
+CREATE INDEX IF NOT EXISTS idx_migrations_version ON migrations(version);
 
 -- Function to create migrations table (for migration runner)
 CREATE OR REPLACE FUNCTION create_migrations_table_if_not_exists()

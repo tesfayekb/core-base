@@ -1,11 +1,13 @@
 
+import { Migration } from '../migrationRunner';
+
+const migration: Migration = {
+  version: '006',
+  name: 'create_utility_functions',
+  script: `
 -- Database Utility Functions for Enterprise System
 -- Version: 1.0.0
 -- Phase 1.2: Database Foundation - Utility Functions
-
--- =============================================================================
--- PERMISSION CHECKING FUNCTIONS
--- =============================================================================
 
 -- Function to check if user has specific permission
 CREATE OR REPLACE FUNCTION check_user_permission(
@@ -19,7 +21,6 @@ DECLARE
     has_permission BOOLEAN := FALSE;
     current_tenant UUID;
 BEGIN
-    -- Get current tenant context
     current_tenant := current_tenant_id();
     
     IF current_tenant IS NULL THEN
@@ -58,52 +59,6 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Function to get user's effective permissions
-CREATE OR REPLACE FUNCTION get_user_permissions(p_user_id UUID)
-RETURNS TABLE(
-    permission_name VARCHAR,
-    resource VARCHAR,
-    action VARCHAR,
-    resource_id UUID,
-    source VARCHAR
-) AS $$
-BEGIN
-    -- Return direct permissions
-    RETURN QUERY
-    SELECT 
-        p.name,
-        p.resource,
-        p.action::VARCHAR,
-        up.resource_id,
-        'direct'::VARCHAR as source
-    FROM user_permissions up
-    JOIN permissions p ON up.permission_id = p.id
-    WHERE up.user_id = p_user_id
-        AND up.tenant_id = current_tenant_id()
-        AND (up.expires_at IS NULL OR up.expires_at > CURRENT_TIMESTAMP);
-    
-    -- Return role-based permissions
-    RETURN QUERY
-    SELECT 
-        p.name,
-        p.resource,
-        p.action::VARCHAR,
-        NULL::UUID as resource_id,
-        r.name::VARCHAR as source
-    FROM user_roles ur
-    JOIN roles r ON ur.role_id = r.id
-    JOIN role_permissions rp ON r.id = rp.role_id
-    JOIN permissions p ON rp.permission_id = p.id
-    WHERE ur.user_id = p_user_id
-        AND ur.tenant_id = current_tenant_id()
-        AND (ur.expires_at IS NULL OR ur.expires_at > CURRENT_TIMESTAMP);
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
--- =============================================================================
--- TENANT MANAGEMENT FUNCTIONS
--- =============================================================================
-
 -- Function to validate tenant access for user
 CREATE OR REPLACE FUNCTION validate_tenant_access(
     p_user_id UUID,
@@ -129,7 +84,6 @@ RETURNS BOOLEAN AS $$
 DECLARE
     has_access BOOLEAN;
 BEGIN
-    -- Validate user has access to tenant
     SELECT validate_tenant_access(p_user_id, p_tenant_id) INTO has_access;
     
     IF has_access THEN
@@ -141,10 +95,6 @@ BEGIN
     END IF;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
-
--- =============================================================================
--- AUDIT LOGGING FUNCTIONS
--- =============================================================================
 
 -- Function to log audit events
 CREATE OR REPLACE FUNCTION log_audit_event(
@@ -186,10 +136,6 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- =============================================================================
--- USER MANAGEMENT FUNCTIONS
--- =============================================================================
-
 -- Function to check if user is SuperAdmin
 CREATE OR REPLACE FUNCTION is_super_admin(p_user_id UUID)
 RETURNS BOOLEAN AS $$
@@ -216,7 +162,6 @@ BEGIN
     WHERE user_id = p_user_id AND is_primary = TRUE
     LIMIT 1;
     
-    -- If no primary tenant, get the first available
     IF primary_tenant_id IS NULL THEN
         SELECT tenant_id INTO primary_tenant_id
         FROM user_tenants
@@ -226,43 +171,6 @@ BEGIN
     END IF;
     
     RETURN primary_tenant_id;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
--- =============================================================================
--- SESSION MANAGEMENT FUNCTIONS
--- =============================================================================
-
--- Function to create user session
-CREATE OR REPLACE FUNCTION create_user_session(
-    p_user_id UUID,
-    p_tenant_id UUID,
-    p_token_hash VARCHAR,
-    p_expires_at TIMESTAMP WITH TIME ZONE,
-    p_ip_address INET DEFAULT NULL,
-    p_user_agent TEXT DEFAULT NULL
-)
-RETURNS UUID AS $$
-DECLARE
-    session_id UUID;
-BEGIN
-    INSERT INTO user_sessions (
-        user_id,
-        tenant_id,
-        token_hash,
-        expires_at,
-        ip_address,
-        user_agent
-    ) VALUES (
-        p_user_id,
-        p_tenant_id,
-        p_token_hash,
-        p_expires_at,
-        p_ip_address,
-        p_user_agent
-    ) RETURNING id INTO session_id;
-    
-    RETURN session_id;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
@@ -279,3 +187,7 @@ BEGIN
     RETURN deleted_count;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+  `
+};
+
+export default migration;

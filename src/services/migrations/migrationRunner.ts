@@ -1,159 +1,218 @@
 
-import { supabase } from '../database';
+// Migration System Infrastructure
+// Version: 1.0.0
+// Phase 1.2: Database Foundation
+
+import { createHash } from 'crypto';
 
 export interface Migration {
   version: string;
   name: string;
   script: string;
-  hash?: string;
+}
+
+export interface MigrationRecord {
+  id: string;
+  version: string;
+  name: string;
+  script: string;
+  hash: string;
   applied_by?: string;
-  applied_at?: string;
+  applied_at: Date;
 }
 
 export class MigrationRunner {
-  private async ensureMigrationsTable(): Promise<void> {
-    // First run migration 000 if it exists to set up infrastructure
-    const infrastructureMigration = await this.loadInfrastructureMigration();
-    if (infrastructureMigration && !await this.isMigrationApplied('000')) {
-      console.log('🔧 Setting up migration infrastructure...');
-      await this.executeRawMigration(infrastructureMigration);
-    }
+  private migrations: Migration[] = [];
+  private executeSQL: (sql: string) => Promise<any>;
 
-    const { error } = await supabase.rpc('create_migrations_table_if_not_exists');
-    if (error) {
-      console.error('Failed to create migrations table:', error);
-      throw new Error(`Migration table creation failed: ${error.message}`);
-    }
+  constructor(executeSQL: (sql: string) => Promise<any>) {
+    this.executeSQL = executeSQL;
   }
 
-  private async loadInfrastructureMigration(): Promise<Migration | null> {
-    try {
-      const module = await import('./migrations/000_migration_infrastructure.ts');
-      return module.default;
-    } catch {
-      return null; // Infrastructure migration doesn't exist
-    }
+  /**
+   * Register a migration for execution
+   */
+  addMigration(migration: Migration): void {
+    this.migrations.push(migration);
   }
 
-  private async executeRawMigration(migration: Migration): Promise<void> {
-    // Execute migration script directly for infrastructure setup
-    const { error } = await supabase.rpc('execute_migration', {
-      migration_script: migration.script
-    });
+  /**
+   * Initialize the migration system by creating the migrations table
+   */
+  async initialize(): Promise<void> {
+    const createMigrationsTableSQL = `
+      -- Create migrations tracking table if it doesn't exist
+      CREATE TABLE IF NOT EXISTS migrations (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        version VARCHAR NOT NULL UNIQUE,
+        name VARCHAR NOT NULL,
+        script TEXT NOT NULL,
+        hash VARCHAR NOT NULL,
+        applied_by VARCHAR,
+        applied_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+      );
 
-    if (error) {
-      throw new Error(`Infrastructure migration failed: ${error.message}`);
-    }
-
-    // Record the migration
-    const hash = await this.calculateHash(migration.script);
-    await this.recordMigration({ ...migration, hash });
-  }
-
-  private async calculateHash(script: string): Promise<string> {
-    const encoder = new TextEncoder();
-    const data = encoder.encode(script);
-    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-  }
-
-  private async isMigrationApplied(version: string): Promise<boolean> {
-    const { data, error } = await supabase
-      .from('migrations')
-      .select('version')
-      .eq('version', version)
-      .single();
-
-    if (error && error.code !== 'PGRST116') { // PGRST116 = no rows returned
-      throw new Error(`Failed to check migration status: ${error.message}`);
-    }
-
-    return !!data;
-  }
-
-  private async recordMigration(migration: Migration): Promise<void> {
-    const { error } = await supabase
-      .from('migrations')
-      .insert({
-        version: migration.version,
-        name: migration.name,
-        script: migration.script,
-        hash: migration.hash,
-        applied_by: migration.applied_by || 'system',
-        applied_at: new Date().toISOString()
-      });
-
-    if (error) {
-      throw new Error(`Failed to record migration: ${error.message}`);
-    }
-  }
-
-  async runMigration(migration: Migration): Promise<void> {
-    console.log(`🔄 Running migration ${migration.version}: ${migration.name}`);
-
-    // Ensure migrations table exists (will set up infrastructure if needed)
-    await this.ensureMigrationsTable();
-
-    // Check if already applied
-    const isApplied = await this.isMigrationApplied(migration.version);
-    if (isApplied) {
-      console.log(`✅ Migration ${migration.version} already applied, skipping`);
-      return;
-    }
-
-    // Calculate hash
-    const hash = await this.calculateHash(migration.script);
-    const migrationWithHash = { ...migration, hash };
+      -- Create index for faster lookups
+      CREATE INDEX IF NOT EXISTS idx_migrations_version ON migrations(version);
+    `;
 
     try {
-      // Execute migration script
-      const { error } = await supabase.rpc('execute_migration', {
-        migration_script: migration.script
-      });
+      await this.executeSQL(createMigrationsTableSQL);
+      console.log('✅ Migration system initialized');
+    } catch (error) {
+      console.error('❌ Failed to initialize migration system:', error);
+      throw error;
+    }
+  }
 
-      if (error) {
-        throw new Error(`Migration execution failed: ${error.message}`);
-      }
+  /**
+   * Get list of applied migrations
+   */
+  async getAppliedMigrations(): Promise<MigrationRecord[]> {
+    const query = `
+      SELECT id, version, name, script, hash, applied_by, applied_at
+      FROM migrations
+      ORDER BY version ASC;
+    `;
 
-      // Record successful migration
-      await this.recordMigration(migrationWithHash);
+    try {
+      const result = await this.executeSQL(query);
+      return result.rows || result || [];
+    } catch (error) {
+      console.error('❌ Failed to get applied migrations:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Check if a migration has been applied
+   */
+  async isMigrationApplied(version: string): Promise<boolean> {
+    const query = `
+      SELECT 1 FROM migrations WHERE version = $1 LIMIT 1;
+    `;
+
+    try {
+      const result = await this.executeSQL(`SELECT 1 FROM migrations WHERE version = '${version}' LIMIT 1`);
+      return (result.rows && result.rows.length > 0) || (Array.isArray(result) && result.length > 0);
+    } catch (error) {
+      console.error('❌ Failed to check migration status:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Generate hash for migration script
+   */
+  private generateHash(script: string): string {
+    return createHash('sha256').update(script).digest('hex');
+  }
+
+  /**
+   * Execute a single migration
+   */
+  async executeMigration(migration: Migration, appliedBy?: string): Promise<void> {
+    const hash = this.generateHash(migration.script);
+
+    console.log(`🔄 Executing migration ${migration.version}: ${migration.name}`);
+
+    try {
+      // Execute the migration script
+      await this.executeSQL(migration.script);
+
+      // Record the migration as applied
+      const recordMigrationSQL = `
+        INSERT INTO migrations (version, name, script, hash, applied_by)
+        VALUES ('${migration.version}', '${migration.name}', $SCRIPT$${migration.script}$SCRIPT$, '${hash}', ${appliedBy ? `'${appliedBy}'` : 'NULL'});
+      `;
+
+      await this.executeSQL(recordMigrationSQL);
+
       console.log(`✅ Migration ${migration.version} completed successfully`);
-
     } catch (error) {
       console.error(`❌ Migration ${migration.version} failed:`, error);
       throw error;
     }
   }
 
-  async runPendingMigrations(): Promise<void> {
+  /**
+   * Run all pending migrations
+   */
+  async runMigrations(appliedBy?: string): Promise<void> {
     console.log('🚀 Starting migration process...');
 
-    const migrations = await this.loadMigrations();
-    
-    for (const migration of migrations) {
-      await this.runMigration(migration);
-    }
+    try {
+      // Sort migrations by version
+      const sortedMigrations = [...this.migrations].sort((a, b) => a.version.localeCompare(b.version));
 
-    console.log('✅ All migrations completed');
+      for (const migration of sortedMigrations) {
+        const isApplied = await this.isMigrationApplied(migration.version);
+        
+        if (!isApplied) {
+          await this.executeMigration(migration, appliedBy);
+        } else {
+          console.log(`⏭️ Migration ${migration.version} already applied, skipping`);
+        }
+      }
+
+      console.log('✅ All migrations completed successfully');
+    } catch (error) {
+      console.error('❌ Migration process failed:', error);
+      throw error;
+    }
   }
 
-  private async loadMigrations(): Promise<Migration[]> {
-    // Import all migration files
-    const migrationModules = import.meta.glob('./migrations/*.ts', { eager: true });
-    
-    const migrations: Migration[] = [];
-    
-    for (const [path, module] of Object.entries(migrationModules)) {
-      const migration = (module as any).default as Migration;
-      if (migration) {
-        migrations.push(migration);
-      }
-    }
+  /**
+   * Validate migration integrity
+   */
+  async validateMigrations(): Promise<boolean> {
+    console.log('🔍 Validating migration integrity...');
 
-    // Sort by version
-    return migrations.sort((a, b) => a.version.localeCompare(b.version));
+    try {
+      const appliedMigrations = await this.getAppliedMigrations();
+      
+      for (const appliedMigration of appliedMigrations) {
+        const localMigration = this.migrations.find(m => m.version === appliedMigration.version);
+        
+        if (!localMigration) {
+          console.error(`❌ Applied migration ${appliedMigration.version} not found in local migrations`);
+          return false;
+        }
+
+        const expectedHash = this.generateHash(localMigration.script);
+        if (expectedHash !== appliedMigration.hash) {
+          console.error(`❌ Migration ${appliedMigration.version} hash mismatch`);
+          return false;
+        }
+      }
+
+      console.log('✅ Migration integrity validated');
+      return true;
+    } catch (error) {
+      console.error('❌ Migration validation failed:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Get migration status summary
+   */
+  async getStatus(): Promise<{
+    totalMigrations: number;
+    appliedMigrations: number;
+    pendingMigrations: string[];
+  }> {
+    const appliedMigrations = await this.getAppliedMigrations();
+    const appliedVersions = new Set(appliedMigrations.map(m => m.version));
+    
+    const pendingMigrations = this.migrations
+      .filter(m => !appliedVersions.has(m.version))
+      .map(m => m.version);
+
+    return {
+      totalMigrations: this.migrations.length,
+      appliedMigrations: appliedMigrations.length,
+      pendingMigrations
+    };
   }
 }
-
-export const migrationRunner = new MigrationRunner();
