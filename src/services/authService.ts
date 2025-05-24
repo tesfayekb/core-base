@@ -1,4 +1,3 @@
-
 import { supabase } from './database';
 import { z } from 'zod';
 
@@ -90,14 +89,13 @@ export class AuthService {
     try {
       console.log('🔐 AuthService: Starting signin for:', email);
       
-      // 1. Validate input
+      // 1. Validate email format only (not password format for login)
       const emailValidation = EmailSchema.safeParse(email);
-      const passwordValidation = PasswordSchema.safeParse(password);
       
-      if (!emailValidation.success || !passwordValidation.success) {
+      if (!emailValidation.success) {
         return {
           success: false,
-          error: 'Invalid email or password format'
+          error: 'Invalid email format'
         };
       }
 
