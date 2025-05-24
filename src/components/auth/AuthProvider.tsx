@@ -4,6 +4,8 @@ import { supabase } from '@/services/database';
 import { tenantContextService } from '@/services/SharedTenantContextService';
 import { authService, AuthResult } from '@/services/authService';
 import { useCSRFProtection } from '@/hooks/useCSRFProtection';
+import { useErrorNotification } from '@/hooks/useErrorNotification';
+import { ErrorService } from '@/services/ErrorService';
 
 interface AuthContextType {
   user: User | null;
@@ -30,6 +32,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [currentTenantId, setCurrentTenantId] = useState<string | null>(null);
   const [authError, setAuthError] = useState<string | null>(null);
   const { token: csrfToken, isValid: csrfValid } = useCSRFProtection();
+  const { showError, showSuccess } = useErrorNotification();
 
   useEffect(() => {
     console.log('🔄 AuthProvider: Initializing auth state...');
@@ -110,15 +113,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const result = await authService.signUp({ email, password, firstName, lastName });
       
       if (!result.success && result.error) {
-        setAuthError(result.error);
+        const appError = ErrorService.categorizeError({ message: result.error });
+        setAuthError(appError.message);
+        
+        showError({
+          title: 'Registration Failed',
+          description: appError.message,
+          action: appError.retryAction ? {
+            label: ErrorService.getRecoveryAction(appError) || 'Try Again',
+            onClick: appError.retryAction
+          } : undefined
+        });
+      } else if (result.success && result.requiresVerification) {
+        showSuccess('Registration successful! Please check your email to verify your account.');
       }
       
       return result;
     } catch (error) {
       console.error('Signup error in provider:', error);
-      const errorMessage = 'An unexpected error occurred during registration';
-      setAuthError(errorMessage);
-      return { success: false, error: errorMessage };
+      const appError = ErrorService.categorizeError(error);
+      setAuthError(appError.message);
+      
+      showError({
+        title: 'Registration Error',
+        description: appError.message
+      });
+      
+      return { success: false, error: appError.message };
     }
   };
 
@@ -128,15 +149,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const result = await authService.signIn(email, password);
       
       if (!result.success && result.error) {
-        setAuthError(result.error);
+        const appError = ErrorService.categorizeError({ message: result.error });
+        setAuthError(appError.message);
+        
+        showError({
+          title: 'Login Failed',
+          description: appError.message,
+          action: appError.retryAction ? {
+            label: ErrorService.getRecoveryAction(appError) || 'Try Again',
+            onClick: appError.retryAction
+          } : undefined
+        });
       }
       
       return result;
     } catch (error) {
       console.error('Signin error in provider:', error);
-      const errorMessage = 'An unexpected error occurred during login';
-      setAuthError(errorMessage);
-      return { success: false, error: errorMessage };
+      const appError = ErrorService.categorizeError(error);
+      setAuthError(appError.message);
+      
+      showError({
+        title: 'Login Error',
+        description: appError.message
+      });
+      
+      return { success: false, error: appError.message };
     }
   };
 
@@ -145,10 +182,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setAuthError(null);
       console.log('🚪 Starting logout...');
       await authService.signOut();
+      showSuccess('You have been successfully logged out.');
       console.log('✅ Logout completed');
     } catch (error) {
       console.error('💥 Logout failed:', error);
-      setAuthError('Logout failed. Please try again.');
+      const appError = ErrorService.categorizeError(error);
+      setAuthError(appError.message);
+      
+      showError({
+        title: 'Logout Failed',
+        description: appError.message
+      });
+      
       // Clear state even on error
       setSession(null);
       setUser(null);
@@ -162,16 +207,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setAuthError(null);
       const result = await authService.resetPassword(email);
       
-      if (!result.success && result.error) {
-        setAuthError(result.error);
+      if (result.success) {
+        showSuccess('Password reset email sent! Please check your inbox.');
+      } else if (result.error) {
+        const appError = ErrorService.categorizeError({ message: result.error });
+        setAuthError(appError.message);
+        showError({
+          title: 'Password Reset Failed',
+          description: appError.message
+        });
       }
       
       return result;
     } catch (error) {
       console.error('Password reset error in provider:', error);
-      const errorMessage = 'Failed to send password reset email';
-      setAuthError(errorMessage);
-      return { success: false, error: errorMessage };
+      const appError = ErrorService.categorizeError(error);
+      setAuthError(appError.message);
+      showError({
+        title: 'Password Reset Error',
+        description: appError.message
+      });
+      return { success: false, error: appError.message };
     }
   };
 
@@ -223,7 +279,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const value = {
     user,
     session,
-    loading: loading || !csrfValid, // Include CSRF readiness in loading state
+    loading: loading || !csrfValid,
     signUp,
     signIn,
     signOut,
