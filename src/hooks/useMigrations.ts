@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from 'react';
-import { migrationRunner } from '@/services/database';
+import { migrationRunner } from '@/services/migrations/migrationRunner';
 
 export function useMigrations() {
   const [isRunning, setIsRunning] = useState(false);
