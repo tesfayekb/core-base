@@ -32,7 +32,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.log('📱 Initial session:', !!session);
       setSession(session);
       setUser(session?.user ?? null);
+      
+      // PERFORMANCE OPTIMIZATION: Set loading to false immediately for fast UI response
       setLoading(false);
+      
+      // PERFORMANCE OPTIMIZATION: Set tenant context asynchronously if user exists
+      if (session?.user) {
+        tenantContextService.setUserContextAsync(session.user.id).then(() => {
+          const tenantId = tenantContextService.getCurrentTenantId();
+          if (tenantId) {
+            setCurrentTenantId(tenantId);
+            console.log('✅ Initial tenant context set:', tenantId);
+          }
+        }).catch(error => {
+          console.warn('⚠️ Initial tenant context setup failed:', error);
+        });
+      }
     });
 
     // Listen for auth changes
