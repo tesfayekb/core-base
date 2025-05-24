@@ -1,10 +1,10 @@
+
 // Database Service - Refactored with Extracted Components
-// Version: 5.0.0
-// Phase 1.2: Database Foundation - Code Quality Refinement
+// Version: 6.0.0 - Refactored for better maintainability
 
 import { MigrationRunner, Migration } from '../migrations/migrationRunner';
-import { tenantContextService } from './tenantContext';
-import { testConnection, supabase } from './connection';
+import { tenantContextService } from './core/TenantContextService';
+import { connectionService, supabase } from './core/ConnectionService';
 import { connectionPool } from './connectionPool';
 import { errorRecovery } from './errorRecovery';
 import { databaseHealthMonitor } from './monitoring/DatabaseHealthMonitor';
@@ -57,11 +57,11 @@ export class DatabaseService {
     
     if (config.enableErrorRecovery) {
       return await errorRecovery.executeWithRecovery(
-        () => testConnection(),
+        () => connectionService.testConnectionAsync(),
         'database-connection-test'
       );
     }
-    return await testConnection();
+    return await connectionService.testConnectionAsync();
   }
 
   async query(sql: string): Promise<any> {
