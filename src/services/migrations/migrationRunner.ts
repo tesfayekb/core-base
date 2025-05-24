@@ -5,7 +5,7 @@ export interface Migration {
   version: string;
   name: string;
   script: string;
-  hash: string;
+  hash?: string;
   applied_by?: string;
   applied_at?: string;
 }
