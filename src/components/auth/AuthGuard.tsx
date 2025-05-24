@@ -1,19 +1,16 @@
 
-import React from 'react';
-import { useAuth } from './AuthProvider';
-import { LoginForm } from './LoginForm';
+import { useAuth } from "./AuthProvider";
+import { LoginForm } from "./LoginForm";
 
-interface AuthGuardProps {
-  children: React.ReactNode;
-}
-
-export function AuthGuard({ children }: AuthGuardProps) {
+export function AuthGuard({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
+
+  console.log('AuthGuard - User:', !!user, 'Loading:', loading);
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-gray-900"></div>
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
       </div>
     );
   }
