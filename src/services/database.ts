@@ -13,6 +13,7 @@ const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYm
 console.log('Initializing Supabase with:');
 console.log('URL:', supabaseUrl);
 console.log('Key valid:', supabaseAnonKey?.length > 0);
+console.log('Using anon key (first 20 chars):', supabaseAnonKey.substring(0, 20) + '...');
 
 if (!supabaseUrl || !supabaseAnonKey) {
   console.error('CRITICAL: Supabase configuration missing!');
@@ -25,18 +26,32 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     persistSession: true,
     autoRefreshToken: true,
+  },
+  global: {
+    headers: {
+      'X-Client-Info': 'lovable-project'
+    }
   }
 });
 
-// Test connection on initialization
+// Test connection on initialization with detailed logging
+console.log('Testing Supabase connection...');
 supabase.auth.getSession().then(({ data, error }) => {
   if (error) {
     console.error('Supabase connection test failed:', error);
+    console.error('Error details:', {
+      message: error.message,
+      status: error.status,
+      code: error.code
+    });
   } else {
     console.log('Supabase connection test successful:', !!data);
+    console.log('Session data present:', !!data.session);
   }
 }).catch(err => {
   console.error('Failed to test Supabase connection:', err);
+  console.error('Connection error type:', typeof err);
+  console.error('Connection error name:', err?.name);
 });
 
 // Tenant Context Service (Singleton)

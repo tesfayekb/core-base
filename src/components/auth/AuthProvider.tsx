@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase, tenantContextService } from '@/services/database';
@@ -22,10 +23,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [currentTenantId, setCurrentTenantId] = useState<string | null>(null);
 
   useEffect(() => {
-    // Validate Supabase configuration
-    console.log('Supabase URL:', supabase.supabaseUrl);
-    console.log('Supabase Key (first 20 chars):', supabase.supabaseKey.substring(0, 20) + '...');
-    
     // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
       console.log('Initial session:', session);
@@ -59,11 +56,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signUp = async (email: string, password: string, firstName?: string, lastName?: string) => {
     try {
       console.log('Attempting signup for:', email);
-      console.log('Supabase client status:', !!supabase);
-      console.log('Auth client status:', !!supabase.auth);
+      console.log('Supabase client ready:', !!supabase);
+      console.log('Auth service ready:', !!supabase.auth);
       
-      // Test basic connectivity first
-      console.log('Testing Supabase connectivity...');
+      // Test network connectivity
+      console.log('Testing network connectivity to Supabase...');
       
       const { data, error } = await supabase.auth.signUp({
         email,
@@ -76,14 +73,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       });
 
-      console.log('Supabase response data:', data);
-      console.log('Supabase response error:', error);
+      console.log('Supabase signup response:', { data, error });
 
       if (error) {
         console.error('Signup error details:', {
           message: error.message,
           status: error.status,
-          code: error.code || 'no_code'
+          code: error.code || 'no_code',
+          name: error.name
         });
         return { error: error.message };
       }
@@ -92,16 +89,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return { user: data.user };
     } catch (error) {
       console.error('Signup failed with exception:', error);
-      console.error('Error type:', typeof error);
-      console.error('Error constructor:', error?.constructor?.name);
-      console.error('Error properties:', Object.keys(error || {}));
-      
-      // More detailed error information
-      if (error instanceof Error) {
-        console.error('Error name:', error.name);
-        console.error('Error message:', error.message);
-        console.error('Error stack:', error.stack);
-      }
+      console.error('Error details:', {
+        type: typeof error,
+        constructor: error?.constructor?.name,
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : 'No stack trace'
+      });
       
       return { error: 'Network connection failed. Please check your internet connection and try again.' };
     }
