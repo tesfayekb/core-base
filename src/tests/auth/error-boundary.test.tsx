@@ -22,9 +22,10 @@ jest.mock('../../services/database', () => ({
   }
 }));
 
-// Test component that throws an error
-function ErrorComponent() {
+// Test component that throws an error - properly returns JSX before throwing
+function ErrorComponent(): React.ReactElement {
   throw new Error('Test authentication error');
+  return <div>This will never render</div>;
 }
 
 describe('Authentication Error Boundary Tests', () => {
