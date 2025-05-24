@@ -9,7 +9,35 @@ import { DatabaseResult, PermissionCheck, EffectivePermission } from '@/types/da
 const supabaseUrl = 'https://fhzhlyskafjvcwcqjssmb.supabase.co';
 const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZoemhseXNrZmp2Y3djcWpzc21iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgwNjIzMTksImV4cCI6MjA2MzYzODMxOX0.S2-LU5bi34Pcrg-XNEHj_SBQzxQncIe4tnOfhuyedNk';
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// Validate configuration
+console.log('Initializing Supabase with:');
+console.log('URL:', supabaseUrl);
+console.log('Key valid:', supabaseAnonKey?.length > 0);
+
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.error('CRITICAL: Supabase configuration missing!');
+  console.error('URL:', supabaseUrl);
+  console.error('Key present:', !!supabaseAnonKey);
+  throw new Error('Supabase configuration is incomplete');
+}
+
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+  }
+});
+
+// Test connection on initialization
+supabase.auth.getSession().then(({ data, error }) => {
+  if (error) {
+    console.error('Supabase connection test failed:', error);
+  } else {
+    console.log('Supabase connection test successful:', !!data);
+  }
+}).catch(err => {
+  console.error('Failed to test Supabase connection:', err);
+});
 
 // Tenant Context Service (Singleton)
 export class TenantContextService {
