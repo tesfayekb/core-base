@@ -1,4 +1,3 @@
-
 // Migration Integration Tests
 // Following src/docs/testing/INTEGRATION_TESTING.md
 

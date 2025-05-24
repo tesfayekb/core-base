@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from 'react';
-import { migrationRunner } from '@/services/migrations/migrationRunner';
+import { migrationRunner } from '../services/migrations/migrationRunner';
 
 export function useMigrations() {
   const [isRunning, setIsRunning] = useState(false);
@@ -13,7 +13,7 @@ export function useMigrations() {
     
     try {
       console.log('🏗️ Starting database migrations...');
-      await migrationRunner.runPendingMigrations();
+      await migrationRunner.runMigrations();
       setIsComplete(true);
       console.log('✅ Database migrations completed successfully');
     } catch (err) {

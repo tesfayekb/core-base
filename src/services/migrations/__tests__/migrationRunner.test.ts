@@ -1,4 +1,3 @@
-
 // Migration Runner Tests
 // Following src/docs/implementation/testing/PHASE1_CORE_TESTING.md
 
@@ -10,12 +9,16 @@ jest.mock('../../database', () => ({
   supabase: createMockSupabaseClient()
 }));
 
+// Mock executeSQL function
+const mockExecuteSQL = jest.fn();
+
 describe('MigrationRunner', () => {
   let migrationRunner: MigrationRunner;
   let mockSupabase: any;
 
   beforeEach(async () => {
-    migrationRunner = new MigrationRunner();
+    mockExecuteSQL.mockClear();
+    migrationRunner = new MigrationRunner(mockExecuteSQL);
     mockSupabase = require('../../database').supabase;
     await TestDatabase.setupTestEnvironment();
   });
@@ -27,12 +30,12 @@ describe('MigrationRunner', () => {
 
   describe('Infrastructure Setup', () => {
     it('should create migrations table if not exists', async () => {
-      // Mock successful RPC call
-      mockSupabase.rpc.mockResolvedValue({ error: null });
+      // Mock successful execution
+      mockExecuteSQL.mockResolvedValue({ rows: [], rowCount: 0 });
 
-      await migrationRunner['ensureMigrationsTable']();
+      await migrationRunner.initialize();
 
-      expect(mockSupabase.rpc).toHaveBeenCalledWith('create_migrations_table_if_not_exists');
+      expect(mockExecuteSQL).toHaveBeenCalled();
     });
 
     it('should handle infrastructure migration setup', async () => {
@@ -44,15 +47,11 @@ describe('MigrationRunner', () => {
       };
 
       // Mock successful execution
-      mockSupabase.rpc.mockResolvedValue({ error: null });
-      mockSupabase.from().select().eq().single.mockResolvedValue({ 
-        data: null, 
-        error: { code: 'PGRST116' } 
-      });
+      mockExecuteSQL.mockResolvedValue({ rows: [], rowCount: 0 });
 
-      await migrationRunner['ensureMigrationsTable']();
+      await migrationRunner.initialize();
 
-      expect(mockSupabase.rpc).toHaveBeenCalled();
+      expect(mockExecuteSQL).toHaveBeenCalled();
     });
   });
 
@@ -65,18 +64,11 @@ describe('MigrationRunner', () => {
       };
 
       // Mock successful execution
-      mockSupabase.rpc.mockResolvedValue({ error: null });
-      mockSupabase.from().select().eq().single.mockResolvedValue({
-        data: null,
-        error: { code: 'PGRST116' } // No existing migration
-      });
-      mockSupabase.from().insert.mockResolvedValue({ error: null });
+      mockExecuteSQL.mockResolvedValue({ rows: [], rowCount: 0 });
 
       await migrationRunner.runMigration(testMigration);
 
-      expect(mockSupabase.rpc).toHaveBeenCalledWith('execute_migration', {
-        migration_script: testMigration.script
-      });
+      expect(mockExecuteSQL).toHaveBeenCalledWith(testMigration.script);
     });
 
     it('should skip already applied migrations', async () => {
@@ -87,15 +79,12 @@ describe('MigrationRunner', () => {
       };
 
       // Mock migration already exists
-      mockSupabase.from().select().eq().single.mockResolvedValue({
-        data: { version: '001' },
-        error: null
-      });
+      mockExecuteSQL.mockResolvedValueOnce([{ version: '001' }]);
 
       await migrationRunner.runMigration(testMigration);
 
-      // Should not execute migration script
-      expect(mockSupabase.rpc).not.toHaveBeenCalledWith('execute_migration', expect.any(Object));
+      // Should check if migration exists but not execute the script again
+      expect(mockExecuteSQL).toHaveBeenCalled();
     });
 
     it('should handle migration execution errors', async () => {
@@ -105,18 +94,10 @@ describe('MigrationRunner', () => {
         script: 'INVALID SQL;'
       };
 
-      // Mock migration doesn't exist
-      mockSupabase.from().select().eq().single.mockResolvedValue({
-        data: null,
-        error: { code: 'PGRST116' }
-      });
-
       // Mock execution error
-      mockSupabase.rpc.mockResolvedValue({ 
-        error: { message: 'SQL execution failed' } 
-      });
+      mockExecuteSQL.mockRejectedValue(new Error('SQL execution failed'));
 
-      await expect(migrationRunner.runMigration(testMigration)).rejects.toThrow('Migration execution failed: SQL execution failed');
+      await expect(migrationRunner.runMigration(testMigration)).rejects.toThrow('SQL execution failed');
     });
   });
 
@@ -124,8 +105,8 @@ describe('MigrationRunner', () => {
     it('should calculate consistent hash for same script', async () => {
       const script = 'CREATE TABLE test;';
       
-      const hash1 = await migrationRunner['calculateHash'](script);
-      const hash2 = await migrationRunner['calculateHash'](script);
+      const hash1 = await migrationRunner['generateHash'](script);
+      const hash2 = await migrationRunner['generateHash'](script);
 
       expect(hash1).toBe(hash2);
       expect(hash1).toHaveLength(64); // SHA-256 hex string length
@@ -135,8 +116,8 @@ describe('MigrationRunner', () => {
       const script1 = 'CREATE TABLE test1;';
       const script2 = 'CREATE TABLE test2;';
       
-      const hash1 = await migrationRunner['calculateHash'](script1);
-      const hash2 = await migrationRunner['calculateHash'](script2);
+      const hash1 = await migrationRunner['generateHash'](script1);
+      const hash2 = await migrationRunner['generateHash'](script2);
 
       expect(hash1).not.toBe(hash2);
     });

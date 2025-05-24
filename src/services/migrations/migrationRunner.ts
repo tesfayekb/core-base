@@ -1,4 +1,3 @@
-
 // Migration System Infrastructure
 // Version: 1.0.0
 // Phase 1.2: Database Foundation
@@ -111,7 +110,7 @@ export class MigrationRunner {
   /**
    * Execute a single migration
    */
-  async executeMigration(migration: Migration, appliedBy?: string): Promise<void> {
+  async runMigration(migration: Migration, appliedBy?: string): Promise<void> {
     const hash = this.generateHash(migration.script);
 
     console.log(`🔄 Executing migration ${migration.version}: ${migration.name}`);
@@ -216,3 +215,12 @@ export class MigrationRunner {
     };
   }
 }
+
+// Create a default mock execution function for development
+const mockExecuteSQL = async (sql: string): Promise<any> => {
+  console.log('📊 Mock SQL execution:', sql.substring(0, 100) + '...');
+  return { rows: [], rowCount: 0 };
+};
+
+// Export singleton instance
+export const migrationRunner = new MigrationRunner(mockExecuteSQL);

@@ -14,4 +14,4 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 export { tenantContextService } from './tenantContext';
 
 // Migration runner - correct export path
-export { migrationRunner } from '../migrations/migrationRunner';
+export { migrationRunner, MigrationRunner } from '../migrations/migrationRunner';
