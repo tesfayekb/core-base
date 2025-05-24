@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase, tenantContextService } from '@/services/database';
@@ -149,34 +150,42 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       console.log('🚪 Starting logout process...');
       
-      // Clear local state first
-      console.log('🧹 Clearing local context...');
-      tenantContextService.clearContext();
+      // Clear local state immediately for better UX
+      console.log('🧹 Clearing local state immediately...');
+      setLoading(true);
+      setSession(null);
+      setUser(null);
       setCurrentTenantId(null);
+      tenantContextService.clearContext();
       
       console.log('🚪 Calling supabase.auth.signOut()...');
       
-      // Add timeout to catch hanging requests
+      // Reduced timeout to 3 seconds for better UX
       const signOutPromise = supabase.auth.signOut();
       const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Signout timeout after 10 seconds')), 10000)
+        setTimeout(() => reject(new Error('Signout timeout after 3 seconds')), 3000)
       );
       
-      const { error } = await Promise.race([signOutPromise, timeoutPromise]) as any;
-      
-      if (error) {
-        console.error('❌ Supabase signout error:', error);
-        throw error;
+      try {
+        const { error } = await Promise.race([signOutPromise, timeoutPromise]) as any;
+        
+        if (error) {
+          console.error('❌ Supabase signout error:', error);
+        } else {
+          console.log('✅ Supabase signout successful');
+        }
+      } catch (timeoutError) {
+        console.warn('⏰ Signout timed out, but local state cleared');
+        // Don't throw - we've already cleared local state
       }
       
-      console.log('✅ Supabase signout successful');
-      
-      // The onAuthStateChange listener should handle the rest
+      setLoading(false);
+      console.log('✅ Logout process completed');
       
     } catch (error) {
       console.error('💥 Signout failed:', error);
-      // Even if there's an error, try to clear local state
-      console.log('🆘 Force clearing local state due to error');
+      // Ensure we always clear state and stop loading
+      console.log('🆘 Ensuring clean state after error');
       setSession(null);
       setUser(null);
       setCurrentTenantId(null);
