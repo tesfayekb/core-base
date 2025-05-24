@@ -5,49 +5,6 @@ const migration: Migration = {
   version: '003',
   name: 'create_database_functions',
   script: `
--- Tenant context functions
-CREATE OR REPLACE FUNCTION current_tenant_id()
-RETURNS UUID AS $$
-BEGIN
-    RETURN COALESCE(
-        current_setting('app.current_tenant_id', true)::UUID,
-        NULL
-    );
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
-CREATE OR REPLACE FUNCTION set_tenant_context(tenant_id UUID)
-RETURNS VOID AS $$
-BEGIN
-    PERFORM set_config('app.current_tenant_id', tenant_id::text, false);
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
-CREATE OR REPLACE FUNCTION current_user_id()
-RETURNS UUID AS $$
-BEGIN
-    RETURN COALESCE(
-        current_setting('app.current_user_id', true)::UUID,
-        NULL
-    );
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
-CREATE OR REPLACE FUNCTION set_user_context(user_id UUID)
-RETURNS VOID AS $$
-BEGIN
-    PERFORM set_config('app.current_user_id', user_id::text, false);
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
--- Legacy function aliases for backward compatibility
-CREATE OR REPLACE FUNCTION get_current_tenant_id()
-RETURNS UUID AS $$
-BEGIN
-  RETURN current_tenant_id();
-END;
-$$ LANGUAGE plpgsql STABLE;
-
 -- Function to check if user has specific permission
 CREATE OR REPLACE FUNCTION check_user_permission(
     p_user_id UUID,
