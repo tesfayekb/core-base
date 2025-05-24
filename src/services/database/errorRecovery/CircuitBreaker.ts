@@ -1,6 +1,8 @@
 
 // Circuit Breaker Implementation
-// Extracted from DatabaseErrorRecovery for better separation of concerns
+// Extracted from errorRecovery.ts for focused circuit breaking logic
+
+export type CircuitState = 'CLOSED' | 'OPEN' | 'HALF_OPEN';
 
 export interface CircuitBreakerConfig {
   failureThreshold: number;
@@ -8,107 +10,93 @@ export interface CircuitBreakerConfig {
   monitoringWindowMs: number;
 }
 
-export type CircuitState = 'CLOSED' | 'OPEN' | 'HALF_OPEN';
-
-export interface CircuitBreakerMetrics {
-  circuitBreakerTrips: number;
+export interface CircuitMetrics {
   state: CircuitState;
-  failureCount: number;
-  successCount: number;
-  lastFailureTime: number;
+  failures: number;
+  successes: number;
+  circuitBreakerTrips: number;
+  lastFailureTime?: Date;
+  lastSuccessTime?: Date;
 }
 
 export class CircuitBreaker {
   private state: CircuitState = 'CLOSED';
-  private failureCount = 0;
-  private lastFailureTime = 0;
-  private successCount = 0;
-  private trips = 0;
+  private failures = 0;
+  private successes = 0;
+  private circuitBreakerTrips = 0;
+  private lastFailureTime?: Date;
+  private lastSuccessTime?: Date;
+  private stateChangeTime = Date.now();
 
   constructor(private config: CircuitBreakerConfig) {}
 
-  /**
-   * Check if operation should be allowed
-   */
   canExecute(): boolean {
+    if (this.state === 'CLOSED') {
+      return true;
+    }
+
     if (this.state === 'OPEN') {
-      if (Date.now() - this.lastFailureTime < this.config.recoveryTimeMs) {
-        return false;
-      } else {
+      if (Date.now() - this.stateChangeTime >= this.config.recoveryTimeMs) {
         this.state = 'HALF_OPEN';
-        console.log('🔄 Circuit breaker moving to HALF_OPEN');
+        this.stateChangeTime = Date.now();
         return true;
       }
+      return false;
     }
+
+    // HALF_OPEN state
     return true;
   }
 
-  /**
-   * Record successful operation
-   */
   onSuccess(operationName: string): void {
+    this.successes++;
+    this.lastSuccessTime = new Date();
+
     if (this.state === 'HALF_OPEN') {
-      this.successCount++;
-      if (this.successCount >= 3) { // Require 3 successes to close circuit
-        this.state = 'CLOSED';
-        this.failureCount = 0;
-        this.successCount = 0;
-        console.log(`✅ Circuit breaker CLOSED for ${operationName} after recovery`);
-      }
-    } else if (this.state === 'CLOSED') {
-      // Reset failure count on success in normal operation
-      this.failureCount = Math.max(0, this.failureCount - 1);
+      this.state = 'CLOSED';
+      this.failures = 0;
+      this.stateChangeTime = Date.now();
+      console.log(`🔄 Circuit breaker CLOSED for ${operationName} after successful recovery`);
     }
   }
 
-  /**
-   * Record failed operation
-   */
   onFailure(operationName: string): void {
-    this.failureCount++;
-    this.lastFailureTime = Date.now();
+    this.failures++;
+    this.lastFailureTime = new Date();
 
-    // Check if circuit breaker should trip
-    if (this.state === 'CLOSED' && this.failureCount >= this.config.failureThreshold) {
+    if (this.state === 'CLOSED' && this.failures >= this.config.failureThreshold) {
       this.state = 'OPEN';
-      this.trips++;
-      console.error(`🔴 Circuit breaker OPEN for ${operationName} after ${this.failureCount} failures`);
+      this.circuitBreakerTrips++;
+      this.stateChangeTime = Date.now();
+      console.warn(`⚡ Circuit breaker OPEN for ${operationName} after ${this.failures} failures`);
     } else if (this.state === 'HALF_OPEN') {
-      // Failure in half-open state - go back to open
       this.state = 'OPEN';
-      this.successCount = 0;
-      console.error(`🔴 Circuit breaker back to OPEN for ${operationName} - recovery failed`);
+      this.circuitBreakerTrips++;
+      this.stateChangeTime = Date.now();
+      console.warn(`⚡ Circuit breaker reopened for ${operationName} after failed recovery attempt`);
     }
   }
 
-  /**
-   * Get current metrics
-   */
-  getMetrics(): CircuitBreakerMetrics {
+  getState(): CircuitState {
+    return this.state;
+  }
+
+  getMetrics(): CircuitMetrics {
     return {
-      circuitBreakerTrips: this.trips,
       state: this.state,
-      failureCount: this.failureCount,
-      successCount: this.successCount,
-      lastFailureTime: this.lastFailureTime
+      failures: this.failures,
+      successes: this.successes,
+      circuitBreakerTrips: this.circuitBreakerTrips,
+      lastFailureTime: this.lastFailureTime,
+      lastSuccessTime: this.lastSuccessTime
     };
   }
 
-  /**
-   * Reset circuit breaker manually
-   */
   reset(): void {
     this.state = 'CLOSED';
-    this.failureCount = 0;
-    this.successCount = 0;
-    this.lastFailureTime = 0;
-    console.log('🔄 Circuit breaker manually reset to CLOSED');
-  }
-
-  /**
-   * Get current state
-   */
-  getState(): CircuitState {
-    return this.state;
+    this.failures = 0;
+    this.successes = 0;
+    this.stateChangeTime = Date.now();
+    console.log('🔄 Circuit breaker manually reset');
   }
 }

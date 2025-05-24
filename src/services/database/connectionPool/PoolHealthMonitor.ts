@@ -1,142 +1,126 @@
 
 // Connection Pool Health Monitoring
-// Extracted from ConnectionPool for better separation of concerns
+// Extracted from connectionPool.ts for focused health management
 
 import { SupabaseClient } from '@supabase/supabase-js';
 
 export interface PoolHealthMetrics {
   healthyConnections: number;
-  totalChecks: number;
-  failedChecks: number;
-  lastCheckTime: Date;
-}
-
-export interface PoolHealthStatus {
-  healthy: boolean;
-  issues: string[];
-  utilization: number;
+  unhealthyConnections: number;
+  lastHealthCheck: Date;
+  healthCheckCount: number;
+  averageResponseTime: number;
 }
 
 export class PoolHealthMonitor {
   private metrics: PoolHealthMetrics = {
     healthyConnections: 0,
-    totalChecks: 0,
-    failedChecks: 0,
-    lastCheckTime: new Date()
+    unhealthyConnections: 0,
+    lastHealthCheck: new Date(),
+    healthCheckCount: 0,
+    averageResponseTime: 0
   };
 
   private healthCheckInterval?: NodeJS.Timeout;
 
-  /**
-   * Start periodic health monitoring
-   */
+  async checkConnectionHealth(client: SupabaseClient): Promise<boolean> {
+    const startTime = performance.now();
+    
+    try {
+      const { error } = await client.auth.getSession();
+      const responseTime = performance.now() - startTime;
+      
+      this.updateResponseTime(responseTime);
+      
+      if (error && error.message.includes('network')) {
+        this.metrics.unhealthyConnections++;
+        return false;
+      }
+      
+      this.metrics.healthyConnections++;
+      return true;
+    } catch (error) {
+      this.metrics.unhealthyConnections++;
+      return false;
+    } finally {
+      this.metrics.lastHealthCheck = new Date();
+      this.metrics.healthCheckCount++;
+    }
+  }
+
+  private updateResponseTime(responseTime: number): void {
+    const total = this.metrics.averageResponseTime * (this.metrics.healthCheckCount - 1);
+    this.metrics.averageResponseTime = (total + responseTime) / this.metrics.healthCheckCount;
+  }
+
   startHealthCheck(
     activeConnections: Set<SupabaseClient>,
-    idleConnections: SupabaseClient[],
+    idlePool: SupabaseClient[],
     intervalMs: number
   ): void {
     this.healthCheckInterval = setInterval(async () => {
-      this.metrics.healthyConnections = 0;
-      this.metrics.lastCheckTime = new Date();
-      
-      // Check active connections
-      for (const client of activeConnections) {
-        await this.checkConnectionHealth(client);
+      // Check a sample of active connections
+      const activeArray = Array.from(activeConnections);
+      if (activeArray.length > 0) {
+        const sampleConnection = activeArray[0];
+        await this.checkConnectionHealth(sampleConnection);
       }
       
-      // Check idle connections
-      for (const client of idleConnections) {
-        await this.checkConnectionHealth(client);
-      }
-      
-      const health = this.getHealthStatus(activeConnections.size, 10, 0); // max 10 for example
-      if (!health.healthy) {
-        console.warn('⚠️ Connection pool health issues:', health.issues);
+      // Check idle connections periodically
+      if (idlePool.length > 0) {
+        const idleConnection = idlePool[0];
+        await this.checkConnectionHealth(idleConnection);
       }
     }, intervalMs);
   }
 
-  /**
-   * Check if a single connection is healthy
-   */
-  async checkConnectionHealth(client: SupabaseClient): Promise<boolean> {
-    try {
-      this.metrics.totalChecks++;
-      const { error } = await client.auth.getSession();
-      if (!error) {
-        this.metrics.healthyConnections++;
-        return true;
-      } else {
-        this.metrics.failedChecks++;
-        return false;
-      }
-    } catch (error) {
-      this.metrics.failedChecks++;
-      console.error('❌ Connection health check failed:', error);
-      return false;
+  stopHealthCheck(): void {
+    if (this.healthCheckInterval) {
+      clearInterval(this.healthCheckInterval);
+      this.healthCheckInterval = undefined;
     }
   }
 
-  /**
-   * Get health status assessment
-   */
+  getMetrics(): PoolHealthMetrics {
+    return { ...this.metrics };
+  }
+
   getHealthStatus(
     activeConnections: number,
     maxConnections: number,
     minConnections: number,
-    waitingRequests = 0
-  ): PoolHealthStatus {
+    waitingRequests: number
+  ): {
+    healthy: boolean;
+    issues: string[];
+    utilization: number;
+  } {
     const issues: string[] = [];
     const utilization = activeConnections / maxConnections;
 
-    if (this.metrics.healthyConnections < minConnections) {
-      issues.push('Below minimum healthy connections');
+    if (utilization > 0.9) {
+      issues.push('High connection pool utilization (>90%)');
     }
 
-    if (utilization > 0.8) {
-      issues.push('High connection utilization (>80%)');
+    if (waitingRequests > 5) {
+      issues.push(`High number of waiting requests: ${waitingRequests}`);
     }
 
-    if (waitingRequests > 0) {
-      issues.push(`${waitingRequests} requests waiting for connections`);
+    if (this.metrics.averageResponseTime > 1000) {
+      issues.push(`Slow health check response time: ${this.metrics.averageResponseTime.toFixed(0)}ms`);
     }
 
-    if (this.metrics.failedChecks > this.metrics.totalChecks * 0.1) {
-      issues.push('High health check failure rate (>10%)');
+    const unhealthyRatio = this.metrics.unhealthyConnections / 
+      (this.metrics.healthyConnections + this.metrics.unhealthyConnections || 1);
+    
+    if (unhealthyRatio > 0.1) {
+      issues.push(`High unhealthy connection rate: ${(unhealthyRatio * 100).toFixed(1)}%`);
     }
 
     return {
       healthy: issues.length === 0,
       issues,
       utilization
-    };
-  }
-
-  /**
-   * Get health metrics
-   */
-  getMetrics(): PoolHealthMetrics {
-    return { ...this.metrics };
-  }
-
-  /**
-   * Stop health monitoring
-   */
-  stopHealthCheck(): void {
-    if (this.healthCheckInterval) {
-      clearInterval(this.healthCheckInterval);
-    }
-  }
-
-  /**
-   * Reset metrics
-   */
-  resetMetrics(): void {
-    this.metrics = {
-      healthyConnections: 0,
-      totalChecks: 0,
-      failedChecks: 0,
-      lastCheckTime: new Date()
     };
   }
 }

@@ -1,7 +1,6 @@
-
 // Database Connection Pool Manager - Refactored
-// Version: 2.0.0
-// Phase 1.2: Enhanced Database Foundation - Connection Pooling
+// Version: 3.0.0
+// Phase 1.2: Enhanced Database Foundation - Code Quality Refinement
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { PoolHealthMonitor } from './connectionPool/PoolHealthMonitor';
@@ -64,9 +63,6 @@ export class DatabaseConnectionPool {
     return DatabaseConnectionPool.instance;
   }
 
-  /**
-   * Initialize the connection pool with minimum connections
-   */
   async initialize(): Promise<void> {
     console.log(`🏊‍♂️ Initializing connection pool with ${this.config.minConnections} connections...`);
     
@@ -77,7 +73,6 @@ export class DatabaseConnectionPool {
       this.metrics.idleConnections++;
     }
     
-    // Start health monitoring
     this.healthMonitor.startHealthCheck(
       this.activeConnections,
       this.pool,
@@ -87,59 +82,31 @@ export class DatabaseConnectionPool {
     console.log(`✅ Connection pool initialized with ${this.pool.length} connections`);
   }
 
-  /**
-   * Acquire a connection from the pool
-   */
   async acquire(): Promise<SupabaseClient> {
     return new Promise((resolve, reject) => {
-      // Check for available idle connection
       if (this.pool.length > 0) {
         const client = this.pool.pop()!;
         this.activeConnections.add(client);
-        this.metrics.activeConnections++;
-        this.metrics.idleConnections--;
-        this.metrics.totalAcquired++;
+        this.updateMetricsOnAcquire();
         resolve(client);
         return;
       }
 
-      // Create new connection if under max limit
       if (this.metrics.totalConnections < this.config.maxConnections) {
         this.createConnection()
           .then(client => {
             this.activeConnections.add(client);
-            this.metrics.totalConnections++;
-            this.metrics.activeConnections++;
-            this.metrics.totalAcquired++;
+            this.updateMetricsOnNewConnection();
             resolve(client);
           })
           .catch(reject);
         return;
       }
 
-      // Queue request if at max connections
-      this.waitingQueue.push({
-        resolve,
-        reject,
-        timestamp: Date.now()
-      });
-      this.metrics.waitingRequests++;
-
-      // Set timeout for queued request
-      setTimeout(() => {
-        const index = this.waitingQueue.findIndex(req => req.resolve === resolve);
-        if (index !== -1) {
-          this.waitingQueue.splice(index, 1);
-          this.metrics.waitingRequests--;
-          reject(new Error(`Connection acquire timeout after ${this.config.acquireTimeoutMs}ms`));
-        }
-      }, this.config.acquireTimeoutMs);
+      this.queueRequest(resolve, reject);
     });
   }
 
-  /**
-   * Release a connection back to the pool
-   */
   async release(client: SupabaseClient): Promise<void> {
     if (!this.activeConnections.has(client)) {
       console.warn('⚠️ Attempting to release connection not managed by pool');
@@ -147,10 +114,8 @@ export class DatabaseConnectionPool {
     }
 
     this.activeConnections.delete(client);
-    this.metrics.activeConnections--;
-    this.metrics.totalReleased++;
+    this.updateMetricsOnRelease();
 
-    // Serve waiting request if any
     if (this.waitingQueue.length > 0) {
       const request = this.waitingQueue.shift()!;
       this.activeConnections.add(client);
@@ -160,28 +125,61 @@ export class DatabaseConnectionPool {
       return;
     }
 
-    // Return to pool if healthy
     const isHealthy = await this.healthMonitor.checkConnectionHealth(client);
     if (isHealthy) {
       this.pool.push(client);
       this.metrics.idleConnections++;
     } else {
-      // Replace unhealthy connection
-      this.metrics.totalConnections--;
-      try {
-        const newClient = await this.createConnection();
-        this.pool.push(newClient);
-        this.metrics.totalConnections++;
-        this.metrics.idleConnections++;
-      } catch (error) {
-        console.error('❌ Failed to replace unhealthy connection:', error);
-      }
+      await this.replaceUnhealthyConnection();
     }
   }
 
-  /**
-   * Get current pool metrics
-   */
+  private updateMetricsOnAcquire(): void {
+    this.metrics.activeConnections++;
+    this.metrics.idleConnections--;
+    this.metrics.totalAcquired++;
+  }
+
+  private updateMetricsOnNewConnection(): void {
+    this.metrics.totalConnections++;
+    this.metrics.activeConnections++;
+    this.metrics.totalAcquired++;
+  }
+
+  private updateMetricsOnRelease(): void {
+    this.metrics.activeConnections--;
+    this.metrics.totalReleased++;
+  }
+
+  private queueRequest(
+    resolve: (client: SupabaseClient) => void,
+    reject: (error: Error) => void
+  ): void {
+    this.waitingQueue.push({ resolve, reject, timestamp: Date.now() });
+    this.metrics.waitingRequests++;
+
+    setTimeout(() => {
+      const index = this.waitingQueue.findIndex(req => req.resolve === resolve);
+      if (index !== -1) {
+        this.waitingQueue.splice(index, 1);
+        this.metrics.waitingRequests--;
+        reject(new Error(`Connection acquire timeout after ${this.config.acquireTimeoutMs}ms`));
+      }
+    }, this.config.acquireTimeoutMs);
+  }
+
+  private async replaceUnhealthyConnection(): Promise<void> {
+    this.metrics.totalConnections--;
+    try {
+      const newClient = await this.createConnection();
+      this.pool.push(newClient);
+      this.metrics.totalConnections++;
+      this.metrics.idleConnections++;
+    } catch (error) {
+      console.error('❌ Failed to replace unhealthy connection:', error);
+    }
+  }
+
   getMetrics(): PoolMetrics {
     const healthMetrics = this.healthMonitor.getMetrics();
     return { 
@@ -190,9 +188,6 @@ export class DatabaseConnectionPool {
     };
   }
 
-  /**
-   * Get pool health status
-   */
   getHealthStatus(): {
     healthy: boolean;
     issues: string[];
@@ -206,16 +201,13 @@ export class DatabaseConnectionPool {
     );
   }
 
-  /**
-   * Create a new database connection
-   */
   private async createConnection(): Promise<SupabaseClient> {
     const supabaseUrl = 'https://fhzhlyskfjvcwcqjssmb.supabase.co';
     const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZoemhseXNrZmp2Y3djcWpzc21iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgwNjIzMTksImV4cCI6MjA2MzYzODMxOX0.S2-LU5bi34Pcrg-XNEHj_SBQzxQncIe4tnOfhuyedNk';
 
     const client = createClient(supabaseUrl, supabaseAnonKey, {
       auth: {
-        persistSession: false, // Pool connections don't need session persistence
+        persistSession: false,
         autoRefreshToken: false,
       },
       global: {
@@ -225,7 +217,6 @@ export class DatabaseConnectionPool {
       }
     });
 
-    // Validate connection
     const isHealthy = await this.healthMonitor.checkConnectionHealth(client);
     if (!isHealthy) {
       throw new Error('Failed to create healthy database connection');
@@ -234,19 +225,14 @@ export class DatabaseConnectionPool {
     return client;
   }
 
-  /**
-   * Cleanup and close all connections
-   */
   async cleanup(): Promise<void> {
     this.healthMonitor.stopHealthCheck();
 
-    // Clear waiting queue
     this.waitingQueue.forEach(req => {
       req.reject(new Error('Connection pool shutting down'));
     });
     this.waitingQueue.length = 0;
 
-    // Note: Supabase connections don't need explicit cleanup
     this.pool.length = 0;
     this.activeConnections.clear();
     
@@ -254,5 +240,4 @@ export class DatabaseConnectionPool {
   }
 }
 
-// Export singleton instance
 export const connectionPool = DatabaseConnectionPool.getInstance();

@@ -1,7 +1,6 @@
-
 // Database Service - Refactored with Extracted Components
-// Version: 4.0.0
-// Phase 1.2: Database Foundation - Production-Ready Enhancements
+// Version: 5.0.0
+// Phase 1.2: Database Foundation - Code Quality Refinement
 
 import { MigrationRunner, Migration } from '../migrations/migrationRunner';
 import { tenantContextService } from './tenantContext';
@@ -10,6 +9,7 @@ import { connectionPool } from './connectionPool';
 import { errorRecovery } from './errorRecovery';
 import { databaseHealthMonitor } from './monitoring/DatabaseHealthMonitor';
 import { phase1Monitor } from '../performance/Phase1Monitor';
+import { DatabaseConfigManager, DatabaseConfig } from './config/DatabaseConfig';
 
 // Import all migration files
 import migration000 from '../migrations/migrations/000_migration_infrastructure';
@@ -20,34 +20,29 @@ import migration004 from '../migrations/migrations/004_create_indexes';
 import migration005 from '../migrations/migrations/005_enable_rls_policies';
 import migration006 from '../migrations/migrations/006_create_utility_functions';
 
-export interface DatabaseConfig {
-  connectionString?: string;
-  enableConnectionPooling?: boolean;
-  enableErrorRecovery?: boolean;
-  enableMonitoring?: boolean;
-}
-
 export class DatabaseService {
   private migrationRunner: MigrationRunner;
-  private isInitialized = false;
+  private configManager: DatabaseConfigManager;
 
-  constructor(private config: DatabaseConfig = {}) {
+  constructor(config: DatabaseConfig = {}) {
+    this.configManager = DatabaseConfigManager.getInstance(config);
     this.migrationRunner = new MigrationRunner();
     this.registerMigrations();
+    this.initializeEnhancedFeatures();
+  }
+
+  private initializeEnhancedFeatures(): void {
+    const config = this.configManager.getConfig();
     
-    // Initialize enhanced features
-    if (this.config.enableConnectionPooling !== false) {
+    if (config.enableConnectionPooling) {
       this.initializeConnectionPool();
     }
     
-    if (this.config.enableMonitoring !== false) {
+    if (config.enableMonitoring) {
       databaseHealthMonitor.startMonitoring();
     }
   }
 
-  /**
-   * Initialize connection pool
-   */
   private async initializeConnectionPool(): Promise<void> {
     try {
       await connectionPool.initialize();
@@ -57,11 +52,10 @@ export class DatabaseService {
     }
   }
 
-  /**
-   * Test database connection with error recovery
-   */
   async testConnection(): Promise<boolean> {
-    if (this.config.enableErrorRecovery !== false) {
+    const config = this.configManager.getConfig();
+    
+    if (config.enableErrorRecovery) {
       return await errorRecovery.executeWithRecovery(
         () => testConnection(),
         'database-connection-test'
@@ -70,44 +64,26 @@ export class DatabaseService {
     return await testConnection();
   }
 
-  /**
-   * Execute SQL query with enhanced error handling and monitoring
-   */
   async query(sql: string): Promise<any> {
     const startTime = performance.now();
+    const config = this.configManager.getConfig();
     
     try {
       const operation = async () => {
-        if (this.config.enableConnectionPooling !== false) {
-          // Use connection pool
-          const client = await connectionPool.acquire();
-          try {
-            const { data, error } = await client.rpc('execute_sql', { sql_query: sql });
-            if (error) {
-              throw new Error(`Query execution failed: ${error.message}`);
-            }
-            return { rows: data || [], rowCount: Array.isArray(data) ? data.length : 0 };
-          } finally {
-            await connectionPool.release(client);
-          }
+        if (config.enableConnectionPooling) {
+          return await this.executeWithConnectionPool(sql);
         } else {
-          // Use direct connection
-          const { data, error } = await supabase.rpc('execute_sql', { sql_query: sql });
-          if (error) {
-            throw new Error(`Query execution failed: ${error.message}`);
-          }
-          return { rows: data || [], rowCount: Array.isArray(data) ? data.length : 0 };
+          return await this.executeDirectQuery(sql);
         }
       };
 
       let result;
-      if (this.config.enableErrorRecovery !== false) {
+      if (config.enableErrorRecovery) {
         result = await errorRecovery.executeWithRecovery(operation, 'database-query');
       } else {
         result = await operation();
       }
 
-      // Record successful query performance
       const duration = performance.now() - startTime;
       phase1Monitor.recordDatabaseQuery(duration);
       
@@ -118,6 +94,27 @@ export class DatabaseService {
       console.error('Database query failed:', error);
       throw error;
     }
+  }
+
+  private async executeWithConnectionPool(sql: string): Promise<any> {
+    const client = await connectionPool.acquire();
+    try {
+      const { data, error } = await client.rpc('execute_sql', { sql_query: sql });
+      if (error) {
+        throw new Error(`Query execution failed: ${error.message}`);
+      }
+      return { rows: data || [], rowCount: Array.isArray(data) ? data.length : 0 };
+    } finally {
+      await connectionPool.release(client);
+    }
+  }
+
+  private async executeDirectQuery(sql: string): Promise<any> {
+    const { data, error } = await supabase.rpc('execute_sql', { sql_query: sql });
+    if (error) {
+      throw new Error(`Query execution failed: ${error.message}`);
+    }
+    return { rows: data || [], rowCount: Array.isArray(data) ? data.length : 0 };
   }
 
   private registerMigrations(): void {
@@ -136,15 +133,14 @@ export class DatabaseService {
     });
   }
 
-  /**
-   * Initialize database with enhanced error handling
-   */
   async initialize(appliedBy?: string): Promise<void> {
-    if (this.isInitialized) {
+    const status = this.configManager.getStatus();
+    if (status.isInitialized) {
       console.log('⏭️ Database already initialized, skipping');
       return;
     }
 
+    const config = this.configManager.getConfig();
     const operation = async () => {
       console.log('🚀 Initializing database with enhanced security...');
 
@@ -160,11 +156,11 @@ export class DatabaseService {
       }
 
       await this.migrationRunner.runMigrations(appliedBy);
-      this.isInitialized = true;
+      this.configManager.setInitialized(appliedBy);
       console.log('✅ Database initialization completed with enhanced security');
     };
 
-    if (this.config.enableErrorRecovery !== false) {
+    if (config.enableErrorRecovery) {
       await errorRecovery.executeWithRecovery(operation, 'database-initialization');
     } else {
       await operation();
@@ -176,7 +172,7 @@ export class DatabaseService {
   }
 
   async forceReinitialize(appliedBy?: string): Promise<void> {
-    this.isInitialized = false;
+    this.configManager.reset();
     await this.initialize(appliedBy);
   }
 
@@ -210,43 +206,37 @@ export class DatabaseService {
     tenantContextService.clearContext();
   }
 
-  /**
-   * Get comprehensive health status
-   */
   getHealthStatus(): {
     healthy: boolean;
     issues: string[];
     components: Record<string, any>;
   } {
+    const config = this.configManager.getConfig();
     return databaseHealthMonitor.getHealthStatus(
-      this.config.enableConnectionPooling !== false,
-      this.config.enableErrorRecovery !== false
+      config.enableConnectionPooling || false,
+      config.enableErrorRecovery || false
     );
   }
 
-  /**
-   * Get comprehensive metrics
-   */
   getMetrics(): {
     database: any;
     connectionPool?: any;
     errorRecovery?: any;
     alerts?: any;
   } {
+    const config = this.configManager.getConfig();
     return databaseHealthMonitor.getMetrics(
-      this.config.enableConnectionPooling !== false,
-      this.config.enableErrorRecovery !== false,
-      this.config.enableMonitoring !== false
+      config.enableConnectionPooling || false,
+      config.enableErrorRecovery || false,
+      config.enableMonitoring || false
     );
   }
 
-  /**
-   * Cleanup resources
-   */
   async cleanup(): Promise<void> {
     databaseHealthMonitor.cleanup();
 
-    if (this.config.enableConnectionPooling !== false) {
+    const config = this.configManager.getConfig();
+    if (config.enableConnectionPooling) {
       await connectionPool.cleanup();
     }
 

@@ -1,7 +1,7 @@
 
 // Database Error Recovery System - Refactored
-// Version: 2.0.0
-// Phase 1.2: Enhanced Database Foundation - Error Recovery
+// Version: 3.0.0
+// Phase 1.2: Enhanced Database Foundation - Code Quality Refinement
 
 import { CircuitBreaker, CircuitBreakerConfig, CircuitState } from './errorRecovery/CircuitBreaker';
 import { RetryManager, RetryConfig } from './errorRecovery/RetryManager';
@@ -66,9 +66,6 @@ export class DatabaseErrorRecovery {
     return DatabaseErrorRecovery.instance;
   }
 
-  /**
-   * Execute operation with retry and circuit breaker protection
-   */
   async executeWithRecovery<T>(
     operation: () => Promise<T>,
     operationName: string,
@@ -77,7 +74,6 @@ export class DatabaseErrorRecovery {
     const config = { ...this.defaultRetryConfig, ...retryConfig };
     this.metrics.totalOperations++;
 
-    // Check circuit breaker
     if (!this.circuitBreaker.canExecute()) {
       throw new Error(`Circuit breaker OPEN for ${operationName}. Recovery time not elapsed.`);
     }
@@ -92,17 +88,11 @@ export class DatabaseErrorRecovery {
     }
   }
 
-  /**
-   * Handle successful operation
-   */
   private onSuccess(operationName: string): void {
     this.circuitBreaker.onSuccess(operationName);
     this.updateReliability();
   }
 
-  /**
-   * Handle failed operation
-   */
   private onFailure(operationName: string, error: Error): void {
     this.metrics.failedOperations++;
     this.metrics.lastError = error.message;
@@ -112,18 +102,12 @@ export class DatabaseErrorRecovery {
     this.updateReliability();
   }
 
-  /**
-   * Update reliability metric
-   */
   private updateReliability(): void {
     if (this.metrics.totalOperations > 0) {
       this.metrics.reliability = 1 - (this.metrics.failedOperations / this.metrics.totalOperations);
     }
   }
 
-  /**
-   * Get current recovery metrics
-   */
   getMetrics(): RecoveryMetrics & { circuitState: CircuitState } {
     const retryMetrics = this.retryManager.getMetrics();
     const circuitMetrics = this.circuitBreaker.getMetrics();
@@ -137,9 +121,6 @@ export class DatabaseErrorRecovery {
     };
   }
 
-  /**
-   * Get recovery system health status
-   */
   getHealthStatus(): {
     healthy: boolean;
     issues: string[];
@@ -178,16 +159,10 @@ export class DatabaseErrorRecovery {
     };
   }
 
-  /**
-   * Reset circuit breaker manually
-   */
   resetCircuitBreaker(): void {
     this.circuitBreaker.reset();
   }
 
-  /**
-   * Reset all metrics
-   */
   resetMetrics(): void {
     this.metrics = {
       totalOperations: 0,
@@ -202,8 +177,5 @@ export class DatabaseErrorRecovery {
   }
 }
 
-// Export singleton instance
 export const errorRecovery = DatabaseErrorRecovery.getInstance();
-
-// Re-export types for convenience
 export type { RetryConfig, CircuitBreakerConfig, CircuitState };
