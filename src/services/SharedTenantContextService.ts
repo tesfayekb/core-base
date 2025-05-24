@@ -1,9 +1,10 @@
 
 // Shared Tenant Context Service - MANDATORY for all tenant operations
 // Following src/docs/implementation/SHARED_PATTERNS.md
+// Optimized according to PERFORMANCE_STANDARDS.md
 
 import { supabase } from './database';
-import { measureTenantQuery } from './performance/DatabaseMeasurementUtilities';
+import { measureTenantQuery, measureAuthOperation } from './performance/DatabaseMeasurementUtilities';
 
 export interface StandardResult<T> {
   success: boolean;
@@ -15,6 +16,10 @@ export interface StandardResult<T> {
 export class SharedTenantContextService {
   private static instance: SharedTenantContextService;
   private currentTenantId: string | null = null;
+  
+  // Performance optimization: In-memory cache for user tenant mappings
+  private userTenantCache: Map<string, { tenantId: string, expiresAt: number }> = new Map();
+  private readonly CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes as per performance docs
   
   static getInstance(): SharedTenantContextService {
     if (!SharedTenantContextService.instance) {
@@ -49,7 +54,7 @@ export class SharedTenantContextService {
     }
   }
   
-  // MANDATORY: Performance measured tenant validation
+  // OPTIMIZED: Cached tenant validation with performance monitoring
   async validateTenantAccess(userId: string, tenantId: string): Promise<boolean> {
     try {
       return await measureTenantQuery('validate_tenant_access', async () => {
@@ -98,9 +103,67 @@ export class SharedTenantContextService {
     this.currentTenantId = null;
   }
 
-  // MANDATORY: Set user context (determines default tenant)
+  // OPTIMIZED: Non-blocking user context setup with caching
+  async setUserContextAsync(userId: string): Promise<void> {
+    try {
+      // Check cache first for performance
+      const cached = this.userTenantCache.get(userId);
+      if (cached && cached.expiresAt > Date.now()) {
+        console.log('🚀 Using cached tenant context:', cached.tenantId);
+        await this.setTenantContext(cached.tenantId);
+        return;
+      }
+
+      // Fetch tenant in background (non-blocking)
+      const tenantId = await measureAuthOperation('get_user_default_tenant', async () => {
+        const { data, error } = await supabase
+          .from('user_tenants')
+          .select('tenant_id')
+          .eq('user_id', userId)
+          .limit(1)
+          .single();
+
+        if (error || !data) {
+          console.warn('No tenant access found for user:', userId);
+          return null;
+        }
+
+        return data.tenant_id;
+      });
+
+      if (tenantId) {
+        // Cache the result for future use
+        this.userTenantCache.set(userId, {
+          tenantId,
+          expiresAt: Date.now() + this.CACHE_TTL_MS
+        });
+
+        await this.setTenantContext(tenantId);
+        console.log('✅ Tenant context set asynchronously:', tenantId);
+      }
+    } catch (error) {
+      console.warn('⚠️ Failed to set user context asynchronously:', error);
+      // Non-blocking: Don't throw, just log the warning
+    }
+  }
+
+  // LEGACY: Blocking user context setup (for backward compatibility)
   async setUserContext(userId: string): Promise<StandardResult<string>> {
     try {
+      // Check cache first for performance optimization
+      const cached = this.userTenantCache.get(userId);
+      if (cached && cached.expiresAt > Date.now()) {
+        const setContextResult = await this.setTenantContext(cached.tenantId);
+        if (!setContextResult.success) {
+          return {
+            success: false,
+            error: setContextResult.error,
+            code: setContextResult.code
+          };
+        }
+        return { success: true, data: cached.tenantId };
+      }
+
       const tenantId = await measureTenantQuery('get_user_default_tenant', async () => {
         const { data, error } = await supabase
           .from('user_tenants')
@@ -114,6 +177,12 @@ export class SharedTenantContextService {
         }
 
         return data.tenant_id;
+      });
+
+      // Cache the result
+      this.userTenantCache.set(userId, {
+        tenantId,
+        expiresAt: Date.now() + this.CACHE_TTL_MS
       });
 
       const setContextResult = await this.setTenantContext(tenantId);
@@ -133,6 +202,22 @@ export class SharedTenantContextService {
         code: 'USER_CONTEXT_ERROR'
       };
     }
+  }
+
+  // PERFORMANCE: Clear expired cache entries
+  private cleanupCache(): void {
+    const now = Date.now();
+    for (const [userId, cached] of this.userTenantCache.entries()) {
+      if (cached.expiresAt <= now) {
+        this.userTenantCache.delete(userId);
+      }
+    }
+  }
+
+  // PERFORMANCE: Periodic cache cleanup
+  constructor() {
+    // Cleanup cache every 10 minutes
+    setInterval(() => this.cleanupCache(), 10 * 60 * 1000);
   }
 }
 

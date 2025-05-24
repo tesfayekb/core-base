@@ -52,21 +52,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setSession(session);
           setUser(session.user);
           
-          // Set loading to false immediately
+          // PERFORMANCE OPTIMIZATION: Set loading to false immediately for fast UI response
           setLoading(false);
           
-          // Set tenant context in background (non-blocking)
-          try {
-            const contextResult = await tenantContextService.setUserContext(session.user.id);
-            if (contextResult.success && contextResult.data) {
-              setCurrentTenantId(contextResult.data);
-              console.log('✅ Tenant context set successfully:', contextResult.data);
-            } else {
-              console.warn('⚠️ Failed to set tenant context:', contextResult.error);
+          // PERFORMANCE OPTIMIZATION: Set tenant context asynchronously (non-blocking)
+          // This follows our performance standards for < 200ms authentication
+          tenantContextService.setUserContextAsync(session.user.id).then(() => {
+            const tenantId = tenantContextService.getCurrentTenantId();
+            if (tenantId) {
+              setCurrentTenantId(tenantId);
+              console.log('✅ Tenant context set in background:', tenantId);
             }
-          } catch (error) {
-            console.warn('⚠️ Failed to set tenant context:', error);
-          }
+          }).catch(error => {
+            console.warn('⚠️ Background tenant context setup failed:', error);
+            // Non-blocking: Continue with auth flow even if tenant setup fails
+          });
         } else if (event === 'TOKEN_REFRESHED' && session) {
           console.log('🔄 Token refreshed');
           setSession(session);
