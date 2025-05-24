@@ -13,8 +13,12 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<AuthResult>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<AuthResult>;
+  updatePassword: (newPassword: string) => Promise<AuthResult>;
   currentTenantId: string | null;
   switchTenant: (tenantId: string) => Promise<boolean>;
+  isAuthenticated: boolean;
+  authError: string | null;
+  clearAuthError: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -24,21 +28,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [currentTenantId, setCurrentTenantId] = useState<string | null>(null);
+  const [authError, setAuthError] = useState<string | null>(null);
 
   useEffect(() => {
     console.log('🔄 AuthProvider: Initializing auth state...');
     
     // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      console.log('📱 Initial session:', !!session);
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
-      
-      // Set tenant context in background if user exists
-      if (session?.user) {
-        setTenantContextInBackground(session.user.id);
+    supabase.auth.getSession().then(({ data: { session }, error }) => {
+      if (error) {
+        console.error('❌ Error getting initial session:', error);
+        setAuthError('Failed to initialize authentication');
+      } else {
+        console.log('📱 Initial session:', !!session);
+        setSession(session);
+        setUser(session?.user ?? null);
+        
+        // Set tenant context in background if user exists
+        if (session?.user) {
+          setTenantContextInBackground(session.user.id);
+        }
       }
+      setLoading(false);
     });
 
     // Listen for auth changes
@@ -50,14 +60,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(session?.user ?? null);
         setLoading(false);
         
+        // Clear any previous auth errors on successful state change
+        if (session) {
+          setAuthError(null);
+        }
+        
         if (event === 'SIGNED_OUT') {
           console.log('🚪 User signed out - clearing state');
           setCurrentTenantId(null);
+          setAuthError(null);
           tenantContextService.clearContext();
         } else if (event === 'SIGNED_IN' && session?.user) {
           console.log('🔐 User signed in:', session.user.email);
-          // Set tenant context in background - non-blocking
           setTenantContextInBackground(session.user.id);
+        } else if (event === 'TOKEN_REFRESHED') {
+          console.log('🔄 Token refreshed for user:', session?.user?.email);
         }
       }
     );
@@ -82,32 +99,49 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signUp = async (email: string, password: string, firstName?: string, lastName?: string): Promise<AuthResult> => {
     try {
+      setAuthError(null);
       const result = await authService.signUp({ email, password, firstName, lastName });
+      
+      if (!result.success && result.error) {
+        setAuthError(result.error);
+      }
+      
       return result;
     } catch (error) {
-      console.error('Signup error:', error);
-      return { success: false, error: 'Signup failed' };
+      console.error('Signup error in provider:', error);
+      const errorMessage = 'An unexpected error occurred during registration';
+      setAuthError(errorMessage);
+      return { success: false, error: errorMessage };
     }
   };
 
   const signIn = async (email: string, password: string): Promise<AuthResult> => {
     try {
+      setAuthError(null);
       const result = await authService.signIn(email, password);
-      // Don't set loading here - auth state change will handle UI updates
+      
+      if (!result.success && result.error) {
+        setAuthError(result.error);
+      }
+      
       return result;
     } catch (error) {
-      console.error('Signin error:', error);
-      return { success: false, error: 'Signin failed' };
+      console.error('Signin error in provider:', error);
+      const errorMessage = 'An unexpected error occurred during login';
+      setAuthError(errorMessage);
+      return { success: false, error: errorMessage };
     }
   };
 
   const signOut = async (): Promise<void> => {
     try {
+      setAuthError(null);
       console.log('🚪 Starting logout...');
       await authService.signOut();
       console.log('✅ Logout completed');
     } catch (error) {
       console.error('💥 Logout failed:', error);
+      setAuthError('Logout failed. Please try again.');
       // Clear state even on error
       setSession(null);
       setUser(null);
@@ -117,18 +151,66 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const resetPassword = async (email: string): Promise<AuthResult> => {
-    return authService.resetPassword(email);
+    try {
+      setAuthError(null);
+      const result = await authService.resetPassword(email);
+      
+      if (!result.success && result.error) {
+        setAuthError(result.error);
+      }
+      
+      return result;
+    } catch (error) {
+      console.error('Password reset error in provider:', error);
+      const errorMessage = 'Failed to send password reset email';
+      setAuthError(errorMessage);
+      return { success: false, error: errorMessage };
+    }
+  };
+
+  const updatePassword = async (newPassword: string): Promise<AuthResult> => {
+    try {
+      setAuthError(null);
+      const result = await authService.updatePassword(newPassword);
+      
+      if (!result.success && result.error) {
+        setAuthError(result.error);
+      }
+      
+      return result;
+    } catch (error) {
+      console.error('Password update error in provider:', error);
+      const errorMessage = 'Failed to update password';
+      setAuthError(errorMessage);
+      return { success: false, error: errorMessage };
+    }
   };
 
   const switchTenant = async (tenantId: string): Promise<boolean> => {
-    if (!user) return false;
-
-    const result = await tenantContextService.switchTenantContext(user.id, tenantId);
-    if (result.success) {
-      setCurrentTenantId(tenantId);
-      return true;
+    if (!user) {
+      setAuthError('No user logged in');
+      return false;
     }
-    return false;
+
+    try {
+      setAuthError(null);
+      const result = await tenantContextService.switchTenantContext(user.id, tenantId);
+      if (result.success) {
+        setCurrentTenantId(tenantId);
+        return true;
+      } else {
+        setAuthError('Failed to switch tenant');
+        return false;
+      }
+    } catch (error) {
+      console.error('Tenant switch error:', error);
+      setAuthError('An error occurred while switching tenant');
+      return false;
+    }
+  };
+
+  const clearAuthError = () => {
+    setAuthError(null);
   };
 
   const value = {
@@ -139,8 +221,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     signIn,
     signOut,
     resetPassword,
+    updatePassword,
     currentTenantId,
-    switchTenant
+    switchTenant,
+    isAuthenticated: !!user,
+    authError,
+    clearAuthError
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
