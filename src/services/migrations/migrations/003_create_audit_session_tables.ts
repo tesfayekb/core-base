@@ -5,9 +5,20 @@ const migration: Migration = {
   version: '003',
   name: 'create_audit_session_tables',
   script: `
--- Audit and Session Management Tables
+-- Audit and Session Tables for Multi-Tenant Enterprise System
 -- Version: 1.0.0
--- Phase 1.2: Database Foundation - Audit & Sessions
+-- Phase 1.2: Database Foundation - Audit & Session Management
+
+-- Multi-tenant user access table
+CREATE TABLE IF NOT EXISTS user_tenants (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    is_primary BOOLEAN DEFAULT FALSE,
+    joined_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    metadata JSONB DEFAULT '{}',
+    UNIQUE(user_id, tenant_id)
+);
 
 -- Audit logs table (tenant-aware)
 CREATE TABLE IF NOT EXISTS audit_logs (

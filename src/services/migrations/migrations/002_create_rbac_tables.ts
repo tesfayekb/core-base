@@ -5,9 +5,9 @@ const migration: Migration = {
   version: '002',
   name: 'create_rbac_tables',
   script: `
--- RBAC System Tables
+-- RBAC Tables for Multi-Tenant Enterprise System
 -- Version: 1.0.0
--- Phase 1.2: Database Foundation - RBAC
+-- Phase 1.2: Database Foundation - RBAC System
 
 -- Roles table (tenant-scoped)
 CREATE TABLE IF NOT EXISTS roles (
@@ -74,18 +74,7 @@ CREATE TABLE IF NOT EXISTS role_permissions (
     UNIQUE(tenant_id, role_id, permission_id)
 );
 
--- User tenants (multi-tenant user access)
-CREATE TABLE IF NOT EXISTS user_tenants (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-    is_primary BOOLEAN DEFAULT FALSE,
-    joined_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    metadata JSONB DEFAULT '{}',
-    UNIQUE(user_id, tenant_id)
-);
-
--- Apply updated_at triggers to RBAC tables
+-- Create triggers for RBAC tables
 CREATE TRIGGER update_roles_updated_at BEFORE UPDATE ON roles FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
   `
 };
