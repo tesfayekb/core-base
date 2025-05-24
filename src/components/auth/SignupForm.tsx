@@ -5,8 +5,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2, CheckCircle } from 'lucide-react';
+import { Loader2, UserPlus } from 'lucide-react';
 import { useAuth } from './AuthProvider';
+import { PasswordStrengthIndicator } from './PasswordStrengthIndicator';
+import { LoadingWrapper } from '@/components/ui/loading-wrapper';
+import { useErrorNotification } from '@/hooks/useErrorNotification';
 
 interface SignupFormProps {
   onToggleMode?: () => void;
@@ -14,159 +17,185 @@ interface SignupFormProps {
 }
 
 export function SignupForm({ onToggleMode, onSuccess }: SignupFormProps) {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
+  const [formData, setFormData] = useState({
+    email: '',
+    password: '',
+    confirmPassword: '',
+    firstName: '',
+    lastName: ''
+  });
   const [isLoading, setIsLoading] = useState(false);
-  const [success, setSuccess] = useState(false);
+  const [passwordMismatch, setPasswordMismatch] = useState(false);
   const { signUp, authError, clearAuthError } = useAuth();
+  const { showError, showSuccess } = useErrorNotification();
+
+  const handleInputChange = (field: string, value: string) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+    
+    if (field === 'confirmPassword' || field === 'password') {
+      const newPassword = field === 'password' ? value : formData.password;
+      const newConfirmPassword = field === 'confirmPassword' ? value : formData.confirmPassword;
+      setPasswordMismatch(newConfirmPassword !== '' && newPassword !== newConfirmPassword);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (formData.password !== formData.confirmPassword) {
+      showError('Passwords do not match');
+      return;
+    }
+
     setIsLoading(true);
     clearAuthError();
 
     try {
-      const result = await signUp(email, password, firstName, lastName);
+      const result = await signUp(
+        formData.email,
+        formData.password,
+        formData.firstName,
+        formData.lastName
+      );
       
       if (result.success) {
-        console.log('✅ Signup successful');
-        setSuccess(true);
-        
-        // If email verification is required, show success message
         if (result.requiresVerification) {
-          setTimeout(() => {
-            onSuccess?.();
-          }, 3000);
+          showSuccess('Registration successful! Please check your email to verify your account.');
         } else {
-          onSuccess?.();
+          showSuccess('Registration successful!');
         }
+        onSuccess?.();
+      } else if (result.error) {
+        showError(result.error);
       }
     } catch (error) {
-      console.error('Signup form error:', error);
+      showError('An unexpected error occurred during registration');
     } finally {
       setIsLoading(false);
     }
   };
 
-  if (success) {
-    return (
-      <Card className="w-full max-w-md mx-auto">
-        <CardContent className="pt-6">
-          <div className="text-center space-y-4">
-            <CheckCircle className="mx-auto h-12 w-12 text-green-500" />
-            <div>
-              <h3 className="text-lg font-semibold">Account Created Successfully!</h3>
-              <p className="text-sm text-muted-foreground mt-2">
-                Please check your email to verify your account before signing in.
-              </p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
+  const isFormValid = formData.email && 
+                     formData.password && 
+                     formData.confirmPassword && 
+                     !passwordMismatch &&
+                     formData.password.length >= 8;
 
   return (
     <Card className="w-full max-w-md mx-auto">
       <CardHeader>
-        <CardTitle>Create Account</CardTitle>
+        <CardTitle className="flex items-center gap-2">
+          <UserPlus className="h-5 w-5" />
+          Create Account
+        </CardTitle>
         <CardDescription>
           Sign up for a new account to get started
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {authError && (
-            <Alert variant="destructive">
-              <AlertDescription>{authError}</AlertDescription>
-            </Alert>
-          )}
-          
-          <div className="grid grid-cols-2 gap-4">
+        <LoadingWrapper 
+          loading={false} 
+          error={authError}
+          onRetry={() => window.location.reload()}
+        >
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="firstName">First Name</Label>
+                <Input
+                  id="firstName"
+                  placeholder="John"
+                  value={formData.firstName}
+                  onChange={(e) => handleInputChange('firstName', e.target.value)}
+                  disabled={isLoading}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="lastName">Last Name</Label>
+                <Input
+                  id="lastName"
+                  placeholder="Doe"
+                  value={formData.lastName}
+                  onChange={(e) => handleInputChange('lastName', e.target.value)}
+                  disabled={isLoading}
+                />
+              </div>
+            </div>
+            
             <div className="space-y-2">
-              <Label htmlFor="firstName">First Name</Label>
+              <Label htmlFor="email">Email</Label>
               <Input
-                id="firstName"
-                type="text"
-                placeholder="John"
-                value={firstName}
-                onChange={(e) => setFirstName(e.target.value)}
+                id="email"
+                type="email"
+                placeholder="Enter your email"
+                value={formData.email}
+                onChange={(e) => handleInputChange('email', e.target.value)}
+                required
                 disabled={isLoading}
               />
             </div>
+            
             <div className="space-y-2">
-              <Label htmlFor="lastName">Last Name</Label>
+              <Label htmlFor="password">Password</Label>
               <Input
-                id="lastName"
-                type="text"
-                placeholder="Doe"
-                value={lastName}
-                onChange={(e) => setLastName(e.target.value)}
+                id="password"
+                type="password"
+                placeholder="Create a password"
+                value={formData.password}
+                onChange={(e) => handleInputChange('password', e.target.value)}
+                required
                 disabled={isLoading}
               />
+              <PasswordStrengthIndicator password={formData.password} />
             </div>
-          </div>
-          
-          <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
-            <Input
-              id="email"
-              type="email"
-              placeholder="john.doe@example.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              disabled={isLoading}
-            />
-          </div>
-          
-          <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
-            <Input
-              id="password"
-              type="password"
-              placeholder="Create a strong password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              disabled={isLoading}
-            />
-            <p className="text-xs text-muted-foreground">
-              Password must be at least 8 characters long
-            </p>
-          </div>
-          
-          <Button 
-            type="submit" 
-            className="w-full" 
-            disabled={isLoading || !email || !password}
-          >
-            {isLoading ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Creating account...
-              </>
-            ) : (
-              'Create Account'
+            
+            <div className="space-y-2">
+              <Label htmlFor="confirmPassword">Confirm Password</Label>
+              <Input
+                id="confirmPassword"
+                type="password"
+                placeholder="Confirm your password"
+                value={formData.confirmPassword}
+                onChange={(e) => handleInputChange('confirmPassword', e.target.value)}
+                required
+                disabled={isLoading}
+                className={passwordMismatch ? 'border-red-500' : ''}
+              />
+              {passwordMismatch && (
+                <p className="text-sm text-red-600">Passwords do not match</p>
+              )}
+            </div>
+            
+            <Button 
+              type="submit" 
+              className="w-full" 
+              disabled={isLoading || !isFormValid}
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Creating account...
+                </>
+              ) : (
+                'Create Account'
+              )}
+            </Button>
+            
+            {onToggleMode && (
+              <div className="text-center text-sm text-muted-foreground">
+                Already have an account?{' '}
+                <button
+                  type="button"
+                  onClick={onToggleMode}
+                  className="text-primary hover:underline"
+                  disabled={isLoading}
+                >
+                  Sign in
+                </button>
+              </div>
             )}
-          </Button>
-          
-          {onToggleMode && (
-            <div className="text-center text-sm text-muted-foreground">
-              Already have an account?{' '}
-              <button
-                type="button"
-                onClick={onToggleMode}
-                className="text-primary hover:underline"
-                disabled={isLoading}
-              >
-                Sign in
-              </button>
-            </div>
-          )}
-        </form>
+          </form>
+        </LoadingWrapper>
       </CardContent>
     </Card>
   );
