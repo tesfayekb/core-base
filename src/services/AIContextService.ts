@@ -1,4 +1,3 @@
-
 // AI Context Service
 // Enhanced AI Context System - Main service for generating AI context
 
@@ -40,6 +39,9 @@ class AIContextServiceClass {
       // Update cache
       this.cache = contextData;
       this.cacheTimestamp = new Date();
+
+      // Track context generation for version awareness
+      await this.trackContextGeneration(contextData);
 
       console.log('✅ AI context generated successfully');
       return contextData;
@@ -171,6 +173,21 @@ class AIContextServiceClass {
       activeValidations: [],
       suggestions: ['System initialization required']
     };
+  }
+
+  private async trackContextGeneration(contextData: AIContextData): Promise<void> {
+    try {
+      // Track context generation for version awareness
+      const changeFeatures = contextData.completedFeatures;
+      await versionTracker.trackFileChange(
+        'ai-context-generation', 
+        JSON.stringify(contextData, null, 2), 
+        changeFeatures
+      );
+    } catch (error) {
+      // Non-critical error, don't fail context generation
+      console.warn('⚠️ Failed to track context generation:', error);
+    }
   }
 }
 
