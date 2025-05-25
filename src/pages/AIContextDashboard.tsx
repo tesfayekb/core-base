@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PermissionBoundary } from "@/components/rbac/PermissionBoundary";
 import { Brain, Activity, Shield, Database } from "lucide-react";
-import { ImplementationProgress } from "@/components/ai-context/ImplementationProgress";
+import { DetailedImplementationProgress } from "@/components/ai-context/DetailedImplementationProgress";
 import { SecurityMonitoring } from "@/components/ai-context/SecurityMonitoring";
 import { SystemCapabilities } from "@/components/ai-context/SystemCapabilities";
 import { ContextDebugger } from "@/components/ai-context/ContextDebugger";
@@ -70,7 +70,7 @@ export default function AIContextDashboard() {
               </Card>
             }
           >
-            <ImplementationProgress />
+            <DetailedImplementationProgress />
           </PermissionBoundary>
         </TabsContent>
 

@@ -1,30 +1,40 @@
 
 // Implementation State Scanner Service
-// Phase 1.7: AI Context System - Scans actual implementation state
+// Phase 1.7: AI Context System - Scans actual implementation state from database
 
 import { ImplementationState, PhaseState, ValidationStatus } from '@/types/ImplementationState';
-import { realDocumentParser } from './RealDocumentParser';
-import { realCodebaseAnalyzer } from './RealCodebaseAnalyzer';
+import { databaseImplementationService } from './DatabaseImplementationService';
+
+interface DetailedTask {
+  taskId: string;
+  taskName: string;
+  status: string;
+  completionPercentage: number;
+  evidence: any;
+  completedAt: string | null;
+}
 
 class ImplementationStateScannerService {
   constructor() {
-    console.log('🔍 Implementation State Scanner initialized');
+    console.log('🔍 Implementation State Scanner initialized with database integration');
   }
 
   async scanImplementationState(): Promise<ImplementationState> {
-    console.log('🔍 Scanning enhanced multi-phase implementation state...');
+    console.log('🔍 Scanning implementation state from database...');
     
     try {
-      // Parse documentation to get phase structure
-      const phaseDocuments = await realDocumentParser.parseImplementationDocs();
+      // Get phase progress and detailed tasks from database
+      const [phaseProgress, detailedTasks] = await Promise.all([
+        databaseImplementationService.getPhaseProgress(),
+        databaseImplementationService.getDetailedTasks()
+      ]);
       
-      // Analyze codebase for actual implementation progress
-      const codebaseAnalysis = await realCodebaseAnalyzer.analyzeCodebase();
+      console.log('📊 Database results:', { phaseProgress, detailedTasks });
       
-      // Combine documentation structure with actual implementation progress
-      const phases: PhaseState[] = this.combinePhaseData(phaseDocuments, codebaseAnalysis);
+      // Build hierarchical phase data with tasks
+      const phases: PhaseState[] = this.buildHierarchicalPhases(phaseProgress, detailedTasks);
       
-      const overallCompletion = codebaseAnalysis.overallProgress;
+      const overallCompletion = this.calculateOverallCompletion(phases);
       const currentPhase = this.determineCurrentPhase(phases);
       const blockers = this.identifyBlockers(phases);
       const recommendations = this.generateRecommendations(phases, currentPhase);
@@ -55,42 +65,63 @@ class ImplementationStateScannerService {
         phases: this.getFallbackPhases(),
         overallCompletion: 15,
         currentPhase: 1,
-        blockers: ['Scanner initialization failed'],
-        recommendations: ['Check system configuration', 'Verify file access'],
+        blockers: ['Database connection failed - using fallback data'],
+        recommendations: ['Check database connection', 'Verify implementation_progress table'],
         lastScanned: new Date().toISOString()
       };
     }
   }
 
-  private combinePhaseData(phaseDocuments: any[], codebaseAnalysis: any): PhaseState[] {
-    return phaseDocuments.map(doc => {
-      const phaseNumber = parseInt(doc.phase);
-      const phaseProgress = codebaseAnalysis.phaseProgress[phaseNumber] || 0;
+  private buildHierarchicalPhases(phaseProgress: any[], detailedTasks: any[]): PhaseState[] {
+    return phaseProgress.map(phaseData => {
+      const phaseNumber = parseInt(phaseData.phase);
       
-      // Get features for this phase from codebase analysis
-      const phaseFeatures = codebaseAnalysis.features.filter(f => 
-        f.phase.startsWith(phaseNumber.toString())
-      );
-      
-      const completedFeatures = phaseFeatures
-        .filter(f => f.implemented)
-        .map(f => f.name);
-        
-      const pendingFeatures = phaseFeatures
-        .filter(f => !f.implemented)
-        .map(f => f.name);
+      // Get tasks for this phase
+      const phaseTasks = detailedTasks
+        .filter(task => task.phase === phaseData.phase)
+        .map(task => ({
+          taskId: task.task_id,
+          taskName: task.task_name,
+          status: task.status,
+          completionPercentage: task.completion_percentage || 0,
+          evidence: task.evidence || {},
+          completedAt: task.completed_at
+        }));
+
+      const completedTasks = phaseTasks.filter(task => task.status === 'completed');
+      const inProgressTasks = phaseTasks.filter(task => task.status === 'in_progress');
+      const pendingTasks = phaseTasks.filter(task => task.status === 'pending');
+
+      // Create detailed feature names with task IDs
+      const completedFeatures = completedTasks.map(task => `${task.taskId}: ${task.taskName}`);
+      const pendingFeatures = [
+        ...inProgressTasks.map(task => `${task.taskId}: ${task.taskName} (${task.completionPercentage}%)`),
+        ...pendingTasks.map(task => `${task.taskId}: ${task.taskName}`)
+      ];
 
       return {
         phase: phaseNumber,
-        name: doc.name,
-        completed: phaseProgress >= 80,
-        completionPercentage: phaseProgress,
+        name: phaseData.phase_name,
+        completed: phaseData.completion_percentage >= 100,
+        completionPercentage: Math.round(phaseData.completion_percentage),
         completedFeatures,
         pendingFeatures,
-        validationStatus: this.generateValidationStatus(phaseProgress, completedFeatures, pendingFeatures),
+        detailedTasks: phaseTasks, // Add detailed tasks for UI expansion
+        validationStatus: this.generateValidationStatus(
+          phaseData.completion_percentage, 
+          completedFeatures, 
+          pendingFeatures
+        ),
         lastUpdated: new Date().toISOString()
       };
     });
+  }
+
+  private calculateOverallCompletion(phases: PhaseState[]): number {
+    if (phases.length === 0) return 0;
+    
+    const totalCompletion = phases.reduce((sum, phase) => sum + phase.completionPercentage, 0);
+    return Math.round(totalCompletion / phases.length);
   }
 
   private generateValidationStatus(progress: number, completed: string[], pending: string[]): ValidationStatus {
@@ -164,14 +195,14 @@ class ImplementationStateScannerService {
         phase: 1,
         name: 'Foundation',
         completed: false,
-        completionPercentage: 15,
-        completedFeatures: ['Project structure'],
-        pendingFeatures: ['Database setup', 'Authentication', 'RBAC'],
+        completionPercentage: 75,
+        completedFeatures: ['1.1: Project Setup', '1.2: Database Foundation', '1.3: Authentication'],
+        pendingFeatures: ['1.7: AI Context Management (70%)'],
         validationStatus: {
           passed: false,
           errors: [],
           warnings: ['Using fallback data'],
-          score: 15
+          score: 75
         },
         lastUpdated: new Date().toISOString()
       }

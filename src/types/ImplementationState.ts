@@ -2,6 +2,15 @@
 // Implementation State Types for AI Context System
 // Phase 1.5: AI Context Management
 
+export interface DetailedTask {
+  taskId: string;
+  taskName: string;
+  status: string;
+  completionPercentage: number;
+  evidence: any;
+  completedAt: string | null;
+}
+
 export interface PhaseCompletionStatus {
   phase: number;
   name: string;
@@ -9,6 +18,7 @@ export interface PhaseCompletionStatus {
   completionPercentage: number;
   completedFeatures: string[];
   pendingFeatures: string[];
+  detailedTasks?: DetailedTask[]; // Add detailed tasks
   validationStatus: ValidationStatus;
   lastUpdated: string;
 }
@@ -21,6 +31,7 @@ export interface PhaseState {
   completionPercentage: number;
   completedFeatures: string[];
   pendingFeatures: string[];
+  detailedTasks?: DetailedTask[]; // Add detailed tasks
   validationStatus: ValidationStatus;
   lastUpdated: string;
 }
