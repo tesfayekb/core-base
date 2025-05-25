@@ -4,6 +4,7 @@ import { rbacService } from '../../rbac/rbacService';
 
 export class OptimizedUserPermissionsStrategy implements CacheWarmupStrategy {
   name = 'optimized-user-permissions';
+  description = 'Optimized cache warming strategy for frequently accessed user permissions';
 
   async execute(): Promise<CacheWarmupResult> {
     const startTime = performance.now();

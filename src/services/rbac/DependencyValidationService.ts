@@ -1,6 +1,7 @@
 
 import { rbacService } from './rbacService';
 import { PermissionContext, PermissionCheckOptions } from './rbacService';
+import { Permission } from '../../types/rbac';
 
 export interface ValidationResult {
   valid: boolean;
@@ -77,7 +78,7 @@ export class DependencyValidationService {
     tenantId: string
   ): Promise<ValidationResult> {
     const userPermissions = await rbacService.getUserPermissions(userId, tenantId);
-    const [resource, action] = permission.split(':');
+    const [action, resource] = permission.split(':');
     
     const hasPermission = userPermissions.some(p => 
       p.resource === resource && p.action === action
@@ -88,16 +89,16 @@ export class DependencyValidationService {
         valid: true,
         missingDependencies: [],
         warnings: [],
-        requiredPermissions: [permission, `${resource}:view`],
+        requiredPermissions: [permission, `view:${resource}`],
         assignerCapabilities: [`${action}:${resource}`]
       };
     }
 
     return {
       valid: false,
-      missingDependencies: [`${resource}:view`],
+      missingDependencies: [`view:${resource}`],
       warnings: [],
-      missingPermissions: [`${resource}:view`],
+      missingPermissions: [`view:${resource}`],
       assignerCapabilities: [`${action}:${resource}`]
     };
   }

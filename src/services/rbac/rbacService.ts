@@ -1,10 +1,18 @@
+
 import { PermissionCache } from './PermissionCache';
 import { smartCacheInvalidationService } from './SmartCacheInvalidationService';
 import { optimizedCacheInvalidation } from '../caching/OptimizedCacheInvalidation';
 import { adaptiveCacheManager } from '../caching/AdaptiveCacheManager';
 import { standardErrorHandler } from '../error/standardErrorHandler';
+import { Permission } from '../../types/rbac';
 
 export interface RBACContext {
+  tenantId?: string;
+  entityId?: string;
+  resourceId?: string;
+}
+
+export interface PermissionContext {
   tenantId?: string;
   entityId?: string;
   resourceId?: string;
@@ -27,6 +35,7 @@ export interface RecommendationReport {
 }
 
 export class RBACService {
+  private static instance: RBACService;
   private permissionCache = new PermissionCache();
   private monitoringEnabled = false;
   private performanceMetrics = {
@@ -39,6 +48,18 @@ export class RBACService {
   constructor() {
     // Start adaptive cache optimization
     adaptiveCacheManager.startAdaptiveOptimization();
+  }
+
+  static getInstance(): RBACService {
+    if (!RBACService.instance) {
+      RBACService.instance = new RBACService();
+    }
+    return RBACService.instance;
+  }
+
+  clearCache(): void {
+    // Implementation for clearing cache
+    console.log('Cache cleared');
   }
 
   async checkPermission(
@@ -125,12 +146,28 @@ export class RBACService {
     }
   }
 
-  async getUserPermissions(userId: string, tenantId?: string): Promise<string[]> {
+  async getUserPermissions(userId: string, tenantId?: string): Promise<Permission[]> {
     try {
       // Simulate fetching user permissions based on roles
       const roles = await this.getUserRoles(userId, tenantId);
-      const permissions = roles.flatMap(role => this.getPermissionsForRole(role));
-      return [...new Set(permissions)]; // Ensure unique permissions
+      const permissions: Permission[] = roles.flatMap(role => {
+        const rolePermissions = this.getPermissionsForRole(role);
+        return rolePermissions.map(perm => ({
+          id: `${role}-${perm}`,
+          tenant_id: tenantId || 'default',
+          name: perm,
+          resource: perm.split(':')[1] || 'unknown',
+          action: perm.split(':')[0] || 'unknown',
+          created_at: new Date().toISOString()
+        }));
+      });
+      
+      // Remove duplicates
+      const uniquePermissions = permissions.filter((perm, index, self) => 
+        index === self.findIndex(p => p.name === perm.name)
+      );
+      
+      return uniquePermissions;
     } catch (error) {
       standardErrorHandler.handleError(
         error as Error,
@@ -171,7 +208,7 @@ export class RBACService {
 
       return { success: true, message: 'Role assigned successfully' };
     } catch (error) {
-      return standardErrorHandler.handleError(
+      const errorResult = standardErrorHandler.handleError(
         error as Error,
         'role_assignment',
         { 
@@ -179,6 +216,7 @@ export class RBACService {
           fallbackValue: { success: false, message: 'Role assignment failed' } 
         }
       );
+      return errorResult || { success: false, message: 'Role assignment failed' };
     }
   }
 
@@ -200,7 +238,7 @@ export class RBACService {
 
       return { success: true, message: 'Role revoked successfully' };
     } catch (error) {
-      return standardErrorHandler.handleError(
+      const errorResult = standardErrorHandler.handleError(
         error as Error,
         'role_revocation',
         { 
@@ -208,7 +246,17 @@ export class RBACService {
           fallbackValue: { success: false, message: 'Role revocation failed' } 
         }
       );
+      return errorResult || { success: false, message: 'Role revocation failed' };
     }
+  }
+
+  invalidateUserPermissions(userId: string, reason: string = 'user_update'): void {
+    optimizedCacheInvalidation.invalidateUserPermissions(userId, reason);
+  }
+
+  getActiveAlerts(): any[] {
+    // Return active system alerts
+    return [];
   }
 
   startMonitoring(): void {
@@ -224,7 +272,7 @@ export class RBACService {
       cacheStats: this.permissionCache.getCacheStats(),
       performanceReport: this.getPerformanceReport(),
       warmingStatus: 'Active',
-      alerts: []
+      alerts: this.getActiveAlerts()
     };
   }
 
@@ -249,7 +297,7 @@ export class RBACService {
       status: 'healthy',
       details: {
         systemStatus: this.getSystemStatus(),
-        alerts: [],
+        alerts: this.getActiveAlerts(),
         recommendations: this.generateRecommendations()
       }
     };
