@@ -4,6 +4,8 @@
 import { granularDependencyResolver } from '../rbac/GranularDependencyResolver';
 import { cacheWarmingService } from '../caching/CacheWarmingService';
 import { proactiveAlertingService } from '../monitoring/ProactiveAlertingService';
+import { detailedMetricsCollector } from './DetailedMetricsCollector';
+import { performanceAnalysisService } from './PerformanceAnalysisService';
 
 export interface PerformanceMetrics {
   database: {
@@ -152,9 +154,24 @@ export class Phase1Monitor {
       this.updateDependencyMetrics();
       this.updateCacheMetrics();
       this.updateSystemMetrics();
+      this.updateDetailedMetrics();
     }, 10000);
 
-    console.log('📊 Enhanced Phase 1 monitoring started with proactive alerting');
+    console.log('📊 Enhanced Phase 1 monitoring started with detailed metrics collection');
+  }
+
+  private updateDetailedMetrics(): void {
+    // Trigger detailed metrics collection
+    detailedMetricsCollector.collectMetrics().then(() => {
+      // Run performance analysis
+      const analysis = performanceAnalysisService.analyzePerformance();
+      
+      // Log any critical insights
+      const criticalInsights = analysis.insights.filter(i => i.type === 'critical');
+      if (criticalInsights.length > 0) {
+        console.warn('🚨 Critical performance issues detected:', criticalInsights.map(i => i.message));
+      }
+    });
   }
 
   private updateAlertMetrics(): void {
@@ -250,27 +267,42 @@ export class Phase1Monitor {
     const criticalAlerts = alerts.filter(a => a.severity === 'critical');
     const warningAlerts = alerts.filter(a => a.severity === 'warning');
 
+    // Get detailed performance analysis
+    const analysis = performanceAnalysisService.analyzePerformance();
+    const criticalInsights = analysis.insights.filter(i => i.type === 'critical');
+    const warningInsights = analysis.insights.filter(i => i.type === 'warning');
+
     let status: HealthStatus['status'] = 'excellent';
-    let score = 100;
+    let score = analysis.overallScore;
     const issues: string[] = [];
-    const recommendations: string[] = [];
+    const recommendations: string[] = [...analysis.recommendations];
 
     // Check critical alerts first
-    if (criticalAlerts.length > 0) {
+    if (criticalAlerts.length > 0 || criticalInsights.length > 0) {
       status = 'critical';
-      score = Math.max(0, score - (criticalAlerts.length * 30));
-      issues.push(`${criticalAlerts.length} critical alert(s) active`);
-      recommendations.push('Address critical alerts immediately');
+      score = Math.min(score, 40);
+      if (criticalAlerts.length > 0) {
+        issues.push(`${criticalAlerts.length} critical alert(s) active`);
+      }
+      if (criticalInsights.length > 0) {
+        issues.push(`${criticalInsights.length} critical performance issue(s) detected`);
+      }
+      recommendations.push('Address critical issues immediately');
     }
 
     // Check warning alerts
-    if (warningAlerts.length > 0) {
+    if (warningAlerts.length > 0 || warningInsights.length > 0) {
       if (status !== 'critical') {
-        status = warningAlerts.length > 2 ? 'warning' : 'good';
+        status = (warningAlerts.length + warningInsights.length) > 3 ? 'warning' : 'good';
+        score = Math.min(score, 70);
       }
-      score = Math.max(0, score - (warningAlerts.length * 10));
-      issues.push(`${warningAlerts.length} warning alert(s) active`);
-      recommendations.push('Review and address warning alerts');
+      if (warningAlerts.length > 0) {
+        issues.push(`${warningAlerts.length} warning alert(s) active`);
+      }
+      if (warningInsights.length > 0) {
+        issues.push(`${warningInsights.length} performance warning(s) detected`);
+      }
+      recommendations.push('Review and address warning conditions');
     }
 
     // Performance-based health assessment
@@ -324,6 +356,14 @@ export class Phase1Monitor {
 
   reset(): void {
     this.metrics = this.initializeMetrics();
+  }
+
+  getDetailedAnalysis() {
+    return performanceAnalysisService.analyzePerformance();
+  }
+
+  getPerformanceReport(): string {
+    return performanceAnalysisService.getDetailedReport();
   }
 }
 
