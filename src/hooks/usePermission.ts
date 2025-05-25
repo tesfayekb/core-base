@@ -1,6 +1,6 @@
 
-// Permission Hook for UI Integration with Authentication Context
-// Phase 1.4: RBAC Foundation - UI Integration
+// Permission Hook for UI Integration with Enhanced Dependency Resolution
+// Phase 1.4: RBAC Foundation - Complete UI Integration
 
 import { useState, useEffect } from 'react';
 import { rbacService } from '../services/rbac/rbacService';
@@ -13,7 +13,7 @@ export interface UsePermissionResult {
 }
 
 /**
- * Hook for checking permissions in UI components
+ * Hook for checking permissions with full dependency resolution
  * Uses authentication context for real user/tenant data
  */
 export function usePermission(
@@ -38,6 +38,7 @@ export function usePermission(
           return;
         }
 
+        // Use enhanced permission checking with dependency resolution
         const result = await rbacService.checkPermission(
           user.id,
           action,
@@ -63,7 +64,7 @@ export function usePermission(
 }
 
 /**
- * Hook for checking multiple permissions at once
+ * Hook for checking multiple permissions with enhanced dependency resolution
  */
 export function useMultiplePermissions(
   permissions: Array<{ action: string; resource: string; resourceId?: string }>
@@ -90,6 +91,7 @@ export function useMultiplePermissions(
         const key = `${perm.action}:${perm.resource}${perm.resourceId ? `:${perm.resourceId}` : ''}`;
         
         try {
+          // Enhanced permission checking with full dependency resolution
           const hasPermission = await rbacService.checkPermission(
             user.id,
             perm.action,
@@ -115,4 +117,49 @@ export function useMultiplePermissions(
   }, [user, tenantId, permissions]);
   
   return results;
+}
+
+/**
+ * Hook for checking if user can grant specific permissions
+ */
+export function useCanGrantPermission(
+  targetUserId?: string,
+  permission?: string
+): UsePermissionResult {
+  const { user, tenantId } = useAuth();
+  const [canGrant, setCanGrant] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string>();
+  
+  useEffect(() => {
+    const checkGrantPermission = async () => {
+      try {
+        setIsLoading(true);
+        setError(undefined);
+        
+        if (!user || !targetUserId || !permission || !tenantId) {
+          setCanGrant(false);
+          return;
+        }
+
+        // Check using enhanced entity boundary validation
+        const result = await rbacService.assignRole(user.id, targetUserId, permission, tenantId);
+        setCanGrant(result.success);
+        
+        if (!result.success && result.error) {
+          setError(result.error);
+        }
+      } catch (err) {
+        console.error('Grant permission check error:', err);
+        setError('Failed to check grant permission');
+        setCanGrant(false);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    checkGrantPermission();
+  }, [user, tenantId, targetUserId, permission]);
+  
+  return { hasPermission: canGrant, isLoading, error };
 }

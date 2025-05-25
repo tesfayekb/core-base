@@ -1,4 +1,3 @@
-
 // RBAC Service Implementation with Database Integration
 // Phase 1.4: RBAC Foundation with Database Queries
 
@@ -20,7 +19,7 @@ export class RBACService {
   }
 
   /**
-   * Check if user has permission with dependency resolution
+   * Check if user has permission with comprehensive dependency resolution
    */
   async checkPermission(
     userId: string,
@@ -42,7 +41,7 @@ export class RBACService {
         return this.hasDirectPermission(userId, checkAction, checkResource, checkResourceId, tenantId);
       };
       
-      // Use dependency resolver
+      // Use enhanced dependency resolver with all implications
       const result = await PermissionDependencyResolver.checkPermissionWithDependencies(
         hasExplicitPermission,
         action,
@@ -166,7 +165,7 @@ export class RBACService {
   }
 
   /**
-   * Assign role to user with entity boundary validation
+   * Assign role to user with comprehensive entity boundary validation
    */
   async assignRole(
     assignerId: string,
@@ -175,7 +174,7 @@ export class RBACService {
     tenantId: string
   ): Promise<{ success: boolean; error?: string }> {
     try {
-      // Validate entity boundaries
+      // Enhanced entity boundary validation
       const boundaryCheck = await EntityBoundaryValidator.validateEntityBoundary(
         {
           userId: assignerId,
@@ -190,10 +189,18 @@ export class RBACService {
         return { success: false, error: 'Entity boundary violation' };
       }
 
-      // Check if assigner has permission to manage roles
-      const canManageRoles = await this.checkPermission(assignerId, 'Manage', 'roles', undefined, tenantId);
-      if (!canManageRoles) {
-        return { success: false, error: 'Insufficient permissions to assign roles' };
+      // Check if assigner can grant permissions
+      const permissionGrantCheck = await EntityBoundaryValidator.canGrantPermission(
+        {
+          grantor: { userId: assignerId, entityId: tenantId },
+          grantee: { userId: assigneeId, entityId: tenantId },
+          permission: `Assign:roles:${roleId}`
+        },
+        (userId, permission) => this.hasDirectPermission(userId, permission, 'roles')
+      );
+
+      if (!permissionGrantCheck.valid) {
+        return { success: false, error: permissionGrantCheck.reason };
       }
 
       // Insert role assignment
