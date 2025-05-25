@@ -36,7 +36,7 @@ export class EnhancedPermissionResolver {
   ): Promise<PermissionResolutionResult> {
     const cacheKey = this.cache.buildCacheKey(userId, action, resource, context);
     
-    const cachedResult = this.cache.getCachedPermission(cacheKey);
+    const cachedResult = await this.cache.getCachedPermission(cacheKey);
     if (cachedResult) {
       return {
         granted: cachedResult.result,
@@ -54,7 +54,7 @@ export class EnhancedPermissionResolver {
       context
     );
 
-    this.cache.cachePermissionResult(cacheKey, result.granted, result.dependencies, userId);
+    await this.cache.cachePermissionResult(cacheKey, result.granted, result.dependencies, userId);
     this.metrics.recordPerformanceMetric(action, result.resolutionTime);
 
     return result;
