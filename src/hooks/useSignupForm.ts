@@ -2,6 +2,8 @@
 import { useState } from 'react';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { useErrorNotification } from '@/hooks/useErrorNotification';
+import { useFormValidation } from '@/hooks/useFormValidation';
+import { signupFormSchema } from '@/utils/validation';
 
 interface SignupFormData {
   email: string;
@@ -19,10 +21,70 @@ export function useSignupForm(onSuccess?: () => void) {
     firstName: '',
     lastName: ''
   });
-  const [isLoading, setIsLoading] = useState(false);
-  const [passwordMismatch, setPasswordMismatch] = useState(false);
+
   const { signUp, authError, clearAuthError } = useAuth();
   const { showError, showSuccess } = useErrorNotification();
+
+  const {
+    errors,
+    isValid,
+    isSubmitting,
+    touched,
+    validateField,
+    handleSubmit,
+    setFieldTouched
+  } = useFormValidation({
+    schema: signupFormSchema,
+    onSubmit: async (validatedData) => {
+      clearAuthError();
+
+      try {
+        const result = await signUp(
+          validatedData.email,
+          validatedData.password,
+          validatedData.firstName,
+          validatedData.lastName
+        );
+        
+        if (result.success) {
+          if (result.requiresVerification) {
+            showSuccess('Registration successful! Please check your email to verify your account.');
+          } else {
+            showSuccess('Registration successful!');
+          }
+          onSuccess?.();
+        } else if (result.error) {
+          showError(result.error);
+        }
+      } catch (error) {
+        showError('An unexpected error occurred during registration');
+      }
+    }
+  });
+
+  const handleInputChange = (field: keyof SignupFormData, value: string) => {
+    const newFormData = { ...formData, [field]: value };
+    setFormData(newFormData);
+    
+    // Validate field in real-time if it has been touched
+    if (touched[field]) {
+      validateField(field, value, newFormData);
+    }
+  };
+
+  const handleFieldBlur = (field: keyof SignupFormData) => {
+    setFieldTouched(field);
+    validateField(field, formData[field], formData);
+  };
+
+  const submitForm = async () => {
+    // Mark all fields as touched
+    Object.keys(formData).forEach(field => {
+      setFieldTouched(field as keyof SignupFormData);
+    });
+    
+    return handleSubmit(formData);
+  };
 
   const validatePasswordStrength = (password: string): boolean => {
     const checks = [
@@ -36,68 +98,19 @@ export function useSignupForm(onSuccess?: () => void) {
     return checks.filter(Boolean).length >= 4;
   };
 
-  const handleInputChange = (field: keyof SignupFormData, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-    
-    if (field === 'confirmPassword' || field === 'password') {
-      const newPassword = field === 'password' ? value : formData.password;
-      const newConfirmPassword = field === 'confirmPassword' ? value : formData.confirmPassword;
-      setPasswordMismatch(newConfirmPassword !== '' && newPassword !== newConfirmPassword);
-    }
-  };
-
-  const handleSubmit = async () => {
-    if (formData.password !== formData.confirmPassword) {
-      showError('Passwords do not match');
-      return;
-    }
-
-    if (!validatePasswordStrength(formData.password)) {
-      showError('Password does not meet security requirements');
-      return;
-    }
-
-    setIsLoading(true);
-    clearAuthError();
-
-    try {
-      const result = await signUp(
-        formData.email,
-        formData.password,
-        formData.firstName,
-        formData.lastName
-      );
-      
-      if (result.success) {
-        if (result.requiresVerification) {
-          showSuccess('Registration successful! Please check your email to verify your account.');
-        } else {
-          showSuccess('Registration successful!');
-        }
-        onSuccess?.();
-      } else if (result.error) {
-        showError(result.error);
-      }
-    } catch (error) {
-      showError('An unexpected error occurred during registration');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const isFormValid = formData.email && 
-                     formData.password && 
-                     formData.confirmPassword && 
-                     !passwordMismatch &&
-                     validatePasswordStrength(formData.password);
+  const passwordMismatch = formData.confirmPassword !== '' && formData.password !== formData.confirmPassword;
 
   return {
     formData,
-    isLoading,
+    isLoading: isSubmitting,
     passwordMismatch,
     authError,
-    isFormValid,
+    isFormValid: isValid,
+    errors,
+    touched,
     handleInputChange,
-    handleSubmit
+    handleFieldBlur,
+    handleSubmit: submitForm,
+    validatePasswordStrength
   };
 }
