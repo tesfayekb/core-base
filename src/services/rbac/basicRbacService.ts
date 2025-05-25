@@ -28,8 +28,10 @@ export class BasicRBACService {
     try {
       const roleData = await rbacService.getUserRoles(userId, tenantId);
       
-      // Transform the returned data to match Role interface
-      return roleData.map(roleInfo => ({
+      // Flatten the array of role arrays and transform to match Role interface
+      const flattenedRoles = roleData.flat();
+      
+      return flattenedRoles.map(roleInfo => ({
         id: roleInfo.id,
         tenant_id: tenantId || '',
         name: roleInfo.name,
