@@ -1,22 +1,9 @@
+
 // AI Context Service
 // Phase 1.5: AI Context System - Service for generating AI context data
 
-import { ImplementationState } from '@/types/ImplementationState';
+import { ImplementationState, AIContextData } from '@/types/ImplementationState';
 import { implementationStateScanner } from './ImplementationStateScanner';
-
-export interface AIContextData {
-  implementationState: ImplementationState;
-  completedFeatures: string[];
-  currentCapabilities: string[];
-  developmentVelocity: number;
-  lastGenerated: string;
-  metadata: {
-    generationTime: number;
-    documentsParsed: number;
-    codebaseScanned: boolean;
-    confidence: number;
-  };
-}
 
 class AIContextServiceImpl {
   private cache: AIContextData | null = null;
@@ -41,14 +28,8 @@ class AIContextServiceImpl {
         implementationState,
         completedFeatures: this.extractCompletedFeatures(implementationState),
         currentCapabilities: this.extractCurrentCapabilities(implementationState),
-        developmentVelocity: this.calculateDevelopmentVelocity(),
-        lastGenerated: new Date().toISOString(),
-        metadata: {
-          generationTime: Date.now() - startTime,
-          documentsParsed: 7, // Phase 1.1 through 1.7
-          codebaseScanned: true,
-          confidence: this.calculateOverallConfidence(implementationState)
-        }
+        activeValidations: this.extractActiveValidations(implementationState),
+        suggestions: this.generateSuggestions(implementationState)
       };
 
       this.cacheContext(context);
@@ -101,12 +82,46 @@ class AIContextServiceImpl {
     return [...new Set(capabilities)];
   }
 
-  private calculateOverallConfidence(implementationState: ImplementationState): number {
-    const phases = implementationState.phases;
-    if (phases.length === 0) return 0;
+  private extractActiveValidations(implementationState: ImplementationState): string[] {
+    const validations: string[] = [];
     
-    const totalScore = phases.reduce((sum, phase) => sum + phase.validationStatus.score, 0);
-    return Math.round(totalScore / phases.length);
+    implementationState.phases.forEach(phase => {
+      if (phase.validationStatus.warnings.length > 0) {
+        validations.push(...phase.validationStatus.warnings);
+      }
+      if (phase.validationStatus.errors.length > 0) {
+        validations.push(...phase.validationStatus.errors);
+      }
+    });
+    
+    return validations;
+  }
+
+  private generateSuggestions(implementationState: ImplementationState): string[] {
+    const suggestions: string[] = [];
+    
+    // Find incomplete phases and suggest next steps
+    const incompletePhases = implementationState.phases.filter(p => !p.completed);
+    if (incompletePhases.length > 0) {
+      const nextPhase = incompletePhases[0];
+      suggestions.push(`Focus on completing ${nextPhase.name}`);
+      
+      if (nextPhase.pendingFeatures.length > 0) {
+        suggestions.push(`Next task: ${nextPhase.pendingFeatures[0]}`);
+      }
+    }
+    
+    // Add recommendations from implementation state
+    suggestions.push(...implementationState.recommendations);
+    
+    // Add validation-based suggestions
+    implementationState.phases.forEach(phase => {
+      if (phase.validationStatus.warnings.length > 0) {
+        suggestions.push(`Address warnings in ${phase.name}`);
+      }
+    });
+    
+    return [...new Set(suggestions)]; // Remove duplicates
   }
 
   generateContextSummary(): string {
@@ -143,11 +158,6 @@ class AIContextServiceImpl {
       return this.cache;
     }
     return null;
-  }
-
-  private calculateDevelopmentVelocity(): number {
-    // Mock implementation for calculating development velocity
-    return Math.floor(Math.random() * 10) + 1;
   }
 }
 
