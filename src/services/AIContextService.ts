@@ -4,6 +4,7 @@
 import { AIContextData, ImplementationState } from '@/types/ImplementationState';
 import { implementationStateScanner } from './ImplementationStateScanner';
 import { versionTracker } from './VersionTracker';
+import { aiContextDebugger } from './AIContextDebugger';
 
 class AIContextServiceClass {
   private cache: AIContextData | null = null;
@@ -11,11 +12,20 @@ class AIContextServiceClass {
   private readonly CACHE_DURATION = 15 * 60 * 1000; // 15 minutes
 
   async generateAIContext(): Promise<AIContextData> {
+    const startTime = Date.now();
+    
     try {
       // Check cache validity
       if (this.isCacheValid()) {
         console.log('🔄 Using cached AI context');
-        return this.cache!;
+        
+        // Apply user overrides if debugging
+        const cachedData = this.applyUserOverrides(this.cache!);
+        
+        // Track performance for debugging
+        await this.trackPerformance(startTime, true, cachedData);
+        
+        return cachedData;
       }
 
       console.log('🔍 Generating fresh AI context...');
@@ -28,13 +38,16 @@ class AIContextServiceClass {
       const changeReport = versionTracker.generateChangeReport();
 
       // Generate context data
-      const contextData: AIContextData = {
+      let contextData: AIContextData = {
         implementationState,
         currentCapabilities: this.extractCapabilities(implementationState),
         completedFeatures: this.extractCompletedFeatures(implementationState),
         activeValidations: this.extractActiveValidations(implementationState),
         suggestions: this.generateSuggestions(implementationState, changeReport)
       };
+
+      // Apply user overrides if debugging
+      contextData = this.applyUserOverrides(contextData);
 
       // Update cache
       this.cache = contextData;
@@ -43,12 +56,51 @@ class AIContextServiceClass {
       // Track context generation for version awareness
       await this.trackContextGeneration(contextData);
 
+      // Track performance for debugging
+      await this.trackPerformance(startTime, false, contextData);
+
       console.log('✅ AI context generated successfully');
       return contextData;
     } catch (error) {
       console.error('❌ Failed to generate AI context:', error);
       return this.getEmptyContext();
     }
+  }
+
+  private applyUserOverrides(contextData: AIContextData): AIContextData {
+    const overrides = aiContextDebugger.getOverrides();
+    if (Object.keys(overrides).length === 0) {
+      return contextData;
+    }
+
+    console.log('🔧 Applying user overrides to AI context');
+    
+    let modifiedContext = JSON.parse(JSON.stringify(contextData)); // Deep clone
+
+    Object.entries(overrides).forEach(([key, value]) => {
+      if (key.includes('.')) {
+        // Handle nested properties
+        const keys = key.split('.');
+        let target = modifiedContext as any;
+        for (let i = 0; i < keys.length - 1; i++) {
+          if (!target[keys[i]]) target[keys[i]] = {};
+          target = target[keys[i]];
+        }
+        target[keys[keys.length - 1]] = value;
+      } else {
+        (modifiedContext as any)[key] = value;
+      }
+    });
+
+    return modifiedContext;
+  }
+
+  private async trackPerformance(startTime: number, cacheHit: boolean, contextData: AIContextData): Promise<void> {
+    const duration = Date.now() - startTime;
+    const dataSize = JSON.stringify(contextData).length;
+    
+    // This would be logged to the debugger service
+    console.log(`⏱️ Context generation: ${duration}ms, Cache: ${cacheHit ? 'HIT' : 'MISS'}, Size: ${dataSize} bytes`);
   }
 
   generateContextSummary(): string {
