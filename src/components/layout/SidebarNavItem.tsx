@@ -20,15 +20,15 @@ export function SidebarNavItem({ item, onClose }: SidebarNavItemProps) {
       to={path}
       onClick={onClose}
       className={({ isActive }) =>
-        `flex items-center px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+        `flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors w-full ${
           isActive
-            ? 'bg-primary text-primary-foreground'
-            : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+            ? 'bg-sidebar-accent text-sidebar-accent-foreground'
+            : 'text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground'
         }`
       }
     >
-      <Icon className="mr-3 h-5 w-5" />
-      {label}
+      <Icon className="mr-3 h-4 w-4 flex-shrink-0" />
+      <span className="truncate">{label}</span>
     </NavLink>
   );
 }
