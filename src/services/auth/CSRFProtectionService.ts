@@ -1,9 +1,15 @@
 
+interface CSRFToken {
+  token: string;
+  timestamp: number;
+  sessionId: string;
+}
+
 export class CSRFProtectionService {
   private static instance: CSRFProtectionService;
-  private currentToken: string = '';
-  private readonly tokenKey = 'csrf_token';
-  private readonly tokenExpiry = 60 * 60 * 1000; // 1 hour
+  private readonly TOKEN_EXPIRY = 60 * 60 * 1000; // 1 hour
+  private readonly TOKEN_LENGTH = 32;
+  private currentToken: CSRFToken | null = null;
 
   static getInstance(): CSRFProtectionService {
     if (!CSRFProtectionService.instance) {
@@ -13,94 +19,128 @@ export class CSRFProtectionService {
   }
 
   private constructor() {
-    this.initializeToken();
+    // Generate initial token on service creation
+    this.generateToken();
+  }
+
+  private generateRandomString(length: number): string {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    let result = '';
+    const array = new Uint8Array(length);
+    crypto.getRandomValues(array);
+    
+    for (let i = 0; i < length; i++) {
+      result += chars[array[i] % chars.length];
+    }
+    return result;
   }
 
   generateToken(): string {
-    const token = this.generateSecureToken();
-    const tokenData = {
-      token,
-      timestamp: Date.now()
-    };
+    const sessionId = this.getOrCreateSessionId();
+    const token = this.generateRandomString(this.TOKEN_LENGTH);
     
-    localStorage.setItem(this.tokenKey, JSON.stringify(tokenData));
-    this.currentToken = token;
+    this.currentToken = {
+      token,
+      timestamp: Date.now(),
+      sessionId
+    };
+
+    // Store in sessionStorage for client-side validation
+    sessionStorage.setItem('csrf_token', JSON.stringify(this.currentToken));
+    
+    console.log('🛡️ CSRF: Generated new token');
     return token;
   }
 
+  private getOrCreateSessionId(): string {
+    let sessionId = sessionStorage.getItem('session_id');
+    if (!sessionId) {
+      sessionId = this.generateRandomString(16);
+      sessionStorage.setItem('session_id', sessionId);
+    }
+    return sessionId;
+  }
+
   validateToken(providedToken: string): boolean {
-    const storedData = localStorage.getItem(this.tokenKey);
-    
-    if (!storedData) {
+    if (!this.currentToken) {
+      console.warn('⚠️ CSRF: No token available for validation');
       return false;
     }
 
+    // Check if token has expired
+    const now = Date.now();
+    if (now - this.currentToken.timestamp > this.TOKEN_EXPIRY) {
+      console.warn('⚠️ CSRF: Token has expired');
+      this.generateToken(); // Generate new token
+      return false;
+    }
+
+    // Validate token matches
+    if (providedToken !== this.currentToken.token) {
+      console.warn('⚠️ CSRF: Token mismatch');
+      return false;
+    }
+
+    // Validate session ID
+    const currentSessionId = sessionStorage.getItem('session_id');
+    if (currentSessionId !== this.currentToken.sessionId) {
+      console.warn('⚠️ CSRF: Session ID mismatch');
+      return false;
+    }
+
+    console.log('✅ CSRF: Token validated successfully');
+    return true;
+  }
+
+  getCurrentToken(): string {
+    if (!this.currentToken || this.isTokenExpired()) {
+      return this.generateToken();
+    }
+    return this.currentToken.token;
+  }
+
+  private isTokenExpired(): boolean {
+    if (!this.currentToken) return true;
+    return Date.now() - this.currentToken.timestamp > this.TOKEN_EXPIRY;
+  }
+
+  clearToken(): void {
+    this.currentToken = null;
+    sessionStorage.removeItem('csrf_token');
+    sessionStorage.removeItem('session_id');
+    console.log('🧹 CSRF: Tokens cleared');
+  }
+
+  // Validate stored token on page load
+  validateStoredToken(): boolean {
     try {
-      const { token, timestamp } = JSON.parse(storedData);
+      const storedToken = sessionStorage.getItem('csrf_token');
+      if (!storedToken) return false;
+
+      const tokenData: CSRFToken = JSON.parse(storedToken);
       
-      // Check if token has expired
-      if (Date.now() - timestamp > this.tokenExpiry) {
+      // Check expiry
+      if (Date.now() - tokenData.timestamp > this.TOKEN_EXPIRY) {
         this.clearToken();
         return false;
       }
 
-      // Compare tokens
-      return token === providedToken;
+      // Restore current token
+      this.currentToken = tokenData;
+      return true;
     } catch (error) {
-      console.error('Error validating CSRF token:', error);
+      console.error('❌ CSRF: Error validating stored token:', error);
+      this.clearToken();
       return false;
     }
   }
 
-  getCurrentToken(): string {
-    if (!this.currentToken || !this.validateStoredToken()) {
-      return this.generateToken();
-    }
-    return this.currentToken;
-  }
-
-  validateStoredToken(): boolean {
-    const storedData = localStorage.getItem(this.tokenKey);
-    
-    if (!storedData) {
-      return false;
-    }
-
-    try {
-      const { timestamp } = JSON.parse(storedData);
-      return Date.now() - timestamp <= this.tokenExpiry;
-    } catch {
-      return false;
-    }
-  }
-
-  clearToken(): void {
-    localStorage.removeItem(this.tokenKey);
-    this.currentToken = '';
-  }
-
+  // Get headers for API requests
   getCSRFHeaders(): Record<string, string> {
     return {
-      'X-CSRF-Token': this.getCurrentToken()
+      'X-CSRF-Token': this.getCurrentToken(),
+      'X-Requested-With': 'XMLHttpRequest'
     };
-  }
-
-  private initializeToken(): void {
-    if (!this.validateStoredToken()) {
-      this.generateToken();
-    } else {
-      const storedData = localStorage.getItem(this.tokenKey);
-      if (storedData) {
-        const { token } = JSON.parse(storedData);
-        this.currentToken = token;
-      }
-    }
-  }
-
-  private generateSecureToken(): string {
-    const array = new Uint8Array(32);
-    crypto.getRandomValues(array);
-    return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
   }
 }
 
