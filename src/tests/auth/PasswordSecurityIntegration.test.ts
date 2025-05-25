@@ -58,7 +58,7 @@ describe('Password Security Integration Tests', () => {
       );
 
       const emailInput = screen.getByLabelText('Email');
-      const passwordInput = screen.getByLabelText('Password', { exact: false });
+      const passwordInput = screen.getByLabelText(/Password/);
       const confirmInput = screen.getByLabelText('Confirm Password');
       const submitButton = screen.getByRole('button', { name: 'Create Account' });
 
@@ -158,7 +158,7 @@ describe('Password Security Integration Tests', () => {
         </AuthProvider>
       );
 
-      const passwordInput = screen.getByLabelText('Password', { exact: false });
+      const passwordInput = screen.getByLabelText(/Password/);
 
       // Start with empty password - no indicator
       expect(screen.queryByText('Password strength')).not.toBeInTheDocument();
@@ -189,7 +189,7 @@ describe('Password Security Integration Tests', () => {
         </AuthProvider>
       );
 
-      const passwordInput = screen.getByLabelText('Password', { exact: false });
+      const passwordInput = screen.getByLabelText(/Password/);
       const confirmInput = screen.getByLabelText('Confirm Password');
 
       await user.type(passwordInput, 'SecurePassword123!');
@@ -220,7 +220,7 @@ describe('Password Security Integration Tests', () => {
       );
 
       const emailInput = screen.getByLabelText('Email');
-      const passwordInput = screen.getByLabelText('Password', { exact: false });
+      const passwordInput = screen.getByLabelText(/Password/);
       const confirmInput = screen.getByLabelText('Confirm Password');
       const submitButton = screen.getByRole('button', { name: 'Create Account' });
 
@@ -265,7 +265,7 @@ describe('Password Security Integration Tests', () => {
         </AuthProvider>
       );
 
-      const passwordInput = screen.getByLabelText('Password', { exact: false });
+      const passwordInput = screen.getByLabelText(/Password/);
 
       const startTime = performance.now();
 
