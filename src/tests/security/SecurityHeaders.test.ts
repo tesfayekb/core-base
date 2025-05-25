@@ -62,14 +62,35 @@ describe('SecurityHeadersService', () => {
       expect(csp).toContain('upgrade-insecure-requests');
       expect(csp).toContain('https://*.supabase.co');
     });
+
+    test('should include granular permissions policy', () => {
+      const headers = securityHeadersService.getSecurityHeaders();
+      const permissionsPolicy = headers['Permissions-Policy'];
+      
+      // Test that sensitive features are disabled
+      expect(permissionsPolicy).toContain('geolocation=()');
+      expect(permissionsPolicy).toContain('payment=()');
+      expect(permissionsPolicy).toContain('usb=()');
+      expect(permissionsPolicy).toContain('bluetooth=()');
+      
+      // Test that necessary features allow self-origin
+      expect(permissionsPolicy).toContain('camera=(self)');
+      expect(permissionsPolicy).toContain('microphone=(self)');
+      expect(permissionsPolicy).toContain('fullscreen=(self)');
+      
+      // Test privacy-focused policies
+      expect(permissionsPolicy).toContain('interest-cohort=()');
+      expect(permissionsPolicy).toContain('browsing-topics=()');
+    });
   });
 
   describe('Header Application', () => {
-    test('should apply security headers as meta tags', () => {
+    test('should apply security headers including permissions policy as meta tags', () => {
       securityHeadersService.applySecurityHeaders();
       
       expect(mockCreateElement).toHaveBeenCalledWith('meta');
       expect(mockSetAttribute).toHaveBeenCalledWith('http-equiv', 'Content-Security-Policy');
+      expect(mockSetAttribute).toHaveBeenCalledWith('http-equiv', 'Permissions-Policy');
       expect(mockAppendChild).toHaveBeenCalled();
     });
 
@@ -131,6 +152,20 @@ describe('SecurityHeadersService', () => {
       
       expect(compliance.recommendations.length).toBeGreaterThan(0);
       expect(compliance.recommendations).toContain('Enable HTTPS for production deployment');
+    });
+  });
+
+  describe('Permissions Policy Details', () => {
+    test('should provide detailed permissions policy information', () => {
+      const details = securityHeadersService.getPermissionsPolicyDetails();
+      
+      expect(details).toHaveProperty('Location Services');
+      expect(details).toHaveProperty('Media Devices');
+      expect(details).toHaveProperty('Payment APIs');
+      expect(details).toHaveProperty('Tracking');
+      
+      expect(details['Payment APIs']).toContain('Disabled');
+      expect(details['Tracking']).toContain('disabled');
     });
   });
 });
