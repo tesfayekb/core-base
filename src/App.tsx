@@ -3,7 +3,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'sonner';
-import Navigation from './components/Navigation';
+import { MainLayout } from './components/layout/MainLayout';
 import ImplementationDashboard from './components/dashboard/ImplementationDashboard';
 import ValidationDashboard from './pages/ValidationDashboard';
 import './App.css';
@@ -14,17 +14,17 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <Router>
-        <div className="min-h-screen bg-gray-50">
-          <Navigation />
-          <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-            <Routes>
-              <Route path="/" element={<ImplementationDashboard />} />
-              <Route path="/implementation" element={<ImplementationDashboard />} />
-              <Route path="/validation" element={<ValidationDashboard />} />
-            </Routes>
-          </main>
-          <Toaster />
-        </div>
+        <MainLayout>
+          <Routes>
+            <Route path="/" element={<ImplementationDashboard />} />
+            <Route path="/dashboard" element={<ImplementationDashboard />} />
+            <Route path="/implementation" element={<ImplementationDashboard />} />
+            <Route path="/validation" element={<ValidationDashboard />} />
+            <Route path="/users" element={<div className="p-6"><h1 className="text-2xl font-bold">Users Management</h1><p className="text-muted-foreground">Users management functionality coming soon.</p></div>} />
+            <Route path="/settings" element={<div className="p-6"><h1 className="text-2xl font-bold">Settings</h1><p className="text-muted-foreground">Settings functionality coming soon.</p></div>} />
+          </Routes>
+        </MainLayout>
+        <Toaster />
       </Router>
     </QueryClientProvider>
   );
