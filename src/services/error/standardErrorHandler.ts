@@ -20,6 +20,7 @@ export interface ErrorHandlingOptions {
   throwError?: boolean;
   fallbackValue?: any;
   retryable?: boolean;
+  severity?: 'low' | 'medium' | 'high' | 'critical';
 }
 
 export class StandardErrorHandler {
@@ -37,7 +38,7 @@ export class StandardErrorHandler {
     context: string,
     options: ErrorHandlingOptions = {}
   ): StandardError {
-    const standardError = this.createStandardError(error, context);
+    const standardError = this.createStandardError(error, context, options.severity);
     
     // Log error if requested (default: true)
     if (options.logError !== false) {
@@ -57,9 +58,13 @@ export class StandardErrorHandler {
     return standardError;
   }
 
-  private createStandardError(error: Error | string, context: string): StandardError {
+  private createStandardError(
+    error: Error | string, 
+    context: string, 
+    overrideSeverity?: 'low' | 'medium' | 'high' | 'critical'
+  ): StandardError {
     const message = typeof error === 'string' ? error : error.message;
-    const severity = this.determineSeverity(message, context);
+    const severity = overrideSeverity || this.determineSeverity(message, context);
     const code = this.generateErrorCode(context, severity);
 
     return {
