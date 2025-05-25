@@ -138,4 +138,3 @@ export class SystemHealthMonitor {
 }
 
 export const systemHealthMonitor = SystemHealthMonitor.getInstance();
-export type { SystemHealthStatus };

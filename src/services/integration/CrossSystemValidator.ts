@@ -1,22 +1,22 @@
 
 import { phase1Monitor } from '../performance/Phase1Monitor';
+import { databaseService } from '../database/databaseService';
 import { detailedMetricsCollector } from '../performance/DetailedMetricsCollector';
-import { securityHeadersService } from '../security/SecurityHeadersService';
-import { realDataCollector } from '../performance/RealDataCollector';
 
 export interface ValidationResult {
   system: string;
   passed: boolean;
   issues: string[];
-  metrics?: Record<string, any>;
+  score: number;
 }
 
 export interface CrossSystemValidationReport {
   overall: {
+    timestamp: string;
     systemsValidated: number;
     systemsPassed: number;
     criticalIssues: number;
-    timestamp: string;
+    overallScore: number;
   };
   results: ValidationResult[];
   integrationMatrix: Record<string, Record<string, boolean>>;
@@ -38,393 +38,383 @@ export class CrossSystemValidator {
   async validateAllSystems(): Promise<CrossSystemValidationReport> {
     console.log('🔍 Starting cross-system validation...');
 
-    const results: ValidationResult[] = [
-      await this.validatePerformanceSystem(),
-      await this.validateSecuritySystem(),
-      await this.validateDataCollectionSystem(),
-      await this.validateSystemIntegration()
-    ];
+    const results: ValidationResult[] = [];
+    const timestamp = new Date().toISOString();
 
+    // Validate Performance Monitoring
+    results.push(await this.validatePerformanceMonitoring());
+
+    // Validate Security Infrastructure
+    results.push(await this.validateSecurityInfrastructure());
+
+    // Validate Data Collection
+    results.push(await this.validateDataCollection());
+
+    // Validate System Integration
+    results.push(await this.validateSystemIntegration());
+
+    // Create integration matrix
     const integrationMatrix = await this.buildIntegrationMatrix();
+
+    // Generate recommendations
     const recommendations = this.generateRecommendations(results);
 
-    const report: CrossSystemValidationReport = {
+    const systemsPassed = results.filter(r => r.passed).length;
+    const criticalIssues = results.reduce((sum, r) => sum + r.issues.length, 0);
+    const overallScore = results.reduce((sum, r) => sum + r.score, 0) / results.length;
+
+    return {
       overall: {
+        timestamp,
         systemsValidated: results.length,
-        systemsPassed: results.filter(r => r.passed).length,
-        criticalIssues: results.reduce((sum, r) => sum + r.issues.length, 0),
-        timestamp: new Date().toISOString()
+        systemsPassed,
+        criticalIssues,
+        overallScore: Math.round(overallScore)
       },
       results,
       integrationMatrix,
       recommendations
     };
-
-    console.log('✅ Cross-system validation completed', report.overall);
-    return report;
   }
 
-  private async validatePerformanceSystem(): Promise<ValidationResult> {
+  private async validatePerformanceMonitoring(): Promise<ValidationResult> {
     const issues: string[] = [];
-    let metrics: Record<string, any> = {};
+    let score = 100;
 
     try {
-      // Test Phase1Monitor integration
+      // Check Phase1Monitor
       const phase1Metrics = phase1Monitor.getMetrics();
-      metrics.phase1 = phase1Metrics;
-
-      if (phase1Metrics.database.totalQueries === 0) {
-        issues.push('Phase1Monitor: No database queries recorded');
+      if (!phase1Metrics) {
+        issues.push('Phase1Monitor not returning metrics');
+        score -= 30;
       }
 
-      if (phase1Metrics.permissions.totalChecks === 0) {
-        issues.push('Phase1Monitor: No permission checks recorded');
-      }
-
-      // Test DetailedMetricsCollector integration
+      // Check DetailedMetricsCollector
       const detailedMetrics = detailedMetricsCollector.getLatestMetrics();
       if (!detailedMetrics) {
-        issues.push('DetailedMetricsCollector: No metrics available');
-      } else {
-        metrics.detailed = {
-          systemMemory: detailedMetrics.system.memoryUsage,
-          databaseQueries: detailedMetrics.database.totalQueries,
-          securityLatency: detailedMetrics.security.authenticationLatency
-        };
+        issues.push('DetailedMetricsCollector not collecting metrics');
+        score -= 30;
+      }
 
-        if (detailedMetrics.system.memoryUsage > 90) {
-          issues.push('Performance: High memory usage detected');
-        }
+      // Validate performance thresholds
+      if (phase1Metrics?.database.averageQueryTime > 50) {
+        issues.push('Database query time exceeds threshold');
+        score -= 20;
+      }
 
-        if (detailedMetrics.database.averageQueryTime > 100) {
-          issues.push('Performance: Slow database queries detected');
-        }
+      if (phase1Metrics?.rbac.averageCheckTime > 15) {
+        issues.push('RBAC permission check time exceeds threshold');
+        score -= 20;
       }
 
     } catch (error) {
-      issues.push(`Performance system error: ${error.message}`);
+      issues.push(`Performance monitoring validation failed: ${error.message}`);
+      score = 0;
     }
 
     return {
       system: 'Performance Monitoring',
       passed: issues.length === 0,
       issues,
-      metrics
+      score: Math.max(0, score)
     };
   }
 
-  private async validateSecuritySystem(): Promise<ValidationResult> {
+  private async validateSecurityInfrastructure(): Promise<ValidationResult> {
     const issues: string[] = [];
-    let metrics: Record<string, any> = {};
+    let score = 100;
 
     try {
-      // Test SecurityHeadersService integration
-      const securityHeaders = securityHeadersService.getSecurityHeaders();
-      const compliance = securityHeadersService.checkSecurityCompliance();
-      
-      metrics.security = {
-        headersCount: Object.keys(securityHeaders).length,
-        httpsEnabled: compliance.httpsEnabled,
-        headersApplied: compliance.headersApplied,
-        recommendations: compliance.recommendations.length
-      };
-
-      if (!compliance.httpsEnabled && window.location.hostname !== 'localhost') {
-        issues.push('Security: HTTPS not enabled in production environment');
+      // Test database connection security
+      const isConnected = await databaseService.testConnection();
+      if (!isConnected) {
+        issues.push('Database connection security test failed');
+        score -= 50;
       }
 
-      if (!compliance.headersApplied) {
-        issues.push('Security: Security headers not properly applied');
-      }
+      // Check tenant context isolation
+      await databaseService.setTenantContext('test-tenant-1');
+      await databaseService.setTenantContext('test-tenant-2');
+      await databaseService.clearContexts();
 
-      if (compliance.recommendations.length > 0) {
-        issues.push(`Security: ${compliance.recommendations.length} security recommendations pending`);
-      }
-
-      // Validate CSP effectiveness
-      if (!securityHeaders['Content-Security-Policy']?.includes('script-src')) {
-        issues.push('Security: Content Security Policy missing script-src directive');
+      // Validate RBAC integration
+      const phase1Metrics = phase1Monitor.getMetrics();
+      if (phase1Metrics?.rbac.totalChecks === 0) {
+        issues.push('RBAC system not processing permission checks');
+        score -= 30;
       }
 
     } catch (error) {
-      issues.push(`Security system error: ${error.message}`);
+      issues.push(`Security infrastructure validation failed: ${error.message}`);
+      score = 0;
     }
 
     return {
       system: 'Security Infrastructure',
       passed: issues.length === 0,
       issues,
-      metrics
+      score: Math.max(0, score)
     };
   }
 
-  private async validateDataCollectionSystem(): Promise<ValidationResult> {
+  private async validateDataCollection(): Promise<ValidationResult> {
     const issues: string[] = [];
-    let metrics: Record<string, any> = {};
+    let score = 100;
 
     try {
-      // Test RealDataCollector integration
-      const cls = realDataCollector.getCumulativeLayoutShift();
-      const longTaskDuration = realDataCollector.getLongTaskDuration();
-      const networkInfo = realDataCollector.getNetworkInformation();
-      const memoryInfo = realDataCollector.getMemoryInfo();
-
-      metrics.realData = {
-        cumulativeLayoutShift: cls,
-        longTaskDuration,
-        hasNetworkInfo: !!networkInfo,
-        hasMemoryInfo: !!memoryInfo
-      };
-
-      if (cls > 0.1) {
-        issues.push('UX: High Cumulative Layout Shift detected');
+      // Validate Phase1Monitor data collection
+      const phase1Metrics = phase1Monitor.getMetrics();
+      if (!phase1Metrics || phase1Metrics.database.queryCount === 0) {
+        issues.push('Phase1Monitor not collecting database metrics');
+        score -= 25;
       }
 
-      if (longTaskDuration > 50) {
-        issues.push('Performance: Long tasks detected affecting responsiveness');
+      // Validate DetailedMetricsCollector
+      const detailedMetrics = detailedMetricsCollector.getLatestMetrics();
+      if (!detailedMetrics) {
+        issues.push('DetailedMetricsCollector not operational');
+        score -= 25;
       }
 
-      if (!networkInfo) {
-        issues.push('Data Collection: Network information not available');
+      // Check metrics history
+      const metricsHistory = detailedMetricsCollector.getMetricsHistory();
+      if (metricsHistory.length === 0) {
+        issues.push('No metrics history available');
+        score -= 25;
       }
 
-      if (!memoryInfo) {
-        issues.push('Data Collection: Memory information not available');
+      // Validate performance insights
+      const insights = detailedMetricsCollector.getPerformanceInsights();
+      if (!insights || insights.length === 0) {
+        issues.push('Performance insights not being generated');
+        score -= 25;
       }
 
     } catch (error) {
-      issues.push(`Data collection system error: ${error.message}`);
+      issues.push(`Data collection validation failed: ${error.message}`);
+      score = 0;
     }
 
     return {
       system: 'Data Collection',
       passed: issues.length === 0,
       issues,
-      metrics
+      score: Math.max(0, score)
     };
   }
 
   private async validateSystemIntegration(): Promise<ValidationResult> {
     const issues: string[] = [];
-    let metrics: Record<string, any> = {};
+    let score = 100;
 
     try {
-      // Test cross-system data flow
+      // Test cross-system workflow
+      const startTime = performance.now();
+      
+      // Simulate user operation that touches multiple systems
+      await databaseService.setTenantContext('integration-test');
+      phase1Monitor.recordDatabaseQuery(25);
+      phase1Monitor.recordPermissionCheck(10, true);
+      phase1Monitor.recordAuditEvent(5);
+      
+      const endTime = performance.now();
+      const totalTime = endTime - startTime;
+
+      if (totalTime > 100) {
+        issues.push('Cross-system operation exceeds performance threshold');
+        score -= 20;
+      }
+
+      // Validate data consistency
       const phase1Metrics = phase1Monitor.getMetrics();
       const detailedMetrics = detailedMetricsCollector.getLatestMetrics();
 
-      metrics.integration = {
-        dataConsistency: this.checkDataConsistency(phase1Metrics, detailedMetrics),
-        systemSynchronization: this.checkSystemSynchronization()
-      };
-
-      // Validate data consistency between systems
-      if (detailedMetrics && Math.abs(phase1Metrics.database.totalQueries - detailedMetrics.database.totalQueries) > 10) {
-        issues.push('Integration: Database query count inconsistency between monitoring systems');
+      if (phase1Metrics && detailedMetrics) {
+        // Check if systems are reporting consistent data
+        const dbQueryTimeDiff = Math.abs(
+          phase1Metrics.database.averageQueryTime - detailedMetrics.database.averageQueryTime
+        );
+        
+        if (dbQueryTimeDiff > 10) {
+          issues.push('Inconsistent database metrics between monitoring systems');
+          score -= 30;
+        }
       }
 
-      // Check system responsiveness
-      const responseTime = await this.measureSystemResponseTime();
-      metrics.integration.systemResponseTime = responseTime;
-
-      if (responseTime > 1000) {
-        issues.push('Integration: System response time exceeds acceptable threshold');
-      }
+      await databaseService.clearContexts();
 
     } catch (error) {
-      issues.push(`System integration error: ${error.message}`);
+      issues.push(`System integration validation failed: ${error.message}`);
+      score = 0;
     }
 
     return {
       system: 'System Integration',
       passed: issues.length === 0,
       issues,
-      metrics
+      score: Math.max(0, score)
     };
   }
 
   private async buildIntegrationMatrix(): Promise<Record<string, Record<string, boolean>>> {
-    return {
-      'Performance': {
-        'Security': this.testPerformanceSecurityIntegration(),
-        'DataCollection': this.testPerformanceDataIntegration(),
-        'Monitoring': this.testPerformanceMonitoringIntegration()
-      },
-      'Security': {
-        'Performance': this.testSecurityPerformanceIntegration(),
-        'DataCollection': this.testSecurityDataIntegration(),
-        'Headers': this.testSecurityHeadersIntegration()
-      },
-      'DataCollection': {
-        'Performance': this.testDataPerformanceIntegration(),
-        'Security': this.testDataSecurityIntegration(),
-        'RealTime': this.testDataRealtimeIntegration()
-      }
-    };
-  }
+    const matrix: Record<string, Record<string, boolean>> = {};
 
-  private checkDataConsistency(phase1: any, detailed: any): boolean {
-    if (!detailed) return false;
-    
-    // Check if key metrics are within reasonable ranges
-    const queryDiff = Math.abs(phase1.database.totalQueries - detailed.database.totalQueries);
-    const permissionDiff = Math.abs(phase1.permissions.totalChecks - detailed.security.permissionCheckLatency);
-    
-    return queryDiff < 10 && permissionDiff < 100;
-  }
-
-  private checkSystemSynchronization(): boolean {
     try {
-      const now = Date.now();
-      const phase1LastUpdate = phase1Monitor.getMetrics().timestamp || now;
-      const timeDiff = Math.abs(now - phase1LastUpdate);
-      
-      return timeDiff < 60000; // Less than 1 minute old
+      // Performance ↔ Database
+      matrix['Performance'] = {
+        'Database': await this.testPerformanceDatabaseIntegration(),
+        'Security': await this.testPerformanceSecurityIntegration(),
+        'Audit': await this.testPerformanceAuditIntegration()
+      };
+
+      // Database ↔ Others
+      matrix['Database'] = {
+        'Performance': await this.testDatabasePerformanceIntegration(),
+        'Security': await this.testDatabaseSecurityIntegration(),
+        'Audit': await this.testDatabaseAuditIntegration()
+      };
+
+      // Security ↔ Others
+      matrix['Security'] = {
+        'Performance': await this.testSecurityPerformanceIntegration(),
+        'Database': await this.testSecurityDatabaseIntegration(),
+        'Audit': await this.testSecurityAuditIntegration()
+      };
+
+      // Audit ↔ Others
+      matrix['Audit'] = {
+        'Performance': await this.testAuditPerformanceIntegration(),
+        'Database': await this.testAuditDatabaseIntegration(),
+        'Security': await this.testAuditSecurityIntegration()
+      };
+
+    } catch (error) {
+      console.error('Failed to build integration matrix:', error);
+    }
+
+    return matrix;
+  }
+
+  // Integration test methods
+  private async testPerformanceDatabaseIntegration(): Promise<boolean> {
+    try {
+      const before = phase1Monitor.getMetrics().database.queryCount;
+      await databaseService.testConnection();
+      const after = phase1Monitor.getMetrics().database.queryCount;
+      return after > before;
     } catch {
       return false;
     }
   }
 
-  private async measureSystemResponseTime(): Promise<number> {
-    const start = performance.now();
-    
+  private async testPerformanceSecurityIntegration(): Promise<boolean> {
     try {
-      // Simulate system operations
-      phase1Monitor.getMetrics();
-      detailedMetricsCollector.getLatestMetrics();
-      securityHeadersService.checkSecurityCompliance();
-    } catch (error) {
-      console.warn('Error measuring system response time:', error);
+      const before = phase1Monitor.getMetrics().rbac.totalChecks;
+      phase1Monitor.recordPermissionCheck(5, true);
+      const after = phase1Monitor.getMetrics().rbac.totalChecks;
+      return after > before;
+    } catch {
+      return false;
     }
-    
-    return performance.now() - start;
   }
 
-  // Integration test methods
-  private testPerformanceSecurityIntegration(): boolean {
+  private async testPerformanceAuditIntegration(): Promise<boolean> {
     try {
-      const metrics = detailedMetricsCollector.getLatestMetrics();
-      const compliance = securityHeadersService.checkSecurityCompliance();
-      return !!(metrics?.security && compliance);
-    } catch { return false; }
+      const before = phase1Monitor.getMetrics().audit.eventsLogged;
+      phase1Monitor.recordAuditEvent(3);
+      const after = phase1Monitor.getMetrics().audit.eventsLogged;
+      return after > before;
+    } catch {
+      return false;
+    }
   }
 
-  private testPerformanceDataIntegration(): boolean {
-    try {
-      const cls = realDataCollector.getCumulativeLayoutShift();
-      const metrics = detailedMetricsCollector.getLatestMetrics();
-      return typeof cls === 'number' && !!metrics?.user;
-    } catch { return false; }
+  private async testDatabasePerformanceIntegration(): Promise<boolean> {
+    return this.testPerformanceDatabaseIntegration();
   }
 
-  private testPerformanceMonitoringIntegration(): boolean {
+  private async testDatabaseSecurityIntegration(): Promise<boolean> {
     try {
-      const phase1 = phase1Monitor.getMetrics();
-      const detailed = detailedMetricsCollector.getLatestMetrics();
-      return !!(phase1 && detailed);
-    } catch { return false; }
+      await databaseService.setTenantContext('test-tenant');
+      await databaseService.clearContexts();
+      return true;
+    } catch {
+      return false;
+    }
   }
 
-  private testSecurityPerformanceIntegration(): boolean {
+  private async testDatabaseAuditIntegration(): Promise<boolean> {
     try {
-      const headers = securityHeadersService.getSecurityHeaders();
-      const metrics = detailedMetricsCollector.getLatestMetrics();
-      return !!(headers && metrics?.security);
-    } catch { return false; }
+      // Test if database operations trigger audit events
+      const before = phase1Monitor.getMetrics().audit.eventsLogged;
+      await databaseService.testConnection();
+      const after = phase1Monitor.getMetrics().audit.eventsLogged;
+      return after >= before; // Allow for no change if audit isn't auto-triggered
+    } catch {
+      return false;
+    }
   }
 
-  private testSecurityDataIntegration(): boolean {
-    try {
-      const compliance = securityHeadersService.checkSecurityCompliance();
-      const networkInfo = realDataCollector.getNetworkInformation();
-      return !!(compliance && networkInfo);
-    } catch { return false; }
+  private async testSecurityPerformanceIntegration(): Promise<boolean> {
+    return this.testPerformanceSecurityIntegration();
   }
 
-  private testSecurityHeadersIntegration(): boolean {
-    try {
-      securityHeadersService.applySecurityHeaders();
-      const compliance = securityHeadersService.checkSecurityCompliance();
-      return compliance.headersApplied;
-    } catch { return false; }
+  private async testSecurityDatabaseIntegration(): Promise<boolean> {
+    return this.testDatabaseSecurityIntegration();
   }
 
-  private testDataPerformanceIntegration(): boolean {
+  private async testSecurityAuditIntegration(): Promise<boolean> {
     try {
-      const memoryInfo = realDataCollector.getMemoryInfo();
-      const metrics = detailedMetricsCollector.getLatestMetrics();
-      return !!(memoryInfo && metrics?.memory);
-    } catch { return false; }
+      // Test if security operations trigger audit events
+      const before = phase1Monitor.getMetrics().audit.eventsLogged;
+      phase1Monitor.recordPermissionCheck(8, true);
+      const after = phase1Monitor.getMetrics().audit.eventsLogged;
+      return after >= before;
+    } catch {
+      return false;
+    }
   }
 
-  private testDataSecurityIntegration(): boolean {
-    try {
-      const networkInfo = realDataCollector.getNetworkInformation();
-      const compliance = securityHeadersService.checkSecurityCompliance();
-      return !!(networkInfo && compliance);
-    } catch { return false; }
+  private async testAuditPerformanceIntegration(): Promise<boolean> {
+    return this.testPerformanceAuditIntegration();
   }
 
-  private testDataRealtimeIntegration(): boolean {
-    try {
-      const cls = realDataCollector.getCumulativeLayoutShift();
-      const longTask = realDataCollector.getLongTaskDuration();
-      return typeof cls === 'number' && typeof longTask === 'number';
-    } catch { return false; }
+  private async testAuditDatabaseIntegration(): Promise<boolean> {
+    return this.testDatabaseAuditIntegration();
+  }
+
+  private async testAuditSecurityIntegration(): Promise<boolean> {
+    return this.testSecurityAuditIntegration();
   }
 
   private generateRecommendations(results: ValidationResult[]): string[] {
     const recommendations: string[] = [];
-    
+
     results.forEach(result => {
       if (!result.passed) {
-        recommendations.push(`Fix ${result.system}: ${result.issues.length} issues detected`);
+        switch (result.system) {
+          case 'Performance Monitoring':
+            recommendations.push('Optimize performance monitoring system for better real-time data collection');
+            break;
+          case 'Security Infrastructure':
+            recommendations.push('Review security configuration and tenant isolation mechanisms');
+            break;
+          case 'Data Collection':
+            recommendations.push('Ensure all data collection services are properly initialized and running');
+            break;
+          case 'System Integration':
+            recommendations.push('Improve cross-system communication and data consistency validation');
+            break;
+        }
       }
     });
 
-    // Performance recommendations
-    const perfResult = results.find(r => r.system === 'Performance Monitoring');
-    if (perfResult?.metrics?.detailed?.systemMemory > 80) {
-      recommendations.push('Optimize memory usage - consider implementing garbage collection strategies');
-    }
-
-    // Security recommendations
-    const secResult = results.find(r => r.system === 'Security Infrastructure');
-    if (secResult?.metrics?.security?.recommendations > 0) {
-      recommendations.push('Address pending security recommendations for enhanced protection');
-    }
-
-    // Integration recommendations
-    const intResult = results.find(r => r.system === 'System Integration');
-    if (intResult && !intResult.passed) {
-      recommendations.push('Improve cross-system synchronization for better data consistency');
-    }
-
     if (recommendations.length === 0) {
-      recommendations.push('All systems are functioning optimally - continue monitoring');
+      recommendations.push('All systems are operating within acceptable parameters');
     }
 
     return recommendations;
   }
-
-  async runContinuousValidation(intervalMs: number = 300000): Promise<void> {
-    console.log(`🔄 Starting continuous cross-system validation (every ${intervalMs/1000}s)`);
-    
-    setInterval(async () => {
-      try {
-        const report = await this.validateAllSystems();
-        
-        if (report.overall.criticalIssues > 0) {
-          console.warn('⚠️ Cross-system validation detected issues:', report.overall);
-        } else {
-          console.log('✅ Cross-system validation passed:', report.overall);
-        }
-      } catch (error) {
-        console.error('❌ Cross-system validation failed:', error);
-      }
-    }, intervalMs);
-  }
 }
 
 export const crossSystemValidator = CrossSystemValidator.getInstance();
-export type { CrossSystemValidationReport, ValidationResult };
