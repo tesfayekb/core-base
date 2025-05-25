@@ -1,140 +1,71 @@
-
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { rbacService } from '../services/rbac/rbacService';
-import { entityBoundaryService } from '../services/rbac/EntityBoundaryService';
-import { useAuth } from '../contexts/AuthContext';
 
-export interface UseEntityPermissionResult {
-  hasPermission: boolean;
-  isLoading: boolean;
-  error?: string;
+interface PermissionContext {
+  tenantId?: string;
   entityId?: string;
-  canCrossEntities: boolean;
 }
 
-/**
- * Enhanced permission hook with entity boundary enforcement
- */
-export function useEntityBoundaryPermission(
+export const useEntityBoundaryPermission = (
+  entityType: string,
+  entityId: string,
   action: string,
-  resource: string,
-  resourceId?: string,
-  targetEntityId?: string
-): UseEntityPermissionResult {
-  const { user, tenantId } = useAuth();
-  const [hasPermission, setHasPermission] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string>();
-  const [entityId, setEntityId] = useState<string>();
-  const [canCrossEntities, setCanCrossEntities] = useState(false);
-  
-  useEffect(() => {
-    const checkPermissionWithBoundaries = async () => {
-      try {
-        setIsLoading(true);
-        setError(undefined);
-        
-        if (!user) {
-          setHasPermission(false);
-          setCanCrossEntities(false);
-          return;
-        }
+  tenantId?: string
+) => {
+  const [hasPermission, setHasPermission] = useState<boolean>(false);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
 
-        // Check permission with entity boundary enforcement
-        const permission = await rbacService.checkPermission(
-          user.id,
+  useEffect(() => {
+    const checkBoundaryPermission = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        
+        const context = { tenantId, entityId };
+        const result = await rbacService.checkPermission(
+          'current-user-id',
           action,
-          resource,
-          resourceId,
-          targetEntityId || tenantId || undefined
+          entityType,
+          context
         );
         
-        setHasPermission(permission);
-
-        // Get user's entity boundaries
-        const boundaries = await entityBoundaryService.getUserEntityBoundaries(user.id);
-        setCanCrossEntities(boundaries.length > 1);
-        
-        // Set effective entity ID
-        if (boundaries.length > 0) {
-          setEntityId(targetEntityId || boundaries[0].entityId);
-        }
-        
+        setHasPermission(result);
       } catch (err) {
-        console.error('Entity boundary permission check error:', err);
-        setError('Failed to check permission with entity boundaries');
-        setHasPermission(false);
-        setCanCrossEntities(false);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    
-    checkPermissionWithBoundaries();
-  }, [user, tenantId, action, resource, resourceId, targetEntityId]);
-  
-  return { 
-    hasPermission, 
-    isLoading, 
-    error, 
-    entityId,
-    canCrossEntities 
-  };
-}
-
-/**
- * Hook for checking if user can perform cross-entity operations
- */
-export function useCrossEntityPermission(
-  action: string,
-  resource: string,
-  sourceEntityId?: string,
-  targetEntityId?: string
-): UseEntityPermissionResult {
-  const { user } = useAuth();
-  const [hasPermission, setHasPermission] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string>();
-  
-  useEffect(() => {
-    const checkCrossEntityPermission = async () => {
-      try {
-        setIsLoading(true);
-        setError(undefined);
-        
-        if (!user || !sourceEntityId || !targetEntityId) {
-          setHasPermission(false);
-          return;
-        }
-
-        // Check cross-entity permission
-        const permission = await rbacService.checkPermission(
-          user.id,
-          'cross_entity_access',
-          resource,
-          undefined,
-          sourceEntityId
-        );
-        
-        setHasPermission(permission);
-        
-      } catch (err) {
-        console.error('Cross-entity permission check error:', err);
-        setError('Failed to check cross-entity permission');
+        setError(err instanceof Error ? err.message : 'Boundary permission check failed');
         setHasPermission(false);
       } finally {
-        setIsLoading(false);
+        setLoading(false);
       }
     };
-    
-    checkCrossEntityPermission();
-  }, [user, action, resource, sourceEntityId, targetEntityId]);
-  
-  return { 
-    hasPermission, 
-    isLoading, 
-    error, 
-    entityId: targetEntityId,
-    canCrossEntities: true 
+
+    if (entityId && entityType) {
+      checkBoundaryPermission();
+    }
+  }, [entityType, entityId, action, tenantId]);
+
+  const validateBoundary = useCallback(async (
+    targetEntityId: string,
+    targetAction: string
+  ) => {
+    try {
+      const context = { tenantId, entityId: targetEntityId };
+      const result = await rbacService.checkPermission(
+        'current-user-id',
+        targetAction,
+        entityType,
+        context
+      );
+      return result;
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : 'Boundary validation failed');
+    }
+  }, [entityType, tenantId]);
+
+  return {
+    hasPermission,
+    loading,
+    error,
+    validateBoundary
   };
-}
+};

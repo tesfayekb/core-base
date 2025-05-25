@@ -25,7 +25,7 @@ export class CacheWarmingService {
     this.strategies.push(new CommonPermissionsStrategy());
   }
 
-  async executeWarmingStrategy(strategyName: string): Promise<WarmingResult> {
+  async executeWarmupStrategy(strategyName: string): Promise<WarmingResult> {
     const strategy = this.strategies.find(s => s.name === strategyName);
     if (!strategy) {
       return {
@@ -62,7 +62,7 @@ export class CacheWarmingService {
       const sortedStrategies = this.strategies.sort((a, b) => a.priority - b.priority);
 
       for (const strategy of sortedStrategies) {
-        const result = await this.executeWarmingStrategy(strategy.name);
+        const result = await this.executeWarmupStrategy(strategy.name);
         results.push(result);
         await new Promise(resolve => setTimeout(resolve, 100));
       }
@@ -96,6 +96,10 @@ export class CacheWarmingService {
 
   getLastWarmingResults(): WarmingResult[] {
     return this.lastWarmingResults;
+  }
+
+  getStrategies(): WarmingStrategy[] {
+    return [...this.strategies];
   }
 
   getWarmingStatus(): {
