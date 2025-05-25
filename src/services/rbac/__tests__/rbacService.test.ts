@@ -1,3 +1,4 @@
+
 import { RBACService } from '../rbacService';
 
 // Mock implementation of the data services
@@ -20,8 +21,8 @@ beforeEach(() => {
   // Clear mock implementations before each test
   jest.clearAllMocks();
 
-  // Initialize RBACService with mock data services
-  rbacService = new RBACService(mockDataServices);
+  // Initialize RBACService
+  rbacService = new RBACService();
 });
 
 describe('RBACService', () => {

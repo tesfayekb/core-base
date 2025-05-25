@@ -2,13 +2,13 @@
 import DOMPurify from 'dompurify';
 
 export function sanitizeFormData<T extends Record<string, any>>(data: T): T {
-  const sanitized = { ...data };
+  const sanitized = { ...data } as T;
   
   Object.keys(sanitized).forEach(key => {
-    const value = sanitized[key];
+    const value = sanitized[key as keyof T];
     if (typeof value === 'string') {
       // Sanitize HTML content and trim whitespace
-      sanitized[key] = DOMPurify.sanitize(value.trim());
+      (sanitized as any)[key] = DOMPurify.sanitize(value.trim());
     }
   });
   
