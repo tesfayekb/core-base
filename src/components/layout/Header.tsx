@@ -10,7 +10,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/components/auth/AuthProvider";
 
 export function Header({ toggleSidebar }: { toggleSidebar: () => void }) {
   const { user, signOut } = useAuth();
