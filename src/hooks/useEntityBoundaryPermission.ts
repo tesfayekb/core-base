@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from 'react';
 import { rbacService } from '../services/rbac/rbacService';
 
@@ -13,13 +14,13 @@ export const useEntityBoundaryPermission = (
   tenantId?: string
 ) => {
   const [hasPermission, setHasPermission] = useState<boolean>(false);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const checkBoundaryPermission = async () => {
       try {
-        setLoading(true);
+        setIsLoading(true);
         setError(null);
         
         const context = { tenantId, entityId };
@@ -35,7 +36,7 @@ export const useEntityBoundaryPermission = (
         setError(err instanceof Error ? err.message : 'Boundary permission check failed');
         setHasPermission(false);
       } finally {
-        setLoading(false);
+        setIsLoading(false);
       }
     };
 
@@ -64,8 +65,10 @@ export const useEntityBoundaryPermission = (
 
   return {
     hasPermission,
-    loading,
+    isLoading,
     error,
-    validateBoundary
+    validateBoundary,
+    entityId,
+    canCrossEntities: false // Simple implementation for now
   };
 };

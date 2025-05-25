@@ -1,9 +1,10 @@
+
 import { useState, useEffect, useCallback } from 'react';
 import { rbacService } from '../services/rbac/rbacService';
 
 interface UsePermissionResult {
   hasPermission: boolean;
-  loading: boolean;
+  isLoading: boolean;
   error: string | null;
   refetch: () => Promise<boolean>;
   assignRole: (assigneeId: string, roleId: string, assignmentTenantId: string) => Promise<{ success: boolean; error?: string }>;
@@ -16,13 +17,13 @@ export const usePermission = (
   entityId?: string
 ) => {
   const [hasPermission, setHasPermission] = useState<boolean>(false);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const checkPermission = async () => {
       try {
-        setLoading(true);
+        setIsLoading(true);
         setError(null);
         
         const context = { tenantId, entityId };
@@ -38,7 +39,7 @@ export const usePermission = (
         setError(err instanceof Error ? err.message : 'Permission check failed');
         setHasPermission(false);
       } finally {
-        setLoading(false);
+        setIsLoading(false);
       }
     };
 
@@ -82,7 +83,7 @@ export const usePermission = (
 
   return {
     hasPermission,
-    loading,
+    isLoading,
     error,
     refetch,
     assignRole

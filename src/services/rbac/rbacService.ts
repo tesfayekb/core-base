@@ -1,4 +1,3 @@
-
 import { enhancedPermissionResolver, PermissionContext } from './EnhancedPermissionResolver';
 import { cacheWarmingService } from './CacheWarmingService';
 import { cachePerformanceMonitor } from './CachePerformanceMonitor';
@@ -23,6 +22,9 @@ export interface UserRole {
   tenant_id: string;
   permissions: string[];
 }
+
+// Export PermissionContext for use in other files
+export type { PermissionContext };
 
 export class RBACService {
   private static instance: RBACService;

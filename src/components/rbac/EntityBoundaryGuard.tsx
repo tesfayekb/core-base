@@ -33,7 +33,7 @@ export function EntityBoundaryGuard({
     error, 
     entityId,
     canCrossEntities 
-  } = useEntityBoundaryPermission(action, resource, resourceId, targetEntityId);
+  } = useEntityBoundaryPermission(resource, resourceId || 'default', action, targetEntityId);
   
   if (isLoading) {
     return <Skeleton className="h-8 w-full" />;
