@@ -1,7 +1,7 @@
-
 import { supabase } from '../database/connection';
 import { granularDependencyResolver } from './GranularDependencyResolver';
 import { EntityBoundaryValidator } from './entityBoundaries';
+import { advancedCacheManager } from './AdvancedCacheManager';
 
 export interface PermissionResolutionResult {
   granted: boolean;
@@ -20,9 +20,6 @@ export interface PermissionContext {
 
 export class EnhancedPermissionResolver {
   private static instance: EnhancedPermissionResolver;
-  private permissionCache = new Map<string, { result: boolean; timestamp: number; dependencies: string[] }>();
-  private entityBoundaryCache = new Map<string, { valid: boolean; timestamp: number }>();
-  private cacheTimeout = 5 * 60 * 1000;
   private performanceMetrics = new Map<string, number[]>();
 
   static getInstance(): EnhancedPermissionResolver {
@@ -41,11 +38,12 @@ export class EnhancedPermissionResolver {
     const startTime = performance.now();
     const cacheKey = this.buildCacheKey(userId, action, resource, context);
     
-    const cachedResult = this.getFromCache(cacheKey);
+    // Check advanced cache first
+    const cachedResult = advancedCacheManager.get<{ result: boolean; dependencies: string[] }>(cacheKey);
     if (cachedResult) {
       return {
         granted: cachedResult.result,
-        reason: 'Cached result',
+        reason: 'Advanced cache hit',
         dependencies: cachedResult.dependencies,
         resolutionTime: performance.now() - startTime,
         cacheHit: true
@@ -53,6 +51,7 @@ export class EnhancedPermissionResolver {
     }
 
     try {
+      // SuperAdmin check (fast path)
       if (await this.isSuperAdmin(userId)) {
         const result = {
           granted: true,
@@ -61,10 +60,11 @@ export class EnhancedPermissionResolver {
           resolutionTime: performance.now() - startTime,
           cacheHit: false
         };
-        this.cacheResult(cacheKey, result);
+        this.cacheResult(cacheKey, result, userId);
         return result;
       }
 
+      // Entity boundary validation
       const entityValid = await this.validateEntityBoundary(userId, context);
       if (!entityValid) {
         const result = {
@@ -74,10 +74,11 @@ export class EnhancedPermissionResolver {
           resolutionTime: performance.now() - startTime,
           cacheHit: false
         };
-        this.cacheResult(cacheKey, result);
+        this.cacheResult(cacheKey, result, userId);
         return result;
       }
 
+      // Enhanced dependency resolution
       const dependencyResult = await granularDependencyResolver.resolvePermissionWithDependencies(
         userId,
         `${action}:${resource}`,
@@ -95,7 +96,7 @@ export class EnhancedPermissionResolver {
         cacheHit: false
       };
 
-      this.cacheResult(cacheKey, result);
+      this.cacheResult(cacheKey, result, userId);
       this.recordPerformanceMetric(action, result.resolutionTime);
 
       return result;
@@ -209,26 +210,22 @@ export class EnhancedPermissionResolver {
       entityId: context.entityId,
       resourceId: context.resourceId
     });
-    return `${userId}:${action}:${resource}:${btoa(contextStr)}`;
+    return `perm:${userId}:${action}:${resource}:${btoa(contextStr)}`;
   }
 
-  private getFromCache(cacheKey: string) {
-    const cached = this.permissionCache.get(cacheKey);
-    if (cached && Date.now() - cached.timestamp < this.cacheTimeout) {
-      return cached;
-    }
-    if (cached) {
-      this.permissionCache.delete(cacheKey);
-    }
-    return null;
-  }
+  private cacheResult(cacheKey: string, result: PermissionResolutionResult, userId: string): void {
+    const dependencies = [
+      `user:${userId}`,
+      `resource:${cacheKey.split(':')[3]}`, // resource from cache key
+      ...result.dependencies.map(dep => `dep:${dep}`)
+    ];
 
-  private cacheResult(cacheKey: string, result: PermissionResolutionResult): void {
-    this.permissionCache.set(cacheKey, {
-      result: result.granted,
-      timestamp: Date.now(),
-      dependencies: result.dependencies
-    });
+    advancedCacheManager.set(
+      cacheKey,
+      { result: result.granted, dependencies: result.dependencies },
+      300000, // 5 minutes TTL
+      dependencies
+    );
   }
 
   private recordPerformanceMetric(action: string, resolutionTime: number): void {
@@ -260,17 +257,7 @@ export class EnhancedPermissionResolver {
   }
 
   invalidateUserCache(userId: string): void {
-    for (const key of this.permissionCache.keys()) {
-      if (key.startsWith(`${userId}:`)) {
-        this.permissionCache.delete(key);
-      }
-    }
-    
-    for (const key of this.entityBoundaryCache.keys()) {
-      if (key.startsWith(`${userId}:`)) {
-        this.entityBoundaryCache.delete(key);
-      }
-    }
+    advancedCacheManager.invalidateByDependency(`user:${userId}`);
   }
 
   getCacheStats(): { 
@@ -278,11 +265,40 @@ export class EnhancedPermissionResolver {
     entityCacheSize: number; 
     hitRate: number; 
   } {
+    const cacheStats = advancedCacheManager.getStats();
     return {
-      permissionCacheSize: this.permissionCache.size,
-      entityCacheSize: this.entityBoundaryCache.size,
-      hitRate: 0.95
+      permissionCacheSize: cacheStats.totalEntries,
+      entityCacheSize: 0, // Legacy compatibility
+      hitRate: cacheStats.hitRate
     };
+  }
+
+  async warmCommonPermissions(userIds: string[]): Promise<void> {
+    const commonPermissions = [];
+    
+    // Common permission patterns to warm
+    const actions = ['view', 'edit', 'delete', 'manage'];
+    const resources = ['users', 'roles', 'documents', 'settings'];
+    
+    for (const userId of userIds) {
+      for (const action of actions) {
+        for (const resource of resources) {
+          commonPermissions.push({
+            userId,
+            action,
+            resource
+          });
+        }
+      }
+    }
+
+    await advancedCacheManager.warmCache(
+      commonPermissions,
+      async (userId, action, resource, context) => {
+        const result = await this.resolvePermission(userId, action, resource, context);
+        return result.granted;
+      }
+    );
   }
 }
 
