@@ -114,7 +114,9 @@ export class AdvancedPermissionDependencyResolver {
 
         if (contextualResult.granted) {
           const result: DependencyResolutionResult = {
-            ...contextualResult,
+            granted: contextualResult.granted,
+            reason: contextualResult.reason,
+            dependencyChain: contextualResult.dependencyChain,
             resolutionTime: performance.now() - startTime,
             cacheHit: false
           };
@@ -154,7 +156,7 @@ export class AdvancedPermissionDependencyResolver {
     resource: string,
     context: AdvancedDependencyContext,
     hasPermissionFn: (userId: string, action: string, resource: string, resourceId?: string) => Promise<boolean>
-  ): Promise<Partial<DependencyResolutionResult>> {
+  ): Promise<{ granted: boolean; reason: string; dependencyChain: string[] }> {
     const dependencyChain: string[] = [];
 
     // Time-based dependencies
@@ -188,7 +190,11 @@ export class AdvancedPermissionDependencyResolver {
       }
     }
 
-    return { granted: false, dependencyChain };
+    return { 
+      granted: false, 
+      reason: 'No contextual dependencies found',
+      dependencyChain 
+    };
   }
 
   private getTimeBasedDependencies(action: string, resource: string, timeContext: Date): Array<{action: string, resource: string}> {
