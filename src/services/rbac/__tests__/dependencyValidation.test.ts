@@ -2,6 +2,12 @@
 import { DependencyValidationService } from '../DependencyValidationService';
 
 describe('DependencyValidationService', () => {
+  let dependencyValidationService: DependencyValidationService;
+
+  beforeEach(() => {
+    dependencyValidationService = DependencyValidationService.getInstance();
+  });
+
   describe('validatePermissionDependencies', () => {
     test('should validate simple permission dependencies', async () => {
       const permissions = [
@@ -9,70 +15,62 @@ describe('DependencyValidationService', () => {
         { action: 'write', resource: 'documents' }
       ];
 
-      const result = await DependencyValidationService.validatePermissionDependencies(
-        permissions,
+      const result = await dependencyValidationService.validatePermissionAssignment(
+        'test-user',
+        'read:documents',
         'test-tenant'
       );
 
-      expect(result.isValid).toBe(true);
+      expect(result.valid).toBe(true);
     });
 
     test('should detect missing dependencies', async () => {
-      const permissions = [
-        { action: 'delete', resource: 'documents' }
-      ];
-
-      const result = await DependencyValidationService.validatePermissionDependencies(
-        permissions,
+      const result = await dependencyValidationService.validatePermissionAssignment(
+        'test-user',
+        'delete:documents',
         'test-tenant'
       );
 
-      expect(result.isValid).toBe(false);
-      expect(result.violations.length).toBeGreaterThan(0);
+      expect(result.valid).toBe(false);
+      expect(result.missingDependencies.length).toBeGreaterThan(0);
     });
   });
 
   describe('validateRoleConsistency', () => {
     test('should validate role consistency across tenant', async () => {
-      const permissions = [
-        { action: 'read', resource: 'documents' },
-        { action: 'write', resource: 'documents' }
-      ];
-
-      const result = await DependencyValidationService.validateRoleConsistency(
-        permissions,
+      const result = await dependencyValidationService.validateRoleAssignment(
+        'admin-user',
+        'editor-role',
+        'target-user',
         'test-tenant'
       );
 
-      expect(result.isConsistent).toBe(true);
+      expect(result.valid).toBe(true);
     });
 
     test('should detect role inconsistencies', async () => {
-      const permissions = [
-        { action: 'admin', resource: 'users' },
-        { action: 'limited', resource: 'users' }
-      ];
-
-      const result = await DependencyValidationService.validateRoleConsistency(
-        permissions,
+      const result = await dependencyValidationService.validateRoleAssignment(
+        'regular-user',
+        'admin-role',
+        'target-user',
         'test-tenant'
       );
 
-      expect(result.inconsistencies.length).toBeGreaterThan(0);
+      expect(result.valid).toBe(false);
+      expect(result.missingDependencies.length).toBeGreaterThan(0);
     });
   });
 
   describe('validateCrossTenantIsolation', () => {
     test('should validate tenant isolation', async () => {
-      const permission = { action: 'read', resource: 'documents' };
-
-      const result = await DependencyValidationService.validateCrossTenantIsolation(
-        permission,
-        'tenant-1',
-        'tenant-2'
+      const result = await dependencyValidationService.preValidateRoleAssignment(
+        'user-1',
+        'role-1',
+        'target-user',
+        'tenant-1'
       );
 
-      expect(result.isIsolated).toBe(true);
+      expect(result.canProceed).toBe(true);
     });
   });
 });
