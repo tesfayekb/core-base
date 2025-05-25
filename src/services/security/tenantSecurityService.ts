@@ -1,10 +1,9 @@
 
-// Tenant Security Service - Comprehensive Multi-Tenant Security Boundaries
+// Tenant Security Service
 // Phase 1.6: Multi-Tenant Foundation Security Implementation
 
-import { enhancedAuditService } from '../audit/enhancedAuditService';
-import { tenantContextService } from '../database/tenantContext';
 import { supabase } from '../database/connection';
+import { tenantContextService } from '../database/tenantContext';
 
 export interface TenantAccessContext {
   userId: string;
@@ -15,11 +14,17 @@ export interface TenantAccessContext {
   resourceId?: string;
 }
 
-export interface TenantValidationResult {
+export interface TenantAccessResult {
   allowed: boolean;
-  reason?: string;
-  requiresAdditionalAuth?: boolean;
+  reason: string;
   securityViolation?: boolean;
+}
+
+export interface DataIsolationResult {
+  allowed: boolean;
+  reason: string;
+  modifiedQuery?: string;
+  modifiedParameters?: any[];
 }
 
 export class TenantSecurityService {
@@ -32,194 +37,122 @@ export class TenantSecurityService {
     return TenantSecurityService.instance;
   }
 
-  /**
-   * Validate if user can access specific tenant data
-   */
-  async validateTenantAccess(context: TenantAccessContext): Promise<TenantValidationResult> {
-    const { userId, requestedTenantId, operation, resourceType, resourceId } = context;
-
+  async validateTenantAccess(context: TenantAccessContext): Promise<TenantAccessResult> {
     try {
-      // 1. Check if user has any access to the requested tenant
-      const hasAccess = await this.validateUserTenantMembership(userId, requestedTenantId);
-      
-      if (!hasAccess) {
-        // Log security violation
-        await this.logTenantSecurityViolation(context, 'unauthorized_tenant_access');
-        
-        return {
-          allowed: false,
-          reason: 'User does not have access to this tenant',
-          securityViolation: true
-        };
-      }
-
-      // 2. Check if operation is allowed within tenant context
-      const operationAllowed = await this.validateTenantOperation(userId, requestedTenantId, operation);
-      
-      if (!operationAllowed) {
-        await this.logTenantSecurityViolation(context, 'unauthorized_tenant_operation');
-        
-        return {
-          allowed: false,
-          reason: 'Operation not permitted in this tenant context',
-          securityViolation: true
-        };
-      }
-
-      // 3. Validate resource-specific access if applicable
-      if (resourceType && resourceId) {
-        const resourceAllowed = await this.validateTenantResourceAccess(
-          userId, 
-          requestedTenantId, 
-          resourceType, 
-          resourceId
-        );
-        
-        if (!resourceAllowed) {
-          await this.logTenantSecurityViolation(context, 'unauthorized_resource_access');
-          
-          return {
-            allowed: false,
-            reason: 'Access to this resource not permitted',
-            securityViolation: true
-          };
-        }
-      }
-
-      // Log successful access validation
-      await enhancedAuditService.logSecurityEvent(
-        'access_denied', // This should be 'access_granted' but using available enum
-        'success',
-        {
-          action: 'tenant_access_validated',
-          tenantId: requestedTenantId,
-          operation,
-          resourceType,
-          resourceId
-        },
-        {
-          userId,
-          tenantId: requestedTenantId
-        }
+      // Check if user has access to the requested tenant
+      const hasAccess = await this.checkUserTenantAccess(
+        context.userId,
+        context.requestedTenantId
       );
 
-      return { allowed: true };
+      if (!hasAccess) {
+        return {
+          allowed: false,
+          reason: 'User does not have access to requested tenant',
+          securityViolation: true
+        };
+      }
 
+      // Check for suspicious patterns
+      const isSuspicious = this.detectSuspiciousActivity(context);
+      if (isSuspicious) {
+        return {
+          allowed: false,
+          reason: 'Suspicious access pattern detected',
+          securityViolation: true
+        };
+      }
+
+      // Validate operation permissions
+      const hasOperationPermission = await this.validateOperationPermission(context);
+      if (!hasOperationPermission) {
+        return {
+          allowed: false,
+          reason: 'Insufficient permissions for requested operation'
+        };
+      }
+
+      return {
+        allowed: true,
+        reason: 'Access granted'
+      };
     } catch (error) {
       console.error('Tenant access validation error:', error);
-      
-      await this.logTenantSecurityViolation(context, 'validation_error');
-      
       return {
         allowed: false,
-        reason: 'Security validation failed',
+        reason: 'Validation error occurred',
         securityViolation: true
       };
     }
   }
 
-  /**
-   * Validate secure tenant switching
-   */
   async validateTenantSwitch(
-    userId: string, 
-    fromTenantId: string | null, 
-    toTenantId: string
-  ): Promise<TenantValidationResult> {
+    userId: string,
+    currentTenantId: string | null,
+    targetTenantId: string
+  ): Promise<TenantAccessResult> {
     try {
-      // 1. Validate user has access to target tenant
-      const hasAccess = await this.validateUserTenantMembership(userId, toTenantId);
-      
+      // Prevent switching to the same tenant
+      if (currentTenantId === targetTenantId) {
+        return {
+          allowed: true,
+          reason: 'Already in target tenant context'
+        };
+      }
+
+      // Check user access to target tenant
+      const hasAccess = await this.checkUserTenantAccess(userId, targetTenantId);
       if (!hasAccess) {
-        await enhancedAuditService.logSecurityEvent(
-          'suspicious_activity',
-          'success',
-          {
-            action: 'invalid_tenant_switch_attempt',
-            fromTenant: fromTenantId,
-            toTenant: toTenantId,
-            reason: 'User not member of target tenant'
-          },
-          {
-            userId,
-            tenantId: fromTenantId || undefined
-          }
-        );
-        
         return {
           allowed: false,
-          reason: 'Access denied to target tenant',
+          reason: 'User does not have access to target tenant',
           securityViolation: true
         };
       }
 
-      // 2. Check for suspicious switching patterns
-      const suspiciousActivity = await this.detectSuspiciousTenantSwitching(userId, toTenantId);
-      
-      if (suspiciousActivity) {
-        await enhancedAuditService.logSecurityEvent(
-          'suspicious_activity',
-          'success',
-          {
-            action: 'suspicious_tenant_switching_detected',
-            fromTenant: fromTenantId,
-            toTenant: toTenantId,
-            details: 'Rapid tenant switching detected'
-          },
-          {
-            userId,
-            tenantId: fromTenantId || undefined
-          }
-        );
-        
+      // Check for rapid switching patterns (potential security issue)
+      const isRapidSwitching = await this.detectRapidTenantSwitching(userId);
+      if (isRapidSwitching) {
         return {
           allowed: false,
-          reason: 'Suspicious tenant switching pattern detected',
-          requiresAdditionalAuth: true,
+          reason: 'Rapid tenant switching detected - potential security risk',
           securityViolation: true
         };
       }
 
-      // 3. Log successful tenant switch
-      await enhancedAuditService.logSecurityEvent(
-        'access_denied', // Using available enum value
-        'success',
-        {
-          action: 'tenant_switch_validated',
-          fromTenant: fromTenantId,
-          toTenant: toTenantId
-        },
-        {
-          userId,
-          tenantId: toTenantId
-        }
-      );
-
-      return { allowed: true };
-
+      return {
+        allowed: true,
+        reason: 'Tenant switch authorized'
+      };
     } catch (error) {
       console.error('Tenant switch validation error:', error);
       return {
         allowed: false,
-        reason: 'Tenant switch validation failed',
+        reason: 'Switch validation failed',
         securityViolation: true
       };
     }
   }
 
-  /**
-   * Enforce data isolation boundaries
-   */
   async enforceDataIsolation(
     userId: string,
     tenantId: string,
     query: string,
-    parameters: any[]
-  ): Promise<{ allowed: boolean; modifiedQuery?: string; reason?: string }> {
+    parameters: any[] = []
+  ): Promise<DataIsolationResult> {
     try {
-      // 1. Ensure tenant context is set
-      const contextResult = await tenantContextService.setTenantContext(tenantId);
+      // Check if query is safe for multi-tenant environment
+      const queryAnalysis = this.analyzeQuery(query);
       
+      if (queryAnalysis.containsSuspiciousPatterns) {
+        return {
+          allowed: false,
+          reason: 'Query contains suspicious patterns'
+        };
+      }
+
+      // Ensure tenant context is set
+      const contextResult = await tenantContextService.setTenantContext(tenantId);
       if (!contextResult.success) {
         return {
           allowed: false,
@@ -227,34 +160,23 @@ export class TenantSecurityService {
         };
       }
 
-      // 2. Validate query doesn't attempt cross-tenant access
-      const crossTenantAttempt = this.detectCrossTenantQueryAttempt(query, tenantId);
-      
-      if (crossTenantAttempt) {
-        await this.logTenantSecurityViolation(
-          {
-            userId,
-            requestedTenantId: tenantId,
-            operation: 'database_query',
-            resourceType: 'cross_tenant_data'
-          },
-          'cross_tenant_query_attempt'
-        );
+      // For select queries, ensure they include tenant filtering
+      if (queryAnalysis.isSelectQuery && !queryAnalysis.hasTenantFilter) {
+        const modifiedQuery = this.addTenantFilter(query, tenantId);
+        const modifiedParameters = [...parameters, tenantId];
         
         return {
-          allowed: false,
-          reason: 'Cross-tenant data access attempt detected'
+          allowed: true,
+          reason: 'Query modified for tenant isolation',
+          modifiedQuery,
+          modifiedParameters
         };
       }
 
-      // 3. Add tenant isolation to query if not present
-      const secureQuery = this.ensureTenantIsolation(query, tenantId);
-
       return {
         allowed: true,
-        modifiedQuery: secureQuery
+        reason: 'Query is safe for execution'
       };
-
     } catch (error) {
       console.error('Data isolation enforcement error:', error);
       return {
@@ -264,175 +186,97 @@ export class TenantSecurityService {
     }
   }
 
-  /**
-   * Check if user is member of tenant
-   */
-  private async validateUserTenantMembership(userId: string, tenantId: string): Promise<boolean> {
+  private async checkUserTenantAccess(userId: string, tenantId: string): Promise<boolean> {
     try {
       const { data, error } = await supabase
         .from('user_tenants')
         .select('id')
         .eq('user_id', userId)
         .eq('tenant_id', tenantId)
-        .eq('is_active', true)
         .single();
 
       return !error && !!data;
     } catch (error) {
-      console.error('Tenant membership validation error:', error);
+      console.error('User tenant access check failed:', error);
       return false;
     }
   }
 
-  /**
-   * Validate tenant-specific operation permissions
-   */
-  private async validateTenantOperation(
-    userId: string, 
-    tenantId: string, 
-    operation: string
-  ): Promise<boolean> {
-    // In a full implementation, this would check RBAC permissions
-    // For now, we'll implement basic validation
-    try {
-      const { data, error } = await supabase
-        .from('user_tenants')
-        .select('role_id')
-        .eq('user_id', userId)
-        .eq('tenant_id', tenantId)
-        .eq('is_active', true)
-        .single();
+  private detectSuspiciousActivity(context: TenantAccessContext): boolean {
+    // Check for common attack patterns
+    const suspiciousPatterns = [
+      /admin|root|system|superuser/i,
+      /\b(union|select|drop|delete|update|insert)\b/i,
+      /['"`;]/,
+      /%[0-9a-f]{2}/i // URL encoding
+    ];
 
-      if (error || !data) {
-        return false;
-      }
-
-      // Basic operation validation - in full implementation, check against permissions
-      const allowedOperations = ['read', 'write', 'view', 'edit', 'create'];
-      return allowedOperations.includes(operation.toLowerCase());
-
-    } catch (error) {
-      console.error('Tenant operation validation error:', error);
-      return false;
-    }
-  }
-
-  /**
-   * Validate access to specific tenant resource
-   */
-  private async validateTenantResourceAccess(
-    userId: string,
-    tenantId: string,
-    resourceType: string,
-    resourceId: string
-  ): Promise<boolean> {
-    // Basic resource access validation
-    // In full implementation, this would check resource-specific permissions
-    try {
-      // Check if resource belongs to the tenant
-      const { data, error } = await supabase
-        .from(resourceType)
-        .select('tenant_id')
-        .eq('id', resourceId)
-        .single();
-
-      if (error || !data) {
-        return false;
-      }
-
-      return data.tenant_id === tenantId;
-
-    } catch (error) {
-      console.error('Resource access validation error:', error);
-      return false;
-    }
-  }
-
-  /**
-   * Detect suspicious tenant switching patterns
-   */
-  private async detectSuspiciousTenantSwitching(userId: string, tenantId: string): Promise<boolean> {
-    try {
-      // Check for rapid tenant switching (more than 5 switches in 1 minute)
-      const oneMinuteAgo = new Date(Date.now() - 60000).toISOString();
-      
-      const { data, error } = await supabase
-        .from('audit_logs')
-        .select('id')
-        .eq('user_id', userId)
-        .eq('action', 'tenant_switch')
-        .gte('created_at', oneMinuteAgo);
-
-      if (error) {
-        return false;
-      }
-
-      return (data?.length || 0) > 5;
-
-    } catch (error) {
-      console.error('Suspicious activity detection error:', error);
-      return false;
-    }
-  }
-
-  /**
-   * Detect cross-tenant query attempts
-   */
-  private detectCrossTenantQueryAttempt(query: string, expectedTenantId: string): boolean {
-    // Basic detection - look for explicit tenant_id references that don't match
-    const tenantIdPattern = /tenant_id\s*=\s*'([^']+)'/gi;
-    const matches = [...query.matchAll(tenantIdPattern)];
+    const testString = `${context.requestedTenantId} ${context.operation} ${context.resourceType || ''}`;
     
-    return matches.some(match => match[1] !== expectedTenantId);
+    return suspiciousPatterns.some(pattern => pattern.test(testString));
   }
 
-  /**
-   * Ensure query includes tenant isolation
-   */
-  private ensureTenantIsolation(query: string, tenantId: string): string {
-    // Basic implementation - ensure WHERE clause includes tenant_id
-    if (!query.toLowerCase().includes('tenant_id')) {
-      // Add tenant isolation if missing
-      const whereIndex = query.toLowerCase().indexOf('where');
-      if (whereIndex !== -1) {
-        const beforeWhere = query.substring(0, whereIndex + 5);
-        const afterWhere = query.substring(whereIndex + 5);
-        return `${beforeWhere} tenant_id = '${tenantId}' AND ${afterWhere}`;
-      } else {
-        return `${query} WHERE tenant_id = '${tenantId}'`;
-      }
-    }
-    
-    return query;
-  }
-
-  /**
-   * Log tenant security violations
-   */
-  private async logTenantSecurityViolation(
-    context: TenantAccessContext,
-    violationType: string
-  ): Promise<void> {
+  private async validateOperationPermission(context: TenantAccessContext): Promise<boolean> {
     try {
-      await enhancedAuditService.logSecurityEvent(
-        'breach_attempt',
-        'success',
-        {
-          violationType,
-          operation: context.operation,
-          requestedTenant: context.requestedTenantId,
-          currentTenant: context.currentTenantId,
-          resourceType: context.resourceType,
-          resourceId: context.resourceId,
-          severity: 'high'
-        },
-        {
-          userId: context.userId,
-          tenantId: context.currentTenantId
-        }
-      );
+      // This would integrate with the RBAC system
+      // For now, implement basic validation
+      const validOperations = [
+        'read', 'write', 'update', 'delete',
+        'view', 'edit', 'create', 'manage'
+      ];
+
+      return validOperations.includes(context.operation.toLowerCase());
     } catch (error) {
-      console.error('Failed to log tenant security violation:', error);
+      console.error('Operation permission validation failed:', error);
+      return false;
+    }
+  }
+
+  private async detectRapidTenantSwitching(userId: string): Promise<boolean> {
+    // Implement rate limiting logic for tenant switching
+    // This would typically check recent switching activity
+    // For now, return false (no rapid switching detected)
+    return false;
+  }
+
+  private analyzeQuery(query: string): {
+    isSelectQuery: boolean;
+    hasTenantFilter: boolean;
+    containsSuspiciousPatterns: boolean;
+  } {
+    const normalizedQuery = query.toLowerCase().trim();
+    
+    return {
+      isSelectQuery: normalizedQuery.startsWith('select'),
+      hasTenantFilter: /tenant_id\s*=/.test(normalizedQuery),
+      containsSuspiciousPatterns: this.containsSuspiciousQueryPatterns(normalizedQuery)
+    };
+  }
+
+  private containsSuspiciousQueryPatterns(query: string): boolean {
+    const suspiciousPatterns = [
+      /information_schema/i,
+      /pg_catalog/i,
+      /\bdrop\s+table/i,
+      /\btruncate\s+table/i,
+      /\balter\s+table/i,
+      /\bgrant\s+/i,
+      /\brevoke\s+/i
+    ];
+
+    return suspiciousPatterns.some(pattern => pattern.test(query));
+  }
+
+  private addTenantFilter(query: string, tenantId: string): string {
+    // Simple implementation - in production, use a proper SQL parser
+    const whereClausePattern = /\bwhere\b/i;
+    
+    if (whereClausePattern.test(query)) {
+      return query.replace(whereClausePattern, 'WHERE tenant_id = $? AND');
+    } else {
+      // Find the FROM clause and add WHERE
+      const fromPattern = /(\bfrom\s+\w+)/i;
+      return query.replace(fromPattern, '$1 WHERE tenant_id = $?');
     }
   }
 }

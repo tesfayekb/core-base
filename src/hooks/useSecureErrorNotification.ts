@@ -1,129 +1,82 @@
 
 // Secure Error Notification Hook
-// Provides user-friendly error presentation for security events
+// Handles security-related error notifications without exposing sensitive information
 
 import { useCallback } from 'react';
-import { useErrorNotification } from './useErrorNotification';
-import { useAuth } from '@/contexts/AuthContext';
-import { secureErrorService, SecurityErrorType, SecureErrorContext, SecureErrorService } from '@/services/security/secureErrorService';
+import { useEnhancedToast } from '@/components/ui/enhanced-toast';
 
 export function useSecureErrorNotification() {
-  const { showError, showWarning, showSuccess } = useErrorNotification();
-  const { user, tenantId } = useAuth();
+  const toast = useEnhancedToast();
 
-  const handleSecurityError = useCallback(async (
+  const handleSuspiciousActivity = useCallback(async (
     error: Error,
-    errorType: SecurityErrorType,
-    context: Partial<SecureErrorContext> = {}
+    activityType: string
   ) => {
-    // Build complete context
-    const fullContext: SecureErrorContext = {
-      userId: user?.id,
-      tenantId: tenantId || undefined,
-      requestId: context.requestId || `req_${Date.now()}`,
-      source: context.source || 'ui',
-      operation: context.operation,
-      ipAddress: context.ipAddress,
-      userAgent: navigator?.userAgent
-    };
-
-    // Determine severity based on error type and content
-    let severity: 'low' | 'medium' | 'high' | 'critical' = 'medium';
-    
-    if (SecureErrorService.isSecurityThreat(error)) {
-      severity = 'high';
-    }
-    
-    if (errorType === SecurityErrorType.SUSPICIOUS_ACTIVITY) {
-      severity = 'critical';
-    }
-
-    try {
-      // Process error through secure error service
-      const secureResponse = await secureErrorService.handleSecurityError(
-        error,
-        errorType,
-        fullContext,
-        severity
-      );
-
-      // Display appropriate user message based on severity
-      if (severity === 'critical' || severity === 'high') {
-        showError(secureResponse.userMessage, {
-          title: 'Security Alert',
-          description: secureResponse.supportContact 
-            ? `Request ID: ${secureResponse.requestId}. Please contact support if this persists.`
-            : `Request ID: ${secureResponse.requestId}`,
-          duration: 8000
-        });
-      } else if (severity === 'medium') {
-        showWarning(secureResponse.userMessage, {
-          title: 'Access Issue',
-          description: secureResponse.canRetry 
-            ? 'You can try again or contact support if the issue persists.'
-            : `Request ID: ${secureResponse.requestId}`,
-          duration: 6000
-        });
-      } else {
-        showError(secureResponse.userMessage, {
-          title: 'Error',
-          duration: 4000
-        });
-      }
-
-      return secureResponse;
-    } catch (processingError) {
-      console.error('Failed to process security error:', processingError);
-      
-      // Fallback to generic error message
-      showError('An error occurred. Please try again later.', {
-        title: 'System Error',
-        duration: 5000
-      });
-    }
-  }, [user?.id, tenantId, showError, showWarning]);
-
-  const handleAuthenticationError = useCallback((error: Error, context?: Partial<SecureErrorContext>) => {
-    return handleSecurityError(error, SecurityErrorType.AUTHENTICATION_FAILED, {
-      ...context,
-      source: 'authentication'
+    // Log the actual error for security monitoring (server-side)
+    console.warn('🚨 Suspicious activity detected:', {
+      type: activityType,
+      timestamp: new Date().toISOString(),
+      // Don't log sensitive error details to console in production
     });
-  }, [handleSecurityError]);
 
-  const handlePermissionError = useCallback((error: Error, resource: string, action: string) => {
-    return handleSecurityError(error, SecurityErrorType.PERMISSION_DENIED, {
-      source: 'authorization',
-      operation: `${action}:${resource}`
-    });
-  }, [handleSecurityError]);
+    // Show user-friendly message without exposing security details
+    toast.warning(
+      'Security check failed. Please try again or contact support if the issue persists.',
+      'Security Notice'
+    );
 
-  const handleInputValidationError = useCallback((error: Error, fieldName?: string) => {
-    return handleSecurityError(error, SecurityErrorType.INVALID_INPUT, {
-      source: 'form_validation',
-      operation: fieldName ? `validate:${fieldName}` : 'validate'
-    });
-  }, [handleSecurityError]);
+    // In a production system, this would also:
+    // - Log to security monitoring system
+    // - Potentially trigger alerts
+    // - Update user's security score/flags
+  }, [toast]);
 
-  const handleRateLimitError = useCallback((error: Error, endpoint?: string) => {
-    return handleSecurityError(error, SecurityErrorType.RATE_LIMITED, {
-      source: 'rate_limiting',
-      operation: endpoint ? `api:${endpoint}` : 'api_call'
+  const handlePermissionError = useCallback(async (
+    error: Error,
+    resource: string,
+    action: string
+  ) => {
+    console.warn('🔒 Permission denied:', {
+      resource,
+      action,
+      timestamp: new Date().toISOString(),
     });
-  }, [handleSecurityError]);
 
-  const handleSuspiciousActivity = useCallback((error: Error, details?: string) => {
-    return handleSecurityError(error, SecurityErrorType.SUSPICIOUS_ACTIVITY, {
-      source: 'security_monitor',
-      operation: details || 'anomaly_detection'
+    // User-friendly permission denied message
+    toast.error(
+      `You don't have permission to ${action} ${resource}. Please contact your administrator if you need access.`,
+      'Access Denied'
+    );
+  }, [toast]);
+
+  const handleValidationError = useCallback((
+    message: string,
+    field?: string
+  ) => {
+    const displayMessage = field 
+      ? `${field}: ${message}`
+      : message;
+
+    toast.warning(displayMessage, 'Validation Error');
+  }, [toast]);
+
+  const handleSystemError = useCallback((
+    error: Error,
+    userMessage: string = 'A system error occurred. Please try again.'
+  ) => {
+    // Log error for debugging (but not sensitive data)
+    console.error('System error:', {
+      message: error.message,
+      timestamp: new Date().toISOString(),
     });
-  }, [handleSecurityError]);
+
+    toast.error(userMessage, 'System Error');
+  }, [toast]);
 
   return {
-    handleSecurityError,
-    handleAuthenticationError,
+    handleSuspiciousActivity,
     handlePermissionError,
-    handleInputValidationError,
-    handleRateLimitError,
-    handleSuspiciousActivity
+    handleValidationError,
+    handleSystemError,
   };
 }
