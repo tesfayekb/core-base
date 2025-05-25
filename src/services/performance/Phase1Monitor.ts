@@ -39,7 +39,8 @@ export interface PerformanceMetrics {
 }
 
 export interface HealthStatus {
-  status: 'healthy' | 'warning' | 'critical';
+  status: 'excellent' | 'good' | 'warning' | 'critical';
+  score: number;
   issues: string[];
 }
 
@@ -107,32 +108,41 @@ class Phase1Monitor {
 
   getHealthStatus(): HealthStatus {
     const issues: string[] = [];
+    let score = 100;
     
     if (this.metrics.database.averageQueryTime > 50) {
       issues.push('Database queries are slow');
+      score -= 20;
     }
     
     if (this.metrics.permissions.cacheHitRate < 85) {
       issues.push('Permission cache hit rate is low');
+      score -= 15;
     }
     
     if (this.metrics.multiTenant.isolationViolations > 0) {
       issues.push('Tenant isolation violations detected');
+      score -= 30;
     }
     
     if (this.metrics.errors.rate > 5) {
       issues.push('High error rate detected');
+      score -= 25;
     }
 
-    let status: 'healthy' | 'warning' | 'critical' = 'healthy';
+    let status: 'excellent' | 'good' | 'warning' | 'critical';
     
-    if (issues.length > 3 || this.metrics.multiTenant.isolationViolations > 0) {
-      status = 'critical';
-    } else if (issues.length > 0) {
+    if (score >= 95) {
+      status = 'excellent';
+    } else if (score >= 80) {
+      status = 'good';
+    } else if (score >= 60) {
       status = 'warning';
+    } else {
+      status = 'critical';
     }
 
-    return { status, issues };
+    return { status, score: Math.max(0, score), issues };
   }
 
   recordDatabaseQuery(duration: number): void {
