@@ -1,4 +1,5 @@
 
+
 // RBAC Service - Direct Permission Assignment Model
 // Version: 1.0.0
 // Phase 1.4: RBAC Foundation
@@ -203,7 +204,8 @@ export class RBACService {
         return [];
       }
 
-      // Fix: Properly extract roles from the nested structure and filter out nulls
+      // Fix: Properly extract roles from the nested structure
+      // Each item in data has a 'roles' property containing the role object
       return data?.map(item => item.roles).filter((role): role is Role => role !== null) || [];
     } catch (error) {
       console.error('Get user roles failed:', error);
@@ -299,3 +301,4 @@ export class RBACService {
 }
 
 export const rbacService = RBACService.getInstance();
+
