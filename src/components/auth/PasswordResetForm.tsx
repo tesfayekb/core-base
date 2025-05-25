@@ -1,5 +1,4 @@
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -8,6 +7,8 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, KeyRound, ArrowLeft } from 'lucide-react';
 import { useAuth } from './AuthProvider';
 import { PasswordStrengthIndicator } from './PasswordStrengthIndicator';
+import { PasswordResetRateLimitNotification } from './PasswordResetRateLimitNotification';
+import { passwordResetRateLimitService } from '@/services/auth/PasswordResetRateLimitService';
 import { useErrorNotification } from '@/hooks/useErrorNotification';
 
 interface PasswordResetFormProps {
@@ -22,8 +23,17 @@ export function PasswordResetForm({ onBack, resetToken }: PasswordResetFormProps
   const [isLoading, setIsLoading] = useState(false);
   const [isResetMode, setIsResetMode] = useState(!!resetToken);
   const [resetSent, setResetSent] = useState(false);
+  const [rateLimitStatus, setRateLimitStatus] = useState<any>(null);
   const { resetPassword, updatePassword } = useAuth();
   const { showError, showSuccess } = useErrorNotification();
+
+  // Check rate limit status when email changes
+  useEffect(() => {
+    if (email && !isResetMode) {
+      const status = passwordResetRateLimitService.checkResetRateLimit(email);
+      setRateLimitStatus(status);
+    }
+  }, [email, isResetMode]);
 
   const validatePasswordStrength = (password: string): boolean => {
     const checks = [
@@ -58,9 +68,22 @@ export function PasswordResetForm({ onBack, resetToken }: PasswordResetFormProps
       return;
     }
 
+    // Check rate limiting
+    const rateLimit = passwordResetRateLimitService.checkResetRateLimit(email);
+    if (rateLimit.isLimited) {
+      const timeRemaining = Math.ceil((rateLimit.nextAttemptAllowed - Date.now()) / 1000);
+      if (timeRemaining > 0) {
+        showError(`Please wait ${timeRemaining} seconds before requesting another reset`);
+        return;
+      }
+    }
+
     setIsLoading(true);
 
     try {
+      // Record the attempt before making the request
+      passwordResetRateLimitService.recordResetAttempt(email);
+      
       const result = await resetPassword(email);
       
       if (result.success) {
@@ -211,6 +234,12 @@ export function PasswordResetForm({ onBack, resetToken }: PasswordResetFormProps
           </form>
         ) : (
           <form onSubmit={handleRequestReset} className="space-y-4">
+            <PasswordResetRateLimitNotification
+              isLimited={rateLimitStatus?.isLimited}
+              remainingAttempts={rateLimitStatus?.remainingAttempts || 3}
+              nextAttemptAllowed={rateLimitStatus?.nextAttemptAllowed || Date.now()}
+            />
+            
             <div className="space-y-2">
               <Label htmlFor="email">Email Address</Label>
               <Input
@@ -227,7 +256,7 @@ export function PasswordResetForm({ onBack, resetToken }: PasswordResetFormProps
             <Button 
               type="submit" 
               className="w-full" 
-              disabled={isLoading || !email}
+              disabled={isLoading || !email || rateLimitStatus?.isLimited}
             >
               {isLoading ? (
                 <>
