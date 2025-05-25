@@ -1,3 +1,4 @@
+
 import { phase1Monitor } from '../performance/Phase1Monitor';
 
 export interface CacheWarmupResult {
@@ -185,7 +186,10 @@ export class CacheWarmingService {
 
     try {
       const result = await strategy.execute();
-      phase1Monitor.recordCacheWarmup(result.success);
+      phase1Monitor.recordCacheWarmup(
+        result.success ? 'complete' : 'error', 
+        result.itemsWarmed > 0 ? 95 : 0
+      );
       return result;
     } catch (error) {
       return {
@@ -205,7 +209,10 @@ export class CacheWarmingService {
       try {
         const result = await strategy.execute();
         results.push(result);
-        phase1Monitor.recordCacheWarmup(result.success);
+        phase1Monitor.recordCacheWarmup(
+          result.success ? 'complete' : 'error',
+          result.itemsWarmed > 0 ? 95 : 0
+        );
       } catch (error) {
         results.push({
           strategyName: strategy.name,
