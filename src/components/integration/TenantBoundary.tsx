@@ -19,7 +19,7 @@ export function TenantBoundary({
   loading,
   requireTenant = true
 }: TenantBoundaryProps) {
-  const { user, tenantId, isLoading } = useAuth();
+  const { user, tenantId, loading: isLoading } = useAuth();
 
   // Show loading state while auth is initializing
   if (isLoading) {

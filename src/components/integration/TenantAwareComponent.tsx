@@ -14,19 +14,17 @@ export function TenantAwareComponent({
   className,
   tenantSpecificProps = {}
 }: TenantAwareComponentProps) {
-  const { tenant, tenantId } = useAuth();
+  const { tenantId } = useAuth();
 
   // Apply tenant-specific styling or configuration
   const tenantClassName = cn(
     className,
-    tenant?.settings?.theme && `theme-${tenant.settings.theme}`,
     tenantId && `tenant-${tenantId.slice(0, 8)}`
   );
 
   // Merge tenant-specific props
   const enhancedProps = {
-    ...tenantSpecificProps,
-    ...(tenant?.settings?.componentProps || {})
+    ...tenantSpecificProps
   };
 
   return (
@@ -38,29 +36,27 @@ export function TenantAwareComponent({
 
 // Hook for tenant-aware styling
 export function useTenantStyling() {
-  const { tenant, tenantId } = useAuth();
+  const { tenantId } = useAuth();
 
   const getTenantClassName = (baseClassName?: string) => {
     return cn(
       baseClassName,
-      tenant?.settings?.theme && `theme-${tenant.settings.theme}`,
       tenantId && `tenant-scoped`
     );
   };
 
   const getTenantStyles = () => {
     return {
-      '--tenant-primary': tenant?.settings?.primaryColor || '#0f172a',
-      '--tenant-secondary': tenant?.settings?.secondaryColor || '#64748b',
-      '--tenant-accent': tenant?.settings?.accentColor || '#3b82f6'
+      '--tenant-primary': '#0f172a',
+      '--tenant-secondary': '#64748b',
+      '--tenant-accent': '#3b82f6'
     } as React.CSSProperties;
   };
 
   return {
-    tenant,
     tenantId,
     getTenantClassName,
     getTenantStyles,
-    tenantConfig: tenant?.settings || {}
+    tenantConfig: {}
   };
 }
