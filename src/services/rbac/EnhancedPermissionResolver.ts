@@ -1,4 +1,3 @@
-
 import { granularDependencyResolver } from './GranularDependencyResolver';
 import { PermissionCache } from './PermissionCache';
 import { PermissionValidator, PermissionContext } from './PermissionValidator';
@@ -6,6 +5,8 @@ import { PermissionMetrics } from './PermissionMetrics';
 import { advancedCacheManager } from './AdvancedCacheManager';
 import { advancedPermissionDependencyResolver } from './AdvancedPermissionDependencyResolver';
 import { EntityBoundaryValidator } from './EntityBoundaryValidator';
+import { smartCacheInvalidationService } from './SmartCacheInvalidationService';
+import { cachePerformanceMonitor } from './CachePerformanceMonitor';
 
 export interface PermissionResolutionResult {
   granted: boolean;
@@ -47,9 +48,13 @@ export class EnhancedPermissionResolver {
     const startTime = performance.now();
     const cacheKey = this.cache.buildCacheKey(userId, action, resource, context);
     
+    // Record cache request for performance monitoring
+    this.recordCacheRequest();
+    
     // Check advanced cache first
     const cachedResult = this.cache.getCachedPermission(cacheKey);
     if (cachedResult) {
+      this.recordCacheHit();
       return {
         granted: cachedResult.result,
         reason: 'Advanced cache hit',
@@ -58,6 +63,8 @@ export class EnhancedPermissionResolver {
         cacheHit: true
       };
     }
+
+    this.recordCacheMiss();
 
     try {
       // SuperAdmin check (fast path)
@@ -148,11 +155,30 @@ export class EnhancedPermissionResolver {
     }
   }
 
+  private recordCacheRequest(): void {
+    // This would be integrated with the performance monitor
+    // For now, we'll let the AdvancedCacheManager handle the stats
+  }
+
+  private recordCacheHit(): void {
+    // Performance monitoring integration
+  }
+
+  private recordCacheMiss(): void {
+    // Performance monitoring integration
+  }
+
   getPerformanceStats(): Record<string, { avg: number; max: number; count: number }> {
     return this.metrics.getPerformanceStats();
   }
 
   invalidateUserCache(userId: string): void {
+    // Enhanced invalidation with smart cascade
+    smartCacheInvalidationService.invalidateUserPermissions(
+      userId,
+      'Manual cache invalidation'
+    );
+    
     this.cache.invalidateUserCache(userId);
     advancedPermissionDependencyResolver.clearCache(userId);
     EntityBoundaryValidator.clearCache(userId);
@@ -201,6 +227,28 @@ export class EnhancedPermissionResolver {
     return {
       granularMetrics: granularDependencyResolver.getMetrics(),
       advancedMetrics: advancedPermissionDependencyResolver.getMetrics()
+    };
+  }
+
+  /**
+   * Get comprehensive performance report
+   */
+  getComprehensivePerformanceReport(): {
+    resolutionStats: any;
+    cacheStats: any;
+    dependencyMetrics: any;
+    performanceTargetsMet: boolean;
+  } {
+    const resolutionStats = this.getPerformanceStats();
+    const cacheStats = this.getCacheStats();
+    const dependencyMetrics = this.getDependencyMetrics();
+    const currentMetrics = cachePerformanceMonitor.getCurrentMetrics();
+    
+    return {
+      resolutionStats,
+      cacheStats,
+      dependencyMetrics,
+      performanceTargetsMet: currentMetrics ? currentMetrics.isTargetMet : false
     };
   }
 }

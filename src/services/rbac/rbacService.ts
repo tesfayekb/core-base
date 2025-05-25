@@ -2,6 +2,9 @@ import { enhancedPermissionResolver } from './EnhancedPermissionResolver';
 import { entityBoundaryService } from './EntityBoundaryService';
 import { dependencyValidationService } from './DependencyValidationService';
 import { supabase } from '../database/connection';
+import { smartCacheInvalidationService } from './SmartCacheInvalidationService';
+import { cachePerformanceMonitor } from './CachePerformanceMonitor';
+import { cacheWarmingService } from './CacheWarmingService';
 
 export interface PermissionCheckRequest {
   userId: string;
@@ -26,6 +29,23 @@ export class RBACService {
       RBACService.instance = new RBACService();
     }
     return RBACService.instance;
+  }
+
+  constructor() {
+    // Initialize performance monitoring
+    this.initializePerformanceMonitoring();
+  }
+
+  private initializePerformanceMonitoring(): void {
+    // Start cache performance monitoring
+    cachePerformanceMonitor.startMonitoring();
+    
+    // Set up scheduled cache warming
+    cacheWarmingService.startScheduledWarming({
+      enabled: true,
+      intervalMinutes: 30, // Warm cache every 30 minutes
+      strategies: ['common_permissions', 'active_users']
+    });
   }
 
   /**
@@ -201,6 +221,17 @@ export class RBACService {
         return { success: false, error: error.message };
       }
 
+      // Smart cache invalidation for role assignment
+      await smartCacheInvalidationService.invalidateUserPermissions(
+        assigneeId,
+        `Role ${roleId} assigned by ${assignerId}`
+      );
+      
+      await smartCacheInvalidationService.invalidateRole(
+        roleId,
+        `Role assigned to user ${assigneeId}`
+      );
+
       // Clear caches for affected users
       enhancedPermissionResolver.invalidateUserCache(assigneeId);
       enhancedPermissionResolver.invalidateUserCache(assignerId);
@@ -266,6 +297,17 @@ export class RBACService {
         return { success: false, error: error.message };
       }
 
+      // Smart cache invalidation for role removal
+      await smartCacheInvalidationService.invalidateUserPermissions(
+        userId,
+        `Role ${roleId} removed by ${removerId}`
+      );
+      
+      await smartCacheInvalidationService.invalidateRole(
+        roleId,
+        `Role removed from user ${userId}`
+      );
+
       // Clear cache for affected user
       enhancedPermissionResolver.invalidateUserCache(userId);
 
@@ -326,6 +368,54 @@ export class RBACService {
    */
   clearCache(userId?: string): void {
     enhancedPermissionResolver.invalidateUserCache(userId || '');
+  }
+
+  /**
+   * Get comprehensive cache performance statistics
+   */
+  getCachePerformanceStats(): {
+    currentMetrics: any;
+    isTargetMet: boolean;
+    invalidationMetrics: any;
+    warmingStatus: any;
+    recommendations: string[];
+  } {
+    const currentMetrics = cachePerformanceMonitor.getCurrentMetrics();
+    const isTargetMet = cachePerformanceMonitor.isPerformanceTargetMet();
+    const invalidationMetrics = smartCacheInvalidationService.getInvalidationMetrics();
+    const warmingStatus = cacheWarmingService.getWarmingStatus();
+    const report = cachePerformanceMonitor.generatePerformanceReport();
+
+    return {
+      currentMetrics,
+      isTargetMet,
+      invalidationMetrics,
+      warmingStatus,
+      recommendations: report.recommendations
+    };
+  }
+
+  /**
+   * Manually trigger cache warming
+   */
+  async warmCache(strategies?: string[]): Promise<any[]> {
+    if (strategies && strategies.length > 0) {
+      const results = [];
+      for (const strategy of strategies) {
+        const result = await cacheWarmingService.executeWarmingStrategy(strategy);
+        results.push(result);
+      }
+      return results;
+    }
+    
+    return await cacheWarmingService.executeAllStrategies();
+  }
+
+  /**
+   * Get active performance alerts
+   */
+  getPerformanceAlerts(): any[] {
+    return cachePerformanceMonitor.getActiveAlerts();
   }
 
   /**
