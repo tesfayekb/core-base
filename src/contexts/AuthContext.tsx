@@ -1,9 +1,10 @@
 
-// Authentication Context with Audit Logging Integration
+// Authentication Context with Tenant Security Integration
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User } from '@supabase/supabase-js';
 import { supabase } from '@/services/database';
 import { enhancedAuditService } from '@/services/audit/enhancedAuditService';
+import { tenantSecurityService } from '@/services/security/tenantSecurityService';
 
 interface AuthUser extends User {
   firstName?: string;
@@ -17,7 +18,7 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   signUp: (email: string, password: string, firstName: string, lastName: string) => Promise<{ success: boolean; error?: string; requiresVerification?: boolean }>;
   signOut: () => Promise<void>;
-  switchTenant: (tenantId: string) => Promise<void>;
+  switchTenant: (tenantId: string) => Promise<{ success: boolean; error?: string }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -183,28 +184,68 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const switchTenant = async (newTenantId: string) => {
+  const switchTenant = async (newTenantId: string): Promise<{ success: boolean; error?: string }> => {
     try {
-      if (user) {
-        setTenantId(newTenantId);
-        
-        // Log tenant switch with correct parameter order
-        await enhancedAuditService.logSecurityEvent(
-          'access_denied', // This might need a better event type
-          'success',
-          {
-            action: 'tenant_switch',
-            fromTenant: tenantId,
-            toTenant: newTenantId
-          },
-          {
-            userId: user.id,
-            tenantId: newTenantId
-          }
-        );
+      if (!user) {
+        return { success: false, error: 'User not authenticated' };
       }
+
+      // Validate tenant switch with security service
+      const validationResult = await tenantSecurityService.validateTenantSwitch(
+        user.id,
+        tenantId,
+        newTenantId
+      );
+
+      if (!validationResult.allowed) {
+        return { 
+          success: false, 
+          error: validationResult.reason || 'Tenant switch denied'
+        };
+      }
+
+      // Perform the tenant switch
+      setTenantId(newTenantId);
+      
+      // Log successful tenant switch
+      await enhancedAuditService.logSecurityEvent(
+        'access_denied', // Using available enum value
+        'success',
+        {
+          action: 'tenant_switch_completed',
+          fromTenant: tenantId,
+          toTenant: newTenantId
+        },
+        {
+          userId: user.id,
+          tenantId: newTenantId
+        }
+      );
+
+      return { success: true };
     } catch (error) {
       console.error('Tenant switch error:', error);
+      
+      // Log tenant switch error
+      await enhancedAuditService.logSecurityEvent(
+        'breach_attempt',
+        'success',
+        {
+          action: 'tenant_switch_error',
+          fromTenant: tenantId,
+          toTenant: newTenantId,
+          error: error instanceof Error ? error.message : 'Unknown error'
+        },
+        {
+          userId: user?.id,
+          tenantId: tenantId || undefined
+        }
+      );
+
+      return { 
+        success: false, 
+        error: 'Tenant switch failed due to security validation'
+      };
     }
   };
 
