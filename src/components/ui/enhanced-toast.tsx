@@ -30,13 +30,13 @@ export function showToast({ title, description, type = 'info', duration = 5000 }
   const Icon = toastIcons[type];
   
   toast({
-    title: title && (
+    title: title,
+    description: (
       <div className="flex items-center gap-2">
         <Icon className="h-4 w-4" />
-        {title}
+        {description}
       </div>
     ),
-    description,
     duration,
     className: toastStyles[type],
   });
