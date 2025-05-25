@@ -1,3 +1,4 @@
+
 import { phase1Monitor } from '../Phase1Monitor';
 import { 
   SystemMetrics, 
@@ -159,7 +160,7 @@ export class MetricsCalculator {
     const uptime = (Date.now() - performance.timeOrigin) / (1000 * 60); // minutes
     
     // Estimate based on auth attempts and permission checks
-    const totalEvents = baseMetrics.auth.totalAttempts + baseMetrics.permissions.totalChecks;
+    const totalEvents = baseMetrics.auth.totalAuthAttempts + baseMetrics.permissions.totalChecks;
     return uptime > 0 ? totalEvents / uptime : 0;
   }
 
