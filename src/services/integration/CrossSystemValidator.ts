@@ -37,7 +37,7 @@ interface ActualMetrics {
     cacheHitRate: number;
   };
   multiTenant: {
-    contextSwitches: number;
+    tenantSwitches: number;
     averageSwitchTime: number;
     isolationViolations: number;
   };
