@@ -13,23 +13,20 @@ export function MainLayout() {
 
   return (
     <div className="min-h-screen bg-background flex">
-      {/* Sidebar */}
-      <div className={`
-        ${sidebarOpen ? 'w-64' : 'w-0'} 
-        ${isMobile ? 'fixed' : 'relative'} 
-        transition-all duration-300 ease-in-out 
-        z-40 h-screen 
-        ${isMobile && sidebarOpen ? 'shadow-lg' : ''}
-      `}>
-        <Sidebar isOpen={sidebarOpen} toggleSidebar={toggleSidebar} />
-      </div>
+      {/* Desktop Sidebar */}
+      {!isMobile && (
+        <div className={`
+          ${sidebarOpen ? 'w-64' : 'w-0'} 
+          transition-all duration-300 ease-in-out 
+          h-screen overflow-hidden
+        `}>
+          <Sidebar isOpen={sidebarOpen} toggleSidebar={toggleSidebar} isMobile={isMobile} />
+        </div>
+      )}
 
-      {/* Mobile overlay */}
-      {isMobile && sidebarOpen && (
-        <div 
-          className="fixed inset-0 bg-black/50 z-30"
-          onClick={toggleSidebar}
-        />
+      {/* Mobile Sidebar */}
+      {isMobile && (
+        <Sidebar isOpen={sidebarOpen} toggleSidebar={toggleSidebar} isMobile={isMobile} />
       )}
 
       {/* Main content area */}
