@@ -1,11 +1,11 @@
-
 // RBAC Service Implementation with Database Integration
-// Phase 1.4: RBAC Foundation with Database Queries
+// Phase 1.4: RBAC Foundation with Database Queries + Audit Integration
 
 import { Role, Permission, UserRole, PermissionCheck } from '../../types/rbac';
 import { PermissionDependencyResolver } from './permissionDependencies';
 import { EntityBoundaryValidator } from './entityBoundaries';
 import { supabase } from '../database';
+import { enhancedAuditService } from '../audit/enhancedAuditService';
 
 export class RBACService {
   private static instance: RBACService;
@@ -34,7 +34,22 @@ export class RBACService {
       
       // Check cache first
       if (this.permissionCache.has(cacheKey)) {
-        return this.permissionCache.get(cacheKey)!;
+        const result = this.permissionCache.get(cacheKey)!;
+        
+        // Log permission check with audit service
+        await enhancedAuditService.logRBACEvent(
+          'permission_check',
+          'success',
+          {
+            userId,
+            resource,
+            permission: action,
+            granted: result
+          },
+          { tenantId }
+        );
+        
+        return result;
       }
 
       // Create permission checker function for dependencies
@@ -54,9 +69,36 @@ export class RBACService {
       this.permissionCache.set(cacheKey, result);
       setTimeout(() => this.permissionCache.delete(cacheKey), this.cacheTimeout);
 
+      // Log permission check with audit service
+      await enhancedAuditService.logRBACEvent(
+        'permission_check',
+        'success',
+        {
+          userId,
+          resource,
+          permission: action,
+          granted: result
+        },
+        { tenantId }
+      );
+
       return result;
     } catch (error) {
       console.error('Permission check failed:', error);
+      
+      // Log failed permission check
+      await enhancedAuditService.logRBACEvent(
+        'permission_check',
+        'error',
+        {
+          userId,
+          resource,
+          permission: action,
+          granted: false
+        },
+        { tenantId }
+      );
+      
       return false;
     }
   }
@@ -187,6 +229,18 @@ export class RBACService {
       );
 
       if (!boundaryCheck) {
+        // Log failed role assignment
+        await enhancedAuditService.logRBACEvent(
+          'role_assign',
+          'failure',
+          {
+            userId: assignerId,
+            targetUserId: assigneeId,
+            roleId
+          },
+          { tenantId }
+        );
+        
         return { success: false, error: 'Entity boundary violation' };
       }
 
@@ -201,6 +255,18 @@ export class RBACService {
       );
 
       if (!permissionGrantCheck.valid) {
+        // Log failed role assignment
+        await enhancedAuditService.logRBACEvent(
+          'role_assign',
+          'failure',
+          {
+            userId: assignerId,
+            targetUserId: assigneeId,
+            roleId
+          },
+          { tenantId }
+        );
+        
         return { success: false, error: permissionGrantCheck.reason };
       }
 
@@ -215,15 +281,52 @@ export class RBACService {
         });
 
       if (error) {
+        // Log failed role assignment
+        await enhancedAuditService.logRBACEvent(
+          'role_assign',
+          'error',
+          {
+            userId: assignerId,
+            targetUserId: assigneeId,
+            roleId
+          },
+          { tenantId }
+        );
+        
         return { success: false, error: error.message };
       }
 
       // Clear permission cache for affected user
       this.clearUserCache(assigneeId);
 
+      // Log successful role assignment
+      await enhancedAuditService.logRBACEvent(
+        'role_assign',
+        'success',
+        {
+          userId: assignerId,
+          targetUserId: assigneeId,
+          roleId
+        },
+        { tenantId }
+      );
+
       return { success: true };
     } catch (error) {
       console.error('Role assignment failed:', error);
+      
+      // Log failed role assignment
+      await enhancedAuditService.logRBACEvent(
+        'role_assign',
+        'error',
+        {
+          userId: assignerId,
+          targetUserId: assigneeId,
+          roleId
+        },
+        { tenantId }
+      );
+      
       return { success: false, error: 'Role assignment failed' };
     }
   }
