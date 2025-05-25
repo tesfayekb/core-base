@@ -1,58 +1,33 @@
 
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { Toaster } from '@/components/ui/sonner';
-import { TooltipProvider } from '@/components/ui/tooltip';
-import { ThemeProvider } from 'next-themes';
-import { MainLayout } from '@/components/layout/MainLayout';
-import Dashboard from '@/pages/Dashboard';
-import Users from '@/pages/Users';
-import Settings from '@/pages/Settings';
-import ValidationDashboard from '@/pages/ValidationDashboard';
-import { AuthProvider } from '@/contexts/AuthContext';
-import { useSecurityHeaders } from '@/hooks/useSecurityHeaders';
-import { useEffect } from 'react';
+import { Toaster } from 'sonner';
+import Navigation from './components/Navigation';
+import ImplementationDashboard from './components/dashboard/ImplementationDashboard';
+import ValidationDashboard from './tests/integration/ValidationDashboard';
+import CrossSystemValidationDashboard from './components/validation/CrossSystemValidationDashboard';
+import './App.css';
 
 const queryClient = new QueryClient();
-
-function AppContent() {
-  const { securityStatus } = useSecurityHeaders();
-
-  useEffect(() => {
-    // Log security status on app load
-    if (securityStatus.isSecure) {
-      console.log('✅ Security infrastructure initialized');
-    } else {
-      console.warn('⚠️ Security compliance issues:', securityStatus.recommendations);
-    }
-  }, [securityStatus]);
-
-  return (
-    <Router>
-      <Routes>
-        <Route path="/" element={<MainLayout />}>
-          <Route index element={<Navigate to="/dashboard" replace />} />
-          <Route path="dashboard" element={<Dashboard />} />
-          <Route path="users" element={<Users />} />
-          <Route path="settings" element={<Settings />} />
-          <Route path="validation" element={<ValidationDashboard />} />
-        </Route>
-      </Routes>
-    </Router>
-  );
-}
 
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-        <TooltipProvider>
-          <AuthProvider>
-            <AppContent />
-          </AuthProvider>
+      <Router>
+        <div className="min-h-screen bg-gray-50">
+          <Navigation />
+          <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+            <Routes>
+              <Route path="/" element={<ImplementationDashboard />} />
+              <Route path="/implementation" element={<ImplementationDashboard />} />
+              <Route path="/validation" element={<ValidationDashboard report={null} isRunning={false} onRunValidation={() => {}} />} />
+              <Route path="/cross-validation" element={<CrossSystemValidationDashboard />} />
+            </Routes>
+          </main>
           <Toaster />
-        </TooltipProvider>
-      </ThemeProvider>
+        </div>
+      </Router>
     </QueryClientProvider>
   );
 }
