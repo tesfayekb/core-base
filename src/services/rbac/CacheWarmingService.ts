@@ -29,9 +29,9 @@ export class CacheWarmingService {
     const strategy = this.strategies.find(s => s.name === strategyName);
     if (!strategy) {
       return {
-        strategyName: strategyName,
+        strategy: strategyName,
         success: false,
-        message: `Strategy "${strategyName}" not found`,
+        errors: [`Strategy "${strategyName}" not found`],
         duration: 0,
         itemsWarmed: 0
       };
@@ -41,9 +41,9 @@ export class CacheWarmingService {
       return await strategy.execute();
     } catch (error) {
       return {
-        strategyName: strategyName,
+        strategy: strategyName,
         success: false,
-        message: `Strategy execution failed: ${error.message}`,
+        errors: [`Strategy execution failed: ${error.message}`],
         duration: 0,
         itemsWarmed: 0
       };
@@ -73,6 +73,25 @@ export class CacheWarmingService {
     }
 
     return results;
+  }
+
+  startScheduledWarming(schedule: WarmingSchedule): void {
+    if (!schedule.enabled) return;
+
+    if (this.warmingTimer) {
+      clearInterval(this.warmingTimer);
+    }
+
+    this.warmingTimer = setInterval(() => {
+      this.executeAllStrategies();
+    }, schedule.intervalMinutes * 60 * 1000);
+  }
+
+  stopScheduledWarming(): void {
+    if (this.warmingTimer) {
+      clearInterval(this.warmingTimer);
+      this.warmingTimer = undefined;
+    }
   }
 
   getLastWarmingResults(): WarmingResult[] {

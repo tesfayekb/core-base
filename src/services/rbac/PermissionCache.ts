@@ -24,23 +24,24 @@ export class PermissionCache {
     return `perm:${userId}:${action}:${resource}:${btoa(contextStr)}`;
   }
 
-  getCachedPermission(cacheKey: string): PermissionCacheEntry | null {
-    return advancedCacheManager.get<PermissionCacheEntry>(cacheKey);
+  async getCachedPermission(cacheKey: string): Promise<PermissionCacheEntry | null> {
+    const cached = await advancedCacheManager.get(cacheKey);
+    return cached as PermissionCacheEntry | null;
   }
 
-  cachePermissionResult(
+  async cachePermissionResult(
     cacheKey: string,
     result: boolean,
     dependencies: string[],
     userId: string
-  ): void {
+  ): Promise<void> {
     const dependencyList = [
       `user:${userId}`,
       `resource:${cacheKey.split(':')[3]}`,
       ...dependencies.map(dep => `dep:${dep}`)
     ];
 
-    advancedCacheManager.set(
+    await advancedCacheManager.set(
       cacheKey,
       { result, dependencies },
       300000, // 5 minutes TTL

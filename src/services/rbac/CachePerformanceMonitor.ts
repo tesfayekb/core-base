@@ -48,6 +48,18 @@ export class CachePerformanceMonitor {
     return this.alertManager.getActiveAlerts();
   }
 
+  isPerformanceTargetMet(): boolean {
+    const metrics = this.getCurrentMetrics();
+    return metrics ? metrics.isTargetMet : false;
+  }
+
+  generatePerformanceReport(): string {
+    const metrics = this.getCurrentMetrics();
+    if (!metrics) return 'No metrics available';
+    
+    return `Performance Report - Hit Rate: ${(metrics.hitRate * 100).toFixed(2)}%, Avg Response: ${metrics.averageResponseTime.toFixed(2)}ms`;
+  }
+
   private async collectMetrics(): Promise<void> {
     try {
       const { advancedCacheManager } = await import('./AdvancedCacheManager');
