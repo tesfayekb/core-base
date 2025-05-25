@@ -78,7 +78,12 @@ export function useAIContext() {
 
   // Debug logging
   useEffect(() => {
-    console.log('🔍 useAIContext state:', { contextData, isLoading, error });
+    console.log('🔍 useAIContext state:', { 
+      hasContextData: !!contextData, 
+      isLoading, 
+      error,
+      dataKeys: contextData ? Object.keys(contextData) : []
+    });
   }, [contextData, isLoading, error]);
 
   return {
