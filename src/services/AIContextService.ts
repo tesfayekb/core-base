@@ -224,26 +224,6 @@ class AIContextServiceImpl {
     }
     return null;
   }
-
-  private generateFallbackPhases() {
-    return [
-      {
-        phase: 1,
-        name: 'Foundation',
-        completed: false,
-        completionPercentage: 25,
-        completedFeatures: ['Project setup', 'Basic configuration'],
-        pendingFeatures: ['Database setup', 'Authentication', 'RBAC foundation'],
-        validationStatus: {
-          passed: false,
-          errors: [],
-          warnings: ['Using enhanced fallback data'],
-          score: 25
-        },
-        lastUpdated: new Date().toISOString()
-      }
-    ];
-  }
 }
 
 export const aiContextService = new AIContextServiceImpl();
