@@ -1,6 +1,6 @@
 
 // AI Context Service
-// Phase 1.5: AI Context System - Service for generating AI context data
+// Phase 1.7: AI Context System - Service for generating real AI context data
 
 import { ImplementationState, AIContextData } from '@/types/ImplementationState';
 import { implementationStateScanner } from './ImplementationStateScanner';
@@ -11,19 +11,19 @@ class AIContextServiceImpl {
   private cacheDuration: number = 5 * 60 * 1000; // 5 minutes
 
   constructor() {
-    console.log('🤖 AI Context Service initialized');
+    console.log('🤖 AI Context Service initialized with real document parsing');
   }
 
   async generateAIContext(): Promise<AIContextData> {
-    console.log('🤖 Generating real AI context from documentation and codebase...');
+    console.log('🤖 Generating real AI context from actual documentation and codebase analysis...');
     
     const startTime = Date.now();
     
     try {
-      // Use real implementation state scanner
+      // Use real implementation state scanner with actual document parsing
       const implementationState = await implementationStateScanner.scanImplementationState();
       
-      // Generate context based on real data
+      // Generate context based on real parsed data
       const context: AIContextData = {
         implementationState,
         completedFeatures: this.extractCompletedFeatures(implementationState),
@@ -33,7 +33,7 @@ class AIContextServiceImpl {
       };
 
       this.cacheContext(context);
-      console.log(`✅ Real AI context generated in ${Date.now() - startTime}ms`);
+      console.log(`✅ Real AI context generated from actual docs in ${Date.now() - startTime}ms`);
       
       return context;
     } catch (error) {
@@ -48,8 +48,9 @@ class AIContextServiceImpl {
     implementationState.phases.forEach(phase => {
       if (phase.completed) {
         completed.push(phase.name);
-        completed.push(...phase.completedFeatures.slice(0, 2)); // Add top completed features
       }
+      // Add specific completed features from real analysis
+      completed.push(...phase.completedFeatures.slice(0, 3));
     });
     
     return [...new Set(completed)]; // Remove duplicates
@@ -59,24 +60,31 @@ class AIContextServiceImpl {
     const capabilities: string[] = [];
     
     implementationState.phases.forEach(phase => {
+      // Add capabilities based on real implementation evidence
       phase.completedFeatures.forEach(feature => {
-        if (feature.includes('implementation') || feature.includes('configured') || feature.includes('detected')) {
+        if (feature.includes('configured') || feature.includes('implemented') || feature.includes('active')) {
           capabilities.push(feature);
         }
       });
     });
     
-    // Add system-level capabilities
+    // Add system-level capabilities based on real completion
     const completedPhases = implementationState.phases.filter(p => p.completed).length;
-    if (completedPhases >= 3) {
-      capabilities.push('Multi-tenant architecture');
-      capabilities.push('Role-based access control');
-      capabilities.push('Security monitoring');
+    const overallCompletion = implementationState.overallCompletion;
+    
+    if (completedPhases >= 2 && overallCompletion > 40) {
+      capabilities.push('🏗️ Solid project foundation');
+      capabilities.push('🔐 Basic authentication system');
     }
     
-    if (completedPhases >= 5) {
-      capabilities.push('Real-time implementation tracking');
-      capabilities.push('Advanced security features');
+    if (completedPhases >= 3 && overallCompletion > 60) {
+      capabilities.push('👥 Role-based access control');
+      capabilities.push('🛡️ Security infrastructure');
+    }
+    
+    if (completedPhases >= 4 && overallCompletion > 80) {
+      capabilities.push('🏢 Multi-tenant architecture');
+      capabilities.push('📊 Real-time progress tracking');
     }
     
     return [...new Set(capabilities)];
@@ -126,17 +134,19 @@ class AIContextServiceImpl {
 
   generateContextSummary(): string {
     if (!this.cache) {
-      return 'No context data available';
+      return 'No context data available - run real analysis first';
     }
 
     const { implementationState, completedFeatures, currentCapabilities } = this.cache;
 
     return `
-      System Summary:
-      - Overall Completion: ${implementationState.overallCompletion}%
-      - Current Phase: ${implementationState.currentPhase}
-      - Completed Features: ${completedFeatures.length}
-      - Current Capabilities: ${currentCapabilities.length}
+      Real Implementation Analysis Summary:
+      - Overall Completion: ${implementationState.overallCompletion}% (based on actual requirements)
+      - Current Phase: ${implementationState.currentPhase} of 6 foundation phases
+      - Completed Features: ${completedFeatures.length} real features detected
+      - Current Capabilities: ${currentCapabilities.length} active capabilities
+      - Active Blockers: ${implementationState.blockers.length} critical issues
+      - Last Scanned: ${implementationState.lastScanned}
     `;
   }
 
