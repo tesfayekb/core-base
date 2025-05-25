@@ -159,7 +159,7 @@ export class AdvancedPermissionDependencyResolver {
 
     // Time-based dependencies
     if (context.timeContext) {
-      const timeBasedPermissions = this.getTimeBased Dependencies(action, resource, context.timeContext);
+      const timeBasedPermissions = this.getTimeBasedDependencies(action, resource, context.timeContext);
       for (const timePerm of timeBasedPermissions) {
         if (await hasPermissionFn(userId, timePerm.action, timePerm.resource)) {
           dependencyChain.push(`${timePerm.action}:${timePerm.resource}`);
