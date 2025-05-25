@@ -1,20 +1,7 @@
-
-import { PermissionCache } from './PermissionCache';
-import { smartCacheInvalidationService } from './SmartCacheInvalidationService';
-import { optimizedCacheInvalidation } from '../caching/OptimizedCacheInvalidation';
-import { adaptiveCacheManager } from '../caching/AdaptiveCacheManager';
-import { standardErrorHandler } from '../error/standardErrorHandler';
-import { Permission } from '../../types/rbac';
-
-export interface RBACContext {
-  tenantId?: string;
-  entityId?: string;
-  resourceId?: string;
-}
+import { LRUCache } from 'lru-cache';
 
 export interface PermissionContext {
   tenantId?: string;
-  entityId?: string;
   resourceId?: string;
 }
 
@@ -22,201 +9,205 @@ export interface PermissionCheckOptions {
   bypassCache?: boolean;
 }
 
-export interface SystemStatus {
-  cacheStats: any;
-  performanceReport: string;
-  warmingStatus: string;
-  alerts: any[];
+export interface Permission {
+  action: string;
+  resource: string;
+  context?: PermissionContext;
 }
 
-export interface RecommendationReport {
-  recommendations: string[];
-  priority: 'low' | 'medium' | 'high';
+export interface Role {
+  id: string;
+  name: string;
+  permissions: Permission[];
+}
+
+export interface User {
+  id: string;
+  roles: Role[];
+  permissions: Permission[];
+}
+
+export interface SystemStatus {
+  cacheStats: {
+    hits: number;
+    misses: number;
+    hitRate: number;
+    size: number;
+    capacity: number;
+  };
+  performanceReport: {
+    averageResponseTime: number;
+    peakLoad: number;
+  };
+  warmingStatus: {
+    lastRun: Date | null;
+    nextRun: Date | null;
+  };
+  alerts: string[];
+}
+
+export interface DiagnosticResult {
+  status: 'ok' | 'warning' | 'error';
+  details: {
+    systemStatus: SystemStatus;
+    alerts: string[];
+    recommendations: string[];
+  };
+}
+
+export interface StandardError {
+  success: false;
+  message: string;
+  code?: string;
 }
 
 export class RBACService {
-  private static instance: RBACService;
-  private permissionCache = new PermissionCache();
-  private monitoringEnabled = false;
-  private performanceMetrics = {
-    totalChecks: 0,
-    cacheHits: 0,
-    avgResponseTime: 0,
-    errors: 0
-  };
+  private userCache: LRUCache<string, User>;
+  private permissionCache: LRUCache<string, boolean>;
+  private roleCache: LRUCache<string, Role>;
+  private systemAlerts: string[] = [];
+  private diagnosticHistory: DiagnosticResult[] = [];
 
   constructor() {
-    // Start adaptive cache optimization
-    adaptiveCacheManager.startAdaptiveOptimization();
-  }
+    this.userCache = new LRUCache<string, User>({
+      max: 500,
+      ttl: 300000, // 5 minutes
+      allowStale: true,
+      updateAgeOnGet: false
+    });
 
-  static getInstance(): RBACService {
-    if (!RBACService.instance) {
-      RBACService.instance = new RBACService();
-    }
-    return RBACService.instance;
-  }
-
-  clearCache(): void {
-    // Implementation for clearing cache
-    console.log('Cache cleared');
+    this.permissionCache = new LRUCache<string, boolean>({
+      max: 1000,
+      ttl: 60000, // 1 minute
+      allowStale: false
+    });
+    
+    this.roleCache = new LRUCache<string, Role>({
+      max: 200,
+      ttl: 600000, // 10 minutes
+      allowStale: true
+    });
   }
 
   async checkPermission(
     userId: string,
     action: string,
     resource: string,
-    context: RBACContext = {},
+    context: PermissionContext = {},
     options: PermissionCheckOptions = {}
   ): Promise<boolean> {
-    if (this.monitoringEnabled) {
-      this.performanceMetrics.totalChecks++;
+    const cacheKey = `${userId}:${action}:${resource}:${JSON.stringify(context)}`;
+
+    if (options.bypassCache !== true && this.permissionCache.has(cacheKey)) {
+      return this.permissionCache.get(cacheKey) as boolean;
     }
 
-    const startTime = performance.now();
+    const user = await this.getUser(userId);
 
-    try {
-      const cacheKey = this.permissionCache.buildCacheKey(userId, action, resource, context);
-
-      if (!options.bypassCache) {
-        const cachedPermission = await this.permissionCache.getCachedPermission(cacheKey);
-        if (cachedPermission) {
-          if (this.monitoringEnabled) {
-            this.performanceMetrics.cacheHits++;
-          }
-          return cachedPermission.result;
-        }
-      }
-
-      // Simulate permission check logic (replace with actual logic)
-      const hasPermission = await this.simulatePermissionCheck(userId, action, resource, context);
-
-      // Cache the permission result
-      await this.permissionCache.cachePermissionResult(cacheKey, hasPermission, [], userId);
-
-      return hasPermission;
-    } catch (error) {
-      if (this.monitoringEnabled) {
-        this.performanceMetrics.errors++;
-      }
-      standardErrorHandler.handleError(
-        error as Error,
-        'permission_check',
-        { showToast: false, logError: true }
-      );
+    if (!user) {
+      this.systemAlerts.push(`User ${userId} not found`);
       return false;
-    } finally {
-      const duration = performance.now() - startTime;
-      if (this.monitoringEnabled) {
-        this.performanceMetrics.avgResponseTime =
-          (this.performanceMetrics.avgResponseTime + duration) / 2;
-      }
     }
+
+    const hasPermission = user.permissions.some(
+      p => p.action === action && p.resource === resource
+    ) || user.roles.some(role =>
+      role.permissions.some(p => p.action === action && p.resource === resource)
+    );
+
+    this.permissionCache.set(cacheKey, hasPermission);
+    return hasPermission;
   }
 
-  private async simulatePermissionCheck(
-    userId: string,
-    action: string,
-    resource: string,
-    context: RBACContext
-  ): Promise<boolean> {
-    // Replace this with actual permission checking logic
-    // This is just a simulation for demonstration purposes
-    if (action === 'read' && resource === 'documents') {
-      return true; // Simulate that all users can read documents
+  async getUser(userId: string): Promise<User | undefined> {
+    if (this.userCache.has(userId)) {
+      return this.userCache.get(userId);
     }
-    if (action === 'manage' && resource === 'users' && context.tenantId === 'tenant-1') {
-      return true; // Simulate that users in tenant-1 can manage users
-    }
-    return false;
+
+    // Simulate fetching user data from a database
+    const user: User = {
+      id: userId,
+      roles: [{
+        id: 'admin',
+        name: 'Administrator',
+        permissions: [{ action: 'manage', resource: 'all' }]
+      }],
+      permissions: [{ action: 'view', resource: 'dashboard' }]
+    };
+
+    this.userCache.set(userId, user);
+    return user;
   }
 
-  async getUserRoles(userId: string, tenantId?: string): Promise<string[]> {
-    try {
-      // Simulate fetching user roles from a database or other source
-      const roles = ['role1', 'role2'];
-      return roles;
-    } catch (error) {
-      standardErrorHandler.handleError(
-        error as Error,
-        'get_user_roles',
-        { showToast: false, logError: true }
-      );
+  async getRole(roleId: string): Promise<Role | undefined> {
+    if (this.roleCache.has(roleId)) {
+      return this.roleCache.get(roleId);
+    }
+
+    // Simulate fetching role data from a database
+    const role: Role = {
+      id: roleId,
+      name: 'Editor',
+      permissions: [{ action: 'edit', resource: 'documents' }]
+    };
+
+    this.roleCache.set(roleId, role);
+    return role;
+  }
+
+  async getUserPermissions(userId: string, tenantId: string): Promise<Permission[]> {
+    const user = await this.getUser(userId);
+    if (!user) {
       return [];
     }
-  }
 
-  async getUserPermissions(userId: string, tenantId?: string): Promise<Permission[]> {
-    try {
-      // Simulate fetching user permissions based on roles
-      const roles = await this.getUserRoles(userId, tenantId);
-      const permissions: Permission[] = roles.flatMap(role => {
-        const rolePermissions = this.getPermissionsForRole(role);
-        return rolePermissions.map(perm => ({
-          id: `${role}-${perm}`,
-          tenant_id: tenantId || 'default',
-          name: perm,
-          resource: perm.split(':')[1] || 'unknown',
-          action: perm.split(':')[0] || 'unknown',
-          created_at: new Date().toISOString()
-        }));
-      });
-      
-      // Remove duplicates
-      const uniquePermissions = permissions.filter((perm, index, self) => 
-        index === self.findIndex(p => p.name === perm.name)
-      );
-      
-      return uniquePermissions;
-    } catch (error) {
-      standardErrorHandler.handleError(
-        error as Error,
-        'get_user_permissions',
-        { showToast: false, logError: true }
-      );
-      return [];
-    }
-  }
+    let permissions: Permission[] = [];
 
-  private getPermissionsForRole(role: string): string[] {
-    // Simulate fetching permissions for a role
-    switch (role) {
-      case 'role1':
-        return ['read:documents', 'edit:documents'];
-      case 'role2':
-        return ['create:users', 'delete:users'];
-      default:
-        return [];
-    }
+    // Add user's direct permissions
+    permissions = permissions.concat(user.permissions);
+
+    // Add permissions from roles
+    user.roles.forEach(role => {
+      permissions = permissions.concat(role.permissions);
+    });
+
+    return permissions;
   }
 
   async assignRole(
     assignerId: string,
-    assigneeId: string,
+    userId: string,
     roleId: string,
     tenantId: string
   ): Promise<{ success: boolean; message: string }> {
     try {
-      // Simulate assigning a role to a user in a tenant
-      console.log(`Role ${roleId} assigned to user ${assigneeId} in tenant ${tenantId} by ${assignerId}`);
-
-      // Optimized cache invalidation
-      optimizedCacheInvalidation.invalidateUserPermissions(
-        assigneeId,
-        `role_assigned:${roleId}`
+      // Validate assigner has permission
+      const canAssign = await this.checkPermission(
+        assignerId,
+        'manage',
+        'users',
+        { tenantId }
       );
 
-      return { success: true, message: 'Role assigned successfully' };
+      if (!canAssign) {
+        return {
+          success: false,
+          message: 'Insufficient permissions to assign roles'
+        };
+      }
+
+      // Simulate role assignment
+      console.log(`Assigning role ${roleId} to user ${userId} by ${assignerId}`);
+      
+      return {
+        success: true,
+        message: `Role ${roleId} successfully assigned to user ${userId}`
+      };
     } catch (error) {
-      const errorResult = standardErrorHandler.handleError(
-        error as Error,
-        'role_assignment',
-        { 
-          showToast: true, 
-          fallbackValue: { success: false, message: 'Role assignment failed' } 
-        }
-      );
-      return errorResult || { success: false, message: 'Role assignment failed' };
+      return {
+        success: false,
+        message: `Failed to assign role: ${error instanceof Error ? error.message : 'Unknown error'}`
+      };
     }
   }
 
@@ -227,110 +218,89 @@ export class RBACService {
     tenantId: string
   ): Promise<{ success: boolean; message: string }> {
     try {
-      // Simulate revoking a role from a user in a tenant
-      console.log(`Role ${roleId} revoked from user ${userId} in tenant ${tenantId} by ${revokerId}`);
-
-      // Optimized cache invalidation
-      optimizedCacheInvalidation.invalidateUserPermissions(
-        userId,
-        `role_revoked:${roleId}`
+      // Validate revoker has permission
+      const canRevoke = await this.checkPermission(
+        revokerId,
+        'manage',
+        'users',
+        { tenantId }
       );
 
-      return { success: true, message: 'Role revoked successfully' };
+      if (!canRevoke) {
+        return {
+          success: false,
+          message: 'Insufficient permissions to revoke roles'
+        };
+      }
+
+      // Simulate role revocation
+      console.log(`Revoking role ${roleId} from user ${userId} by ${revokerId}`);
+      
+      return {
+        success: true,
+        message: `Role ${roleId} successfully revoked from user ${userId}`
+      };
     } catch (error) {
-      const errorResult = standardErrorHandler.handleError(
-        error as Error,
-        'role_revocation',
-        { 
-          showToast: true, 
-          fallbackValue: { success: false, message: 'Role revocation failed' } 
-        }
-      );
-      return errorResult || { success: false, message: 'Role revocation failed' };
+      return {
+        success: false,
+        message: `Failed to revoke role: ${error instanceof Error ? error.message : 'Unknown error'}`
+      };
     }
   }
 
-  invalidateUserPermissions(userId: string, reason: string = 'user_update'): void {
-    optimizedCacheInvalidation.invalidateUserPermissions(userId, reason);
-  }
-
-  getActiveAlerts(): any[] {
-    // Return active system alerts
-    return [];
-  }
-
-  startMonitoring(): void {
-    this.monitoringEnabled = true;
-  }
-
-  stopMonitoring(): void {
-    this.monitoringEnabled = false;
-  }
-
   getSystemStatus(): SystemStatus {
-    return {
-      cacheStats: this.permissionCache.getCacheStats(),
-      performanceReport: this.getPerformanceReport(),
-      warmingStatus: 'Active',
-      alerts: this.getActiveAlerts()
-    };
-  }
-
-  generateRecommendations(): RecommendationReport {
-    return {
-      recommendations: ['Optimize database queries', 'Implement caching'],
-      priority: 'medium'
-    };
-  }
-
-  getPerformanceReport(): string {
-    return `
-      Total Checks: ${this.performanceMetrics.totalChecks},
-      Cache Hits: ${this.performanceMetrics.cacheHits},
-      Avg. Response Time: ${this.performanceMetrics.avgResponseTime.toFixed(2)}ms,
-      Errors: ${this.performanceMetrics.errors}
-    `;
-  }
-
-  runDiagnostics(): { status: string; details: any } {
-    return {
-      status: 'healthy',
-      details: {
-        systemStatus: this.getSystemStatus(),
-        alerts: this.getActiveAlerts(),
-        recommendations: this.generateRecommendations()
-      }
-    };
-  }
-
-  async warmUpCache(strategyName: string): Promise<void> {
-    console.log(`Cache warming started with strategy: ${strategyName}`);
-  }
-
-  getLastWarmingResults(): any[] {
-    return [{ strategy: 'default', status: 'completed', itemsLoaded: 100 }];
-  }
-
-  getCacheStats(): any {
-    return this.permissionCache.getCacheStats();
-  }
-
-  getOptimizedCacheStats(): {
-    hitRate: number;
-    optimizationStatus: string;
-    recommendations: string[];
-  } {
-    const report = adaptiveCacheManager.getOptimizationReport();
-    const invalidationStats = optimizedCacheInvalidation.getInvalidationStats();
+    const cacheStats = this.userCache.getStats();
     
     return {
-      hitRate: report.currentHitRate,
-      optimizationStatus: report.recentTrend,
-      recommendations: [
-        ...report.recommendations,
-        `Pending invalidations: ${invalidationStats.pendingInvalidations}`
-      ]
+      cacheStats: {
+        hits: cacheStats.hits,
+        misses: cacheStats.misses,
+        hitRate: cacheStats.hitRate,
+        size: cacheStats.size,
+        capacity: this.userCache.max || 0
+      },
+      performanceReport: {
+        averageResponseTime: 0,
+        peakLoad: 0
+      },
+      warmingStatus: {
+        lastRun: new Date(),
+        nextRun: new Date(Date.now() + 3600000)
+      },
+      alerts: this.systemAlerts
     };
+  }
+
+  getActiveAlerts(): string[] {
+    return this.systemAlerts;
+  }
+
+  runDiagnostics(): DiagnosticResult {
+    const systemStatus = this.getSystemStatus();
+    const alerts = this.getActiveAlerts();
+    const recommendations: string[] = [];
+
+    if (systemStatus.cacheStats.hitRate < 0.9) {
+      recommendations.push('Increase cache size or optimize cache keys');
+    }
+
+    if (alerts.length > 5) {
+      recommendations.push('Investigate and resolve system alerts');
+    }
+
+    const status: DiagnosticResult['status'] = alerts.length > 0 ? 'warning' : 'ok';
+
+    const diagnosticResult: DiagnosticResult = {
+      status: status,
+      details: {
+        systemStatus: systemStatus,
+        alerts: alerts,
+        recommendations: recommendations
+      }
+    };
+
+    this.diagnosticHistory.push(diagnosticResult);
+    return diagnosticResult;
   }
 }
 

@@ -5,13 +5,21 @@ interface User {
   id: string;
   email: string;
   name?: string;
+  user_metadata?: {
+    first_name?: string;
+    last_name?: string;
+    full_name?: string;
+  };
 }
 
 interface AuthContextType {
   user: User | null;
   tenantId: string | null;
   login: (email: string, password: string) => Promise<void>;
+  signIn: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  signOut: () => Promise<void>;
   logout: () => void;
+  loading: boolean;
   isLoading: boolean;
 }
 
@@ -39,8 +47,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = async (email: string, password: string) => {
     // Simulate login
-    setUser({ id: 'user-1', email });
+    setUser({ 
+      id: 'user-1', 
+      email,
+      user_metadata: {
+        first_name: 'John',
+        last_name: 'Doe',
+        full_name: 'John Doe'
+      }
+    });
     setTenantId('tenant-1');
+  };
+
+  const signIn = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
+    try {
+      await login(email, password);
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: 'Login failed' };
+    }
   };
 
   const logout = () => {
@@ -48,13 +73,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setTenantId(null);
   };
 
+  const signOut = async () => {
+    logout();
+  };
+
   return (
     <AuthContext.Provider value={{
       user,
       tenantId,
       login,
+      signIn,
       logout,
-      isLoading
+      signOut,
+      isLoading,
+      loading: isLoading
     }}>
       {children}
     </AuthContext.Provider>
