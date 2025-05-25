@@ -1,4 +1,3 @@
-
 // Detailed Metrics Collector - Enhanced Performance Monitoring
 // Addresses Phase 1.5 requirement for advanced performance monitoring
 
@@ -236,7 +235,8 @@ export class DetailedMetricsCollector {
 
   private calculateTimeToInteractive(): number {
     const navigation = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming;
-    return navigation?.domInteractive - navigation?.navigationStart || 0;
+    // Use domInteractive - startTime instead of navigationStart
+    return navigation?.domInteractive - navigation?.startTime || 0;
   }
 
   private getFirstContentfulPaint(): number {
