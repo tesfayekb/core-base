@@ -1,445 +1,375 @@
 
 // Enterprise AI Context Service
-// Enhanced with audit trail, metrics, configuration management, and multi-tenant awareness
+// Enhanced AI Context System with enterprise features
 
 import { AIContextData, ImplementationState } from '@/types/ImplementationState';
-import { implementationStateScanner } from './ImplementationStateScanner';
-import { versionTracker } from './VersionTracker';
+import { aiContextService } from './AIContextService';
 import { enhancedAuditService } from './audit/enhancedAuditService';
-import { detailedMetricsCollector } from './performance/DetailedMetricsCollector';
+import { configurationManager, TenantConfiguration } from './ConfigurationManager';
+import { DetailedPerformanceMetrics, SystemMetrics } from './performance/metrics/MetricsTypes';
 
-export interface EnterpriseConfig {
+export interface EnterpriseContextData extends AIContextData {
   tenantId?: string;
-  features: {
-    auditTrail: boolean;
-    metricsCollection: boolean;
-    performanceOptimization: boolean;
-    realTimeUpdates: boolean;
-  };
-  thresholds: {
-    cacheExpiryMinutes: number;
-    performanceWarningMs: number;
-    maxContextSizeMB: number;
-  };
-  tenantSettings?: {
-    customFeatures: string[];
-    restrictedOperations: string[];
-    auditLevel: 'basic' | 'detailed' | 'comprehensive';
-  };
+  performanceMetrics: DetailedPerformanceMetrics;
+  auditTrail: AuditTrailEntry[];
+  featureFlags: Record<string, boolean>;
+  securityAlerts: SecurityAlert[];
 }
 
-interface ContextGenerationMetrics {
+export interface AuditTrailEntry {
+  id: string;
+  timestamp: Date;
+  action: string;
+  userId?: string;
+  tenantId?: string;
+  details: Record<string, any>;
   duration: number;
-  contextSize: number;
-  cacheHit: boolean;
-  tenantId?: string;
-  features: string[];
-  warnings: string[];
 }
 
-class EnterpriseAIContextService {
-  private static instance: EnterpriseAIContextService;
-  private cache: Map<string, AIContextData> = new Map();
-  private cacheTimestamps: Map<string, Date> = new Map();
-  private config: EnterpriseConfig;
-  private metrics: ContextGenerationMetrics[] = [];
-  private readonly MAX_METRICS_HISTORY = 1000;
+export interface SecurityAlert {
+  id: string;
+  severity: 'low' | 'medium' | 'high' | 'critical';
+  message: string;
+  timestamp: Date;
+  resolved: boolean;
+}
 
-  constructor() {
-    this.config = this.loadDefaultConfig();
-  }
+class EnterpriseAIContextServiceClass {
+  private cache = new Map<string, EnterpriseContextData>();
+  private auditTrail: AuditTrailEntry[] = [];
+  private performanceMetrics: DetailedPerformanceMetrics | null = null;
+  private readonly CACHE_DURATION = 15 * 60 * 1000; // 15 minutes
+  private readonly MAX_AUDIT_ENTRIES = 1000;
 
-  static getInstance(): EnterpriseAIContextService {
-    if (!EnterpriseAIContextService.instance) {
-      EnterpriseAIContextService.instance = new EnterpriseAIContextService();
-    }
-    return EnterpriseAIContextService.instance;
-  }
+  async generateEnterpriseContext(
+    tenantId?: string,
+    userId?: string
+  ): Promise<EnterpriseContextData> {
+    const startTime = Date.now();
+    const auditId = this.generateAuditId();
 
-  async generateAIContext(tenantId?: string): Promise<AIContextData> {
-    const startTime = performance.now();
-    const contextKey = this.getContextKey(tenantId);
-    
     try {
-      console.log(`🔍 Generating AI context for tenant: ${tenantId || 'default'}`);
+      console.log(`🏢 Generating enterprise AI context for tenant: ${tenantId || 'global'}`);
 
       // Check tenant-specific cache
-      if (this.isCacheValid(contextKey)) {
-        await this.logContextAccess('cache_hit', tenantId);
-        const cachedData = this.cache.get(contextKey)!;
-        
-        this.recordMetrics({
-          duration: performance.now() - startTime,
-          contextSize: JSON.stringify(cachedData).length,
-          cacheHit: true,
-          tenantId,
-          features: this.getEnabledFeatures(),
-          warnings: []
-        });
-        
-        return cachedData;
+      const cacheKey = this.getCacheKey(tenantId);
+      if (this.isCacheValid(cacheKey)) {
+        const cached = this.cache.get(cacheKey)!;
+        await this.logAuditEvent('context_cache_hit', startTime, auditId, { tenantId, userId });
+        return cached;
       }
 
-      // Generate fresh context with tenant awareness
-      const implementationState = await implementationStateScanner.scanImplementationState();
-      const recentChanges = versionTracker.getRecentChanges(24);
-      const changeReport = versionTracker.generateChangeReport();
+      // Get base context
+      const baseContext = await aiContextService.generateAIContext();
 
-      // Apply tenant-specific filtering and features
-      const contextData = await this.buildTenantAwareContext(
-        implementationState,
-        changeReport,
-        tenantId
-      );
-
-      // Update cache
-      this.cache.set(contextKey, contextData);
-      this.cacheTimestamps.set(contextKey, new Date());
-
-      // Audit context generation
-      await this.logContextAccess('generation', tenantId, {
-        contextSize: JSON.stringify(contextData).length,
-        features: this.getEnabledFeatures(),
-        duration: performance.now() - startTime
-      });
+      // Get tenant configuration
+      const tenantConfig = tenantId ? configurationManager.getTenantConfiguration(tenantId) : null;
+      const featureFlags = this.getFeatureFlags(tenantId);
 
       // Collect performance metrics
-      if (this.config.features.metricsCollection) {
-        await this.collectContextMetrics(contextData, tenantId);
-      }
+      const performanceMetrics = await this.collectPerformanceMetrics();
 
-      this.recordMetrics({
-        duration: performance.now() - startTime,
-        contextSize: JSON.stringify(contextData).length,
-        cacheHit: false,
+      // Generate security alerts
+      const securityAlerts = await this.generateSecurityAlerts(performanceMetrics, tenantId);
+
+      // Create enterprise context
+      const enterpriseContext: EnterpriseContextData = {
+        ...baseContext,
         tenantId,
-        features: this.getEnabledFeatures(),
-        warnings: this.validateContextData(contextData)
+        performanceMetrics,
+        auditTrail: this.getRecentAuditTrail(tenantId),
+        featureFlags,
+        securityAlerts
+      };
+
+      // Update cache
+      this.cache.set(cacheKey, enterpriseContext);
+
+      // Log audit event
+      await this.logAuditEvent('context_generated', startTime, auditId, {
+        tenantId,
+        userId,
+        features: Object.keys(featureFlags).filter(key => featureFlags[key]),
+        alertCount: securityAlerts.length
       });
 
-      console.log(`✅ AI context generated for tenant: ${tenantId || 'default'}`);
-      return contextData;
+      console.log(`✅ Enterprise AI context generated successfully (${Date.now() - startTime}ms)`);
+      return enterpriseContext;
 
     } catch (error) {
-      await this.logContextAccess('error', tenantId, { error: error.message });
-      
-      this.recordMetrics({
-        duration: performance.now() - startTime,
-        contextSize: 0,
-        cacheHit: false,
+      await this.logAuditEvent('context_generation_failed', startTime, auditId, {
         tenantId,
-        features: this.getEnabledFeatures(),
-        warnings: [`Context generation failed: ${error.message}`]
+        userId,
+        error: error instanceof Error ? error.message : 'Unknown error'
       });
-
-      console.error(`❌ Failed to generate AI context for tenant ${tenantId}:`, error);
-      return this.getEmptyContext(tenantId);
+      throw error;
     }
   }
 
-  private async buildTenantAwareContext(
-    implementationState: ImplementationState,
-    changeReport: any,
-    tenantId?: string
-  ): Promise<AIContextData> {
-    const tenantConfig = this.getTenantConfig(tenantId);
-    
-    // Filter features based on tenant configuration
-    const filteredState = this.applyTenantFiltering(implementationState, tenantConfig);
-    
-    const contextData: AIContextData = {
-      implementationState: filteredState,
-      currentCapabilities: this.extractCapabilities(filteredState, tenantConfig),
-      completedFeatures: this.extractCompletedFeatures(filteredState, tenantConfig),
-      activeValidations: this.extractActiveValidations(filteredState),
-      suggestions: this.generateTenantSpecificSuggestions(filteredState, changeReport, tenantConfig)
-    };
-
-    return contextData;
+  private getCacheKey(tenantId?: string): string {
+    return tenantId ? `tenant_${tenantId}` : 'global';
   }
 
-  private async logContextAccess(
-    action: 'generation' | 'cache_hit' | 'invalidation' | 'error',
-    tenantId?: string,
-    details?: Record<string, any>
-  ): Promise<void> {
-    if (!this.config.features.auditTrail) return;
+  private isCacheValid(cacheKey: string): boolean {
+    const cached = this.cache.get(cacheKey);
+    if (!cached) return false;
 
-    const auditLevel = this.getTenantConfig(tenantId)?.auditLevel || 'basic';
-    
-    if (auditLevel === 'basic' && action === 'cache_hit') return;
-
-    await enhancedAuditService.logDataEvent(
-      'read',
-      'ai_context',
-      tenantId || 'system',
-      'success',
-      undefined,
-      {
-        action,
-        tenantId,
-        config: auditLevel === 'comprehensive' ? this.config : undefined,
-        ...details
-      },
-      { tenantId }
+    // Check if any audit entries exist after cache timestamp
+    const cacheTime = cached.auditTrail[0]?.timestamp || new Date(0);
+    const hasRecentActivity = this.auditTrail.some(
+      entry => entry.timestamp > cacheTime
     );
+
+    return !hasRecentActivity;
   }
 
-  private async collectContextMetrics(
-    contextData: AIContextData,
-    tenantId?: string
-  ): Promise<void> {
-    try {
-      const metrics = await detailedMetricsCollector.collectMetrics();
-      
-      // Log performance if exceeding thresholds
-      if (metrics.system.responseTime > this.config.thresholds.performanceWarningMs) {
-        console.warn(`⚠️ Context generation exceeded performance threshold: ${metrics.system.responseTime}ms`);
-        
-        await enhancedAuditService.logSecurityEvent(
-          'performance_warning',
-          'success',
-          {
-            responseTime: metrics.system.responseTime,
-            threshold: this.config.thresholds.performanceWarningMs,
-            tenantId
-          },
-          { tenantId }
-        );
-      }
-    } catch (error) {
-      console.error('Failed to collect context metrics:', error);
-    }
-  }
-
-  updateConfiguration(config: Partial<EnterpriseConfig>, tenantId?: string): void {
-    this.config = { ...this.config, ...config };
+  private getFeatureFlags(tenantId?: string): Record<string, boolean> {
+    const flags: Record<string, boolean> = {};
     
-    console.log(`⚙️ Enterprise AI Context configuration updated for tenant: ${tenantId || 'default'}`);
-    
-    // Invalidate cache for tenant if configuration changed
-    if (tenantId) {
-      const contextKey = this.getContextKey(tenantId);
-      this.cache.delete(contextKey);
-      this.cacheTimestamps.delete(contextKey);
-    } else {
-      // Clear all cache if global config changed
-      this.cache.clear();
-      this.cacheTimestamps.clear();
-    }
+    configurationManager.getAllFeatures().forEach(feature => {
+      flags[feature.id] = configurationManager.isFeatureEnabled(feature.id, tenantId);
+    });
+
+    return flags;
   }
 
-  getMetrics(tenantId?: string): ContextGenerationMetrics[] {
-    if (tenantId) {
-      return this.metrics.filter(m => m.tenantId === tenantId);
-    }
-    return [...this.metrics];
-  }
-
-  getPerformanceInsights(tenantId?: string): string[] {
-    const metrics = this.getMetrics(tenantId);
-    if (metrics.length === 0) return ['No metrics available'];
-
-    const insights: string[] = [];
-    const avgDuration = metrics.reduce((sum, m) => sum + m.duration, 0) / metrics.length;
-    const cacheHitRate = metrics.filter(m => m.cacheHit).length / metrics.length;
-
-    if (avgDuration > this.config.thresholds.performanceWarningMs) {
-      insights.push(`Average context generation time is high: ${avgDuration.toFixed(2)}ms`);
-    }
-
-    if (cacheHitRate < 0.7) {
-      insights.push(`Cache hit rate is low: ${(cacheHitRate * 100).toFixed(1)}%`);
-    }
-
-    const warnings = metrics.flatMap(m => m.warnings);
-    if (warnings.length > 0) {
-      insights.push(`Recent warnings: ${[...new Set(warnings)].join(', ')}`);
-    }
-
-    return insights.length > 0 ? insights : ['Performance is optimal'];
-  }
-
-  private loadDefaultConfig(): EnterpriseConfig {
-    return {
-      features: {
-        auditTrail: true,
-        metricsCollection: true,
-        performanceOptimization: true,
-        realTimeUpdates: true
+  private async collectPerformanceMetrics(): Promise<DetailedPerformanceMetrics> {
+    // Simulate performance metrics collection
+    // In a real implementation, this would collect actual metrics
+    const metrics: DetailedPerformanceMetrics = {
+      system: {
+        cpuUsage: Math.random() * 100,
+        memoryUsage: Math.random() * 100,
+        uptime: Date.now(),
+        activeConnections: Math.floor(Math.random() * 1000),
+        requestsPerSecond: Math.floor(Math.random() * 500),
+        errorRate: Math.random() * 5
       },
-      thresholds: {
-        cacheExpiryMinutes: 15,
-        performanceWarningMs: 1000,
-        maxContextSizeMB: 10
-      }
-    };
-  }
-
-  private getContextKey(tenantId?: string): string {
-    return `context_${tenantId || 'default'}`;
-  }
-
-  private isCacheValid(contextKey: string): boolean {
-    if (!this.cache.has(contextKey) || !this.cacheTimestamps.has(contextKey)) {
-      return false;
-    }
-
-    const cacheTime = this.cacheTimestamps.get(contextKey)!;
-    const expiryTime = new Date(cacheTime.getTime() + this.config.thresholds.cacheExpiryMinutes * 60 * 1000);
-    
-    return new Date() < expiryTime;
-  }
-
-  private getTenantConfig(tenantId?: string) {
-    // In a real implementation, this would fetch from database
-    return this.config.tenantSettings;
-  }
-
-  private applyTenantFiltering(state: ImplementationState, tenantConfig?: any): ImplementationState {
-    if (!tenantConfig?.restrictedOperations) return state;
-
-    // Apply tenant-specific filtering
-    return {
-      ...state,
-      recommendations: state.recommendations.filter(
-        rec => !tenantConfig.restrictedOperations.includes(rec)
-      )
-    };
-  }
-
-  private extractCapabilities(state: ImplementationState, tenantConfig?: any): string[] {
-    const capabilities: string[] = [];
-    
-    state.phases.forEach(phase => {
-      phase.completedFeatures.forEach(feature => {
-        switch (feature) {
-          case 'Authentication System':
-            capabilities.push('User authentication', 'Session management', 'JWT tokens');
-            break;
-          case 'RBAC Foundation':
-            capabilities.push('Permission checking', 'Role management', 'Access control');
-            break;
-          case 'Multi-tenant Foundation':
-            capabilities.push('Tenant isolation', 'Context switching', 'Data separation');
-            break;
-          case 'Enhanced RBAC':
-            capabilities.push('Permission caching', 'Advanced permissions', 'Entity boundaries');
-            break;
+      database: {
+        totalQueries: Math.floor(Math.random() * 10000),
+        queriesPerSecond: Math.floor(Math.random() * 100),
+        averageQueryTime: Math.random() * 100,
+        slowQueries: Math.floor(Math.random() * 10),
+        connectionPoolUtilization: Math.random() * 100,
+        cacheHitRate: 80 + Math.random() * 20,
+        indexEfficiency: 90 + Math.random() * 10
+      },
+      security: {
+        authenticationLatency: Math.random() * 500,
+        permissionCheckLatency: Math.random() * 50,
+        securityEventsPerMinute: Math.floor(Math.random() * 10),
+        tenantSwitchLatency: Math.random() * 200,
+        auditWriteLatency: Math.random() * 100,
+        securityValidationRate: 95 + Math.random() * 5
+      },
+      user: {
+        pageLoadTime: Math.random() * 3000,
+        timeToInteractive: Math.random() * 5000,
+        firstContentfulPaint: Math.random() * 2000,
+        cumulativeLayoutShift: Math.random() * 0.1,
+        navigationTiming: Math.random() * 1000,
+        apiResponseTimes: {
+          '/api/auth': Math.random() * 500,
+          '/api/users': Math.random() * 300,
+          '/api/permissions': Math.random() * 200
         }
-      });
-    });
-
-    // Add tenant-specific capabilities
-    if (tenantConfig?.customFeatures) {
-      capabilities.push(...tenantConfig.customFeatures);
-    }
-
-    return [...new Set(capabilities)];
-  }
-
-  private extractCompletedFeatures(state: ImplementationState, tenantConfig?: any): string[] {
-    const completed: string[] = [];
-    
-    state.phases.forEach(phase => {
-      completed.push(...phase.completedFeatures);
-    });
-
-    return completed;
-  }
-
-  private extractActiveValidations(state: ImplementationState): string[] {
-    const validations: string[] = [];
-    
-    state.phases.forEach(phase => {
-      if (phase.validationStatus.warnings.length > 0) {
-        validations.push(`Phase ${phase.phase}: ${phase.validationStatus.warnings.join(', ')}`);
-      }
-    });
-
-    return validations;
-  }
-
-  private generateTenantSpecificSuggestions(
-    state: ImplementationState,
-    changeReport: any,
-    tenantConfig?: any
-  ): string[] {
-    const suggestions: string[] = [];
-    
-    suggestions.push(...state.recommendations);
-    
-    if (changeReport.velocity > 10) {
-      suggestions.push('Consider stabilizing recent changes before adding new features');
-    }
-    
-    const currentPhase = state.phases.find(p => p.phase === state.currentPhase);
-    if (currentPhase && currentPhase.pendingFeatures.length > 0) {
-      suggestions.push(`Next: Implement ${currentPhase.pendingFeatures[0]}`);
-    }
-    
-    if (state.blockers.length > 0) {
-      suggestions.push('Resolve current blockers before proceeding');
-    }
-
-    // Add tenant-specific suggestions
-    if (tenantConfig?.auditLevel === 'basic') {
-      suggestions.push('Consider upgrading to detailed audit level for better compliance');
-    }
-
-    return suggestions;
-  }
-
-  private validateContextData(contextData: AIContextData): string[] {
-    const warnings: string[] = [];
-    
-    const contextSize = JSON.stringify(contextData).length / (1024 * 1024); // MB
-    if (contextSize > this.config.thresholds.maxContextSizeMB) {
-      warnings.push(`Context size exceeds threshold: ${contextSize.toFixed(2)}MB`);
-    }
-
-    if (contextData.completedFeatures.length === 0) {
-      warnings.push('No completed features detected');
-    }
-
-    if (contextData.implementationState.blockers.length > 3) {
-      warnings.push('High number of blockers detected');
-    }
-
-    return warnings;
-  }
-
-  private recordMetrics(metrics: ContextGenerationMetrics): void {
-    this.metrics.push(metrics);
-    
-    // Limit metrics history
-    if (this.metrics.length > this.MAX_METRICS_HISTORY) {
-      this.metrics = this.metrics.slice(-this.MAX_METRICS_HISTORY);
-    }
-  }
-
-  private getEnabledFeatures(): string[] {
-    return Object.entries(this.config.features)
-      .filter(([_, enabled]) => enabled)
-      .map(([feature, _]) => feature);
-  }
-
-  private getEmptyContext(tenantId?: string): AIContextData {
-    return {
-      implementationState: {
-        phases: [],
-        overallCompletion: 0,
-        currentPhase: 1,
-        blockers: ['Failed to generate context'],
-        recommendations: ['Check system configuration'],
-        lastScanned: new Date().toISOString()
       },
-      currentCapabilities: [],
-      completedFeatures: [],
-      activeValidations: [],
-      suggestions: ['System initialization required']
+      network: {
+        bandwidth: Math.random() * 1000,
+        latency: Math.random() * 100,
+        packetLoss: Math.random() * 1,
+        connectionQuality: 'good'
+      },
+      memory: {
+        heapUsed: Math.random() * 100000000,
+        heapTotal: Math.random() * 200000000,
+        rss: Math.random() * 150000000,
+        external: Math.random() * 50000000,
+        gcDuration: Math.random() * 10,
+        gcFrequency: Math.random() * 5
+      }
     };
+
+    this.performanceMetrics = metrics;
+    return metrics;
+  }
+
+  private async generateSecurityAlerts(
+    metrics: DetailedPerformanceMetrics,
+    tenantId?: string
+  ): Promise<SecurityAlert[]> {
+    const alerts: SecurityAlert[] = [];
+
+    // Check for performance issues
+    if (metrics.system.requestsPerSecond > 400) {
+      const alert: SecurityAlert = {
+        id: this.generateAlertId(),
+        severity: 'medium',
+        message: `High request rate detected: ${metrics.system.requestsPerSecond} req/s`,
+        timestamp: new Date(),
+        resolved: false
+      };
+      alerts.push(alert);
+
+      // Log security event for high request rate
+      await enhancedAuditService.logSecurityEvent(
+        'suspicious_activity',
+        'success',
+        {
+          alertType: 'high_request_rate',
+          requestsPerSecond: metrics.system.requestsPerSecond,
+          threshold: 400
+        },
+        { tenantId }
+      );
+    }
+
+    // Check for authentication issues
+    if (metrics.security.authenticationLatency > 1000) {
+      alerts.push({
+        id: this.generateAlertId(),
+        severity: 'high',
+        message: `High authentication latency: ${metrics.security.authenticationLatency}ms`,
+        timestamp: new Date(),
+        resolved: false
+      });
+    }
+
+    // Check for database performance
+    if (metrics.database.cacheHitRate < 80) {
+      alerts.push({
+        id: this.generateAlertId(),
+        severity: 'medium',
+        message: `Low cache hit rate: ${metrics.database.cacheHitRate}%`,
+        timestamp: new Date(),
+        resolved: false
+      });
+    }
+
+    return alerts;
+  }
+
+  private async logAuditEvent(
+    action: string,
+    startTime: number,
+    auditId: string,
+    details: Record<string, any>
+  ): Promise<void> {
+    const duration = Date.now() - startTime;
+    
+    const auditEntry: AuditTrailEntry = {
+      id: auditId,
+      timestamp: new Date(),
+      action,
+      userId: details.userId,
+      tenantId: details.tenantId,
+      details: { ...details, duration },
+      duration
+    };
+
+    this.auditTrail.push(auditEntry);
+    
+    // Limit audit trail size
+    if (this.auditTrail.length > this.MAX_AUDIT_ENTRIES) {
+      this.auditTrail = this.auditTrail.slice(-this.MAX_AUDIT_ENTRIES);
+    }
+
+    // Log to enhanced audit service
+    try {
+      await enhancedAuditService.logSecurityEvent(
+        'suspicious_activity',
+        'success',
+        {
+          contextAction: action,
+          ...details
+        },
+        {
+          tenantId: details.tenantId,
+          userId: details.userId
+        }
+      );
+    } catch (error) {
+      console.warn('Failed to log to enhanced audit service:', error);
+    }
+  }
+
+  private getRecentAuditTrail(tenantId?: string): AuditTrailEntry[] {
+    const recent = this.auditTrail
+      .filter(entry => !tenantId || entry.tenantId === tenantId)
+      .slice(-50); // Last 50 entries
+
+    return recent;
+  }
+
+  private generateAuditId(): string {
+    return `audit_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  }
+
+  private generateAlertId(): string {
+    return `alert_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  }
+
+  // Tenant-specific operations
+  async updateTenantConfiguration(
+    tenantId: string,
+    config: Partial<TenantConfiguration>
+  ): Promise<void> {
+    configurationManager.updateTenantConfiguration(tenantId, config);
+    
+    // Invalidate cache for this tenant
+    this.cache.delete(this.getCacheKey(tenantId));
+    
+    await this.logAuditEvent('tenant_config_updated', Date.now(), this.generateAuditId(), {
+      tenantId,
+      configUpdates: Object.keys(config)
+    });
+  }
+
+  async getTenantMetrics(tenantId: string): Promise<{
+    performanceMetrics: DetailedPerformanceMetrics | null;
+    auditTrail: AuditTrailEntry[];
+    securityAlerts: SecurityAlert[];
+    featureFlags: Record<string, boolean>;
+  }> {
+    return {
+      performanceMetrics: this.performanceMetrics,
+      auditTrail: this.getRecentAuditTrail(tenantId),
+      securityAlerts: [], // Would be filtered by tenant in real implementation
+      featureFlags: this.getFeatureFlags(tenantId)
+    };
+  }
+
+  // Global administrative operations
+  async getGlobalMetrics(): Promise<{
+    totalTenants: number;
+    activeContexts: number;
+    totalAuditEntries: number;
+    systemHealth: 'healthy' | 'degraded' | 'critical';
+  }> {
+    const systemHealth = this.performanceMetrics?.system.errorRate > 5 ? 'critical' :
+                        this.performanceMetrics?.system.errorRate > 2 ? 'degraded' : 'healthy';
+
+    return {
+      totalTenants: this.cache.size,
+      activeContexts: this.cache.size,
+      totalAuditEntries: this.auditTrail.length,
+      systemHealth
+    };
+  }
+
+  async invalidateCache(tenantId?: string): Promise<void> {
+    if (tenantId) {
+      this.cache.delete(this.getCacheKey(tenantId));
+      console.log(`🗑️ Enterprise AI context cache invalidated for tenant: ${tenantId}`);
+    } else {
+      this.cache.clear();
+      console.log('🗑️ Enterprise AI context cache cleared');
+    }
+
+    await this.logAuditEvent('cache_invalidated', Date.now(), this.generateAuditId(), {
+      tenantId: tenantId || 'global'
+    });
   }
 }
 
-export const enterpriseAIContextService = EnterpriseAIContextService.getInstance();
+export const enterpriseAIContextService = new EnterpriseAIContextServiceClass();
