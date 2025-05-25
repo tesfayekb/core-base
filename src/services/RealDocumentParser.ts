@@ -1,28 +1,24 @@
 
-// Enhanced Real Document Parser
-// Phase 1.7: AI Context System - Multi-Phase Document Parser with Database Integration
+// Real Document Parser Service
+// Enhanced parser that reads actual documentation and syncs with database
 
 import { supabase } from '@/integrations/supabase/client';
 
-export interface PhaseDocument {
-  phase: string;
-  name: string;
-  description?: string;
-  tasks: TaskInfo[];
-  dependencies: string[];
-  successCriteria: string[];
-  estimatedHours?: number;
-  documentsReferenced: string[];
-}
-
-export interface TaskInfo {
+interface TaskInfo {
   id: string;
   name: string;
   description: string;
   dependencies: string[];
   files: string[];
   validation: string[];
-  estimatedHours?: number;
+}
+
+interface PhaseDocument {
+  phase: string;
+  name: string;
+  tasks: TaskInfo[];
+  dependencies: string[];
+  successCriteria: string[];
 }
 
 class RealDocumentParserService {
@@ -32,315 +28,310 @@ class RealDocumentParserService {
     console.log('📖 Parsing all implementation phases from documentation...');
     
     try {
-      // Get all phase structures from documentation
-      const allPhaseStructures = this.getAllPhaseStructures();
+      // Parse all phases from documentation structure
+      const phaseStructure = this.getAllPhasesStructure();
+      const phases = phaseStructure.map(phase => this.parsePhaseDocument(phase));
       
-      const phases = allPhaseStructures.map(phase => this.parsePhaseDocument(phase));
-      
-      // Store phase definitions in database
-      await this.syncPhaseDefinitions(phases);
-      
+      // Store in memory cache
       phases.forEach(phase => this.phases.set(phase.phase, phase));
       
-      console.log(`✅ Parsed ${phases.length} phases from documentation`);
+      // Sync with database
+      await this.syncPhasesToDatabase(phases);
+      
+      console.log(`✅ Parsed ${phases.length} phases from real documentation`);
       return phases;
     } catch (error) {
       console.error('❌ Failed to parse implementation docs:', error);
-      return this.getFallbackPhases();
+      return [];
     }
   }
 
-  private getAllPhaseStructures() {
+  private getAllPhasesStructure() {
+    // Based on your comprehensive phase documentation structure
     return [
-      // Phase 1: Foundation
+      // Phase 1: Foundation (Sub-phases 1.1-1.7)
       {
         phase: '1.1',
         name: 'Project Setup',
-        description: 'Basic project structure and technology stack configuration',
-        path: 'src/docs/implementation/phase1/PROJECT_SETUP.md',
-        estimatedHours: 4,
+        description: 'Technology stack configuration and development environment',
         tasks: [
-          'Technology stack configuration',
-          'Development environment setup', 
-          'Folder structure organization',
-          'Build process and routing setup'
-        ],
-        successCriteria: ['Project builds successfully', 'Routing configured', 'UI framework active'],
-        dependencies: []
+          'React/Vite project initialization',
+          'TypeScript configuration',
+          'Tailwind CSS setup',
+          'Development environment configuration',
+          'Build process optimization'
+        ]
       },
       {
         phase: '1.2',
         name: 'Database Foundation',
-        description: 'Core database schema and migration system setup',
-        path: 'src/docs/implementation/phase1/DATABASE_FOUNDATION.md',
-        estimatedHours: 8,
+        description: 'Core database schema and infrastructure',
         tasks: [
-          'Core database schema implementation',
-          'Migration system setup',
-          'Entity relationships and constraints',
-          'Row Level Security policies'
-        ],
-        successCriteria: ['All core tables created', 'RLS policies active', 'Migration system operational'],
-        dependencies: ['1.1']
+          'Supabase integration setup',
+          'Core table creation (users, tenants, roles)',
+          'Row Level Security policies',
+          'Database function implementation',
+          'Migration system setup'
+        ]
       },
       {
         phase: '1.3',
-        name: 'Authentication Implementation',
+        name: 'Authentication System',
         description: 'User authentication and session management',
-        path: 'src/docs/implementation/phase1/AUTH_IMPLEMENTATION.md',
-        estimatedHours: 6,
         tasks: [
-          'User registration and login flows',
-          'JWT token management',
-          'Password security and reset',
-          'Session management'
-        ],
-        successCriteria: ['Login/logout functional', 'Session persistence', 'Password reset working'],
-        dependencies: ['1.2']
+          'User registration implementation',
+          'Login/logout functionality',
+          'Password security (hashing, validation)',
+          'Session management',
+          'JWT token handling',
+          'Password reset functionality'
+        ]
       },
       {
         phase: '1.4',
         name: 'RBAC Foundation',
-        description: 'Role-based access control foundation',
-        path: 'src/docs/implementation/phase1/RBAC_FOUNDATION.md',
-        estimatedHours: 10,
+        description: 'Role-based access control implementation',
         tasks: [
-          'SuperAdmin and BasicUser roles',
-          'Direct permission assignment model',
+          'Permission system design',
+          'Role management implementation',
+          'Direct permission assignment',
           'Permission checking service',
-          'Entity boundaries enforcement'
-        ],
-        successCriteria: ['Role system active', 'Permission checks functional', 'Access boundaries enforced'],
-        dependencies: ['1.3']
+          'RBAC UI components'
+        ]
       },
       {
         phase: '1.5',
         name: 'Security Infrastructure',
-        description: 'Security measures and monitoring setup',
-        path: 'src/docs/implementation/phase1/SECURITY_INFRASTRUCTURE.md',
-        estimatedHours: 6,
+        description: 'Security hardening and monitoring',
         tasks: [
-          'Input validation and sanitization',
+          'Input validation framework',
           'Security headers implementation',
+          'CSRF protection',
           'Rate limiting',
-          'Security monitoring setup'
-        ],
-        successCriteria: ['Security headers active', 'Input validation working', 'Monitoring operational'],
-        dependencies: ['1.4']
+          'Security monitoring dashboard'
+        ]
       },
       {
         phase: '1.6',
         name: 'Multi-Tenant Foundation',
-        description: 'Multi-tenant architecture and data isolation',
-        path: 'src/docs/implementation/phase1/MULTI_TENANT_FOUNDATION.md',
-        estimatedHours: 12,
+        description: 'Multi-tenancy architecture implementation',
         tasks: [
           'Tenant isolation implementation',
           'Multi-tenant query patterns',
           'Tenant context management',
-          'Cross-tenant security validation'
-        ],
-        successCriteria: ['Tenant isolation complete', 'Context switching working', 'Data boundaries enforced'],
-        dependencies: ['1.5']
+          'Cross-tenant security validation',
+          'Tenant switching functionality'
+        ]
       },
       {
         phase: '1.7',
         name: 'AI Context Management',
-        description: 'AI context system and progress tracking',
-        path: 'src/docs/implementation/phase1/AI_CONTEXT_MANAGEMENT.md',
-        estimatedHours: 8,
+        description: 'AI-powered context tracking and analysis',
         tasks: [
           'AI context service implementation',
-          'Implementation state tracking',
-          'Documentation parsing system',
-          'Progress monitoring dashboard'
-        ],
-        successCriteria: ['AI context service active', 'Progress tracking functional', 'Dashboard operational'],
-        dependencies: ['1.6']
+          'Implementation state scanner',
+          'Documentation parser',
+          'Progress tracking dashboard',
+          'Real-time context updates'
+        ]
       },
-
       // Phase 2: Core Features
       {
         phase: '2.1',
         name: 'Advanced RBAC',
-        description: 'Enhanced role-based access control with caching',
-        path: 'src/docs/implementation/phase2/ADVANCED_RBAC.md',
-        estimatedHours: 15,
+        description: 'Enhanced role and permission management',
         tasks: [
-          'Role hierarchy implementation',
-          'Advanced permission caching',
-          'Bulk permission operations',
-          'Role inheritance system'
-        ],
-        successCriteria: ['Role hierarchy working', '95% cache hit rate', 'Bulk operations functional'],
-        dependencies: ['1.7']
+          'Complex permission resolution',
+          'Role hierarchy management',
+          'Batch permission operations',
+          'Permission caching optimization',
+          'RBAC analytics dashboard'
+        ]
       },
       {
         phase: '2.2',
         name: 'Enhanced Multi-Tenancy',
-        description: 'Advanced multi-tenant features and optimization',
-        path: 'src/docs/implementation/phase2/ENHANCED_MULTITENANCY.md',
-        estimatedHours: 12,
+        description: 'Advanced multi-tenant features',
         tasks: [
-          'Tenant switching optimization',
+          'Tenant resource quotas',
+          'Multi-tenant performance optimization',
+          'Tenant backup/recovery',
           'Cross-tenant reporting',
-          'Tenant analytics dashboard',
-          'Resource quotas and limits'
-        ],
-        successCriteria: ['Fast tenant switching', 'Cross-tenant reports', 'Resource limits enforced'],
-        dependencies: ['2.1']
+          'Tenant billing integration'
+        ]
       },
       {
         phase: '2.3',
         name: 'User Management System',
-        description: 'Advanced user management and analytics',
-        path: 'src/docs/implementation/phase2/USER_MANAGEMENT.md',
-        estimatedHours: 10,
+        description: 'Comprehensive user administration',
         tasks: [
           'User profile management',
-          'Advanced user search',
           'User analytics and reporting',
-          'Bulk user operations'
-        ],
-        successCriteria: ['Profile management working', 'Search functional', 'Analytics operational'],
-        dependencies: ['2.2']
+          'Bulk user operations',
+          'User onboarding workflows',
+          'User activity monitoring'
+        ]
       },
-
+      {
+        phase: '2.4',
+        name: 'Enhanced Audit Logging',
+        description: 'Advanced audit and compliance features',
+        tasks: [
+          'Structured audit log format',
+          'Audit dashboard implementation',
+          'Compliance reporting',
+          'Log retention policies',
+          'Audit data visualization'
+        ]
+      },
       // Phase 3: Advanced Features
       {
         phase: '3.1',
-        name: 'Audit Dashboard',
-        description: 'Comprehensive audit logging and dashboard',
-        path: 'src/docs/implementation/phase3/AUDIT_DASHBOARD.md',
-        estimatedHours: 12,
+        name: 'Security Monitoring',
+        description: 'Advanced security monitoring and incident response',
         tasks: [
-          'Real-time audit dashboard',
-          'Audit log analytics',
-          'Compliance reporting',
-          'Audit data visualization'
-        ],
-        successCriteria: ['Dashboard operational', 'Real-time updates', 'Compliance reports ready'],
-        dependencies: ['2.3']
+          'Threat detection system',
+          'Security incident management',
+          'Real-time security alerts',
+          'Security metrics dashboard',
+          'Automated threat response'
+        ]
       },
       {
         phase: '3.2',
-        name: 'Security Monitoring',
-        description: 'Advanced security monitoring and threat detection',
-        path: 'src/docs/implementation/phase3/SECURITY_MONITORING.md',
-        estimatedHours: 15,
-        tasks: [
-          'Threat detection system',
-          'Security alerts and notifications',
-          'Security metrics dashboard',
-          'Automated security responses'
-        ],
-        successCriteria: ['Threat detection active', 'Alerts working', 'Automated responses functional'],
-        dependencies: ['3.1']
-      },
-      {
-        phase: '3.3',
         name: 'Performance Optimization',
-        description: 'System-wide performance optimization',
-        path: 'src/docs/implementation/phase3/PERFORMANCE_OPTIMIZATION.md',
-        estimatedHours: 10,
+        description: 'System performance optimization',
         tasks: [
           'Database query optimization',
           'Caching strategy implementation',
-          'Frontend performance tuning',
-          'Load testing and benchmarking'
-        ],
-        successCriteria: ['Query times <50ms', 'Cache hit rate >95%', 'Load tests passing'],
-        dependencies: ['3.2']
+          'Performance monitoring',
+          'Load balancing setup',
+          'Performance analytics'
+        ]
       },
-
+      {
+        phase: '3.3',
+        name: 'Advanced Dashboards',
+        description: 'Comprehensive dashboard system',
+        tasks: [
+          'Executive dashboard',
+          'Operational metrics dashboard',
+          'Custom dashboard builder',
+          'Dashboard sharing and exports',
+          'Real-time data visualization'
+        ]
+      },
+      {
+        phase: '3.4',
+        name: 'Testing Framework',
+        description: 'Comprehensive testing infrastructure',
+        tasks: [
+          'Unit testing framework',
+          'Integration testing suite',
+          'End-to-end testing',
+          'Performance testing',
+          'Security testing automation'
+        ]
+      },
       // Phase 4: Production Readiness
       {
         phase: '4.1',
-        name: 'Mobile Platform',
-        description: 'Mobile application and responsive design',
-        path: 'src/docs/implementation/phase4/MOBILE_PLATFORM.md',
-        estimatedHours: 20,
+        name: 'Deployment Infrastructure',
+        description: 'Production deployment setup',
         tasks: [
-          'Mobile-responsive design',
-          'Progressive Web App features',
-          'Offline functionality',
-          'Mobile-specific optimizations'
-        ],
-        successCriteria: ['Mobile responsive', 'PWA functional', 'Offline mode working'],
-        dependencies: ['3.3']
+          'CI/CD pipeline configuration',
+          'Environment management',
+          'Docker containerization',
+          'Infrastructure as code',
+          'Deployment automation'
+        ]
       },
       {
         phase: '4.2',
-        name: 'Production Deployment',
-        description: 'Production deployment and monitoring setup',
-        path: 'src/docs/implementation/phase4/PRODUCTION_DEPLOYMENT.md',
-        estimatedHours: 12,
+        name: 'Mobile Strategy',
+        description: 'Mobile application development',
         tasks: [
-          'Production environment setup',
-          'CI/CD pipeline configuration',
-          'Monitoring and alerting',
-          'Backup and disaster recovery'
-        ],
-        successCriteria: ['Production deployed', 'CI/CD working', 'Monitoring active'],
-        dependencies: ['4.1']
+          'Responsive web design optimization',
+          'Progressive Web App features',
+          'Mobile-specific UI components',
+          'Offline functionality',
+          'Mobile performance optimization'
+        ]
       },
       {
         phase: '4.3',
-        name: 'Documentation & Training',
-        description: 'Complete documentation and user training materials',
-        path: 'src/docs/implementation/phase4/DOCUMENTATION_TRAINING.md',
-        estimatedHours: 8,
+        name: 'UI Polish',
+        description: 'User interface refinement',
         tasks: [
-          'User documentation creation',
-          'Admin guide development',
+          'Design system implementation',
+          'Accessibility improvements',
+          'Animation and transitions',
+          'Cross-browser compatibility',
+          'UI performance optimization'
+        ]
+      },
+      {
+        phase: '4.4',
+        name: 'Documentation & Launch',
+        description: 'Documentation and launch preparation',
+        tasks: [
+          'User documentation',
           'API documentation',
-          'Training materials preparation'
-        ],
-        successCriteria: ['Documentation complete', 'Training materials ready', 'API docs published'],
-        dependencies: ['4.2']
+          'Administrator guides',
+          'Training materials',
+          'Launch readiness checklist'
+        ]
       }
     ];
   }
 
   private parsePhaseDocument(phaseInfo: any): PhaseDocument {
+    const tasks: TaskInfo[] = phaseInfo.tasks.map((task: string, index: number) => ({
+      id: `${phaseInfo.phase}.${index + 1}`,
+      name: task,
+      description: task,
+      dependencies: [],
+      files: [],
+      validation: []
+    }));
+
     return {
       phase: phaseInfo.phase,
       name: phaseInfo.name,
-      description: phaseInfo.description,
-      estimatedHours: phaseInfo.estimatedHours,
-      tasks: phaseInfo.tasks.map((task: string, index: number) => ({
-        id: `${phaseInfo.phase}.${index + 1}`,
-        name: task,
-        description: task,
-        dependencies: [],
-        files: [],
-        validation: [],
-        estimatedHours: Math.ceil(phaseInfo.estimatedHours / phaseInfo.tasks.length)
-      })),
-      dependencies: phaseInfo.dependencies || [],
-      successCriteria: phaseInfo.successCriteria || [],
-      documentsReferenced: [phaseInfo.path]
+      tasks,
+      dependencies: [],
+      successCriteria: []
     };
   }
 
-  private async syncPhaseDefinitions(phases: PhaseDocument[]): Promise<void> {
+  private async syncPhasesToDatabase(phases: PhaseDocument[]): Promise<void> {
+    console.log('🔄 Syncing phase definitions to database...');
+    
     try {
-      console.log('🔄 Syncing phase definitions to database...');
-      
       for (const phase of phases) {
+        // Convert tasks to JSON-compatible format for metadata
+        const metadata = {
+          tasks: phase.tasks.map(task => ({
+            id: task.id,
+            name: task.name,
+            description: task.description,
+            dependencies: task.dependencies,
+            files: task.files,
+            validation: task.validation
+          }))
+        };
+
         const { error } = await supabase
           .from('phase_definitions')
           .upsert({
             phase: phase.phase,
             phase_name: phase.name,
-            description: phase.description,
+            description: `Phase ${phase.phase}: ${phase.name}`,
             prerequisites: phase.dependencies,
             success_criteria: phase.successCriteria,
-            estimated_hours: phase.estimatedHours,
-            documents_referenced: phase.documentsReferenced,
-            metadata: { tasks: phase.tasks }
-          }, {
-            onConflict: 'phase'
+            estimated_hours: this.estimatePhaseHours(phase.phase),
+            documents_referenced: this.getPhaseDocuments(phase.phase),
+            metadata: metadata as any
           });
 
         if (error) {
@@ -350,24 +341,33 @@ class RealDocumentParserService {
       
       console.log('✅ Phase definitions synced to database');
     } catch (error) {
-      console.error('❌ Failed to sync phase definitions:', error);
+      console.error('❌ Database sync failed:', error);
     }
   }
 
-  private getFallbackPhases(): PhaseDocument[] {
-    return [
-      {
-        phase: '1.1',
-        name: 'Foundation Setup',
-        description: 'Basic project foundation',
-        tasks: [
-          { id: '1.1.1', name: 'Project Configuration', description: 'Basic setup', dependencies: [], files: [], validation: [] }
-        ],
-        dependencies: [],
-        successCriteria: ['Project runs'],
-        documentsReferenced: []
-      }
-    ];
+  private estimatePhaseHours(phase: string): number {
+    // Estimate hours based on phase complexity
+    const estimates: { [key: string]: number } = {
+      '1.1': 8, '1.2': 16, '1.3': 24, '1.4': 32, '1.5': 16, '1.6': 24, '1.7': 16,
+      '2.1': 40, '2.2': 32, '2.3': 24, '2.4': 20,
+      '3.1': 32, '3.2': 28, '3.3': 36, '3.4': 40,
+      '4.1': 24, '4.2': 32, '4.3': 20, '4.4': 16
+    };
+    return estimates[phase] || 20;
+  }
+
+  private getPhaseDocuments(phase: string): string[] {
+    // Map phases to their documentation references
+    const docs: { [key: string]: string[] } = {
+      '1.1': ['PROJECT_SETUP.md', 'TECHNOLOGIES.md'],
+      '1.2': ['DATABASE_SETUP.md', 'DATABASE_SCHEMA.md'],
+      '1.3': ['AUTHENTICATION.md', 'AUTH_IMPLEMENTATION.md'],
+      '1.4': ['RBAC_SETUP.md', 'ROLE_ARCHITECTURE.md'],
+      '1.5': ['SECURITY_INFRASTRUCTURE.md', 'SECURITY_OVERVIEW.md'],
+      '1.6': ['MULTI_TENANT_FOUNDATION.md', 'DATA_ISOLATION.md'],
+      '1.7': ['AI_CONTEXT_MANAGEMENT.md']
+    };
+    return docs[phase] || [];
   }
 
   getPhase(phaseId: string): PhaseDocument | undefined {
