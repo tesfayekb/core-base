@@ -1,4 +1,6 @@
 
+import { SecurityHeaders } from './SecurityHeadersConfig';
+
 export class MetaTagManager {
   static setMetaTag(name: string, content: string): void {
     let meta = document.querySelector(`meta[http-equiv="${name}"]`) as HTMLMetaElement;
@@ -12,7 +14,7 @@ export class MetaTagManager {
     meta.setAttribute('content', content);
   }
 
-  static applySecurityHeaders(headers: Record<string, string>): void {
+  static applySecurityHeaders(headers: SecurityHeaders): void {
     // Set meta tags for CSP (fallback for client-side)
     this.setMetaTag('Content-Security-Policy', headers['Content-Security-Policy']);
     this.setMetaTag('X-Content-Type-Options', headers['X-Content-Type-Options']);
