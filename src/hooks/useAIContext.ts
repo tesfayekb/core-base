@@ -34,12 +34,12 @@ export function useAIContext() {
       
       setContextData(context);
       setLastUpdated(new Date());
+      setIsLoading(false);
       
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';
       console.error('❌ useAIContext: Failed to refresh context:', errorMessage, err);
       setError(errorMessage);
-    } finally {
       setIsLoading(false);
     }
   }, []);
