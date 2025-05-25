@@ -5,7 +5,7 @@
 import { useCallback } from 'react';
 import { useErrorNotification } from './useErrorNotification';
 import { useAuth } from '@/contexts/AuthContext';
-import { secureErrorService, SecurityErrorType, SecureErrorContext } from '@/services/security/secureErrorService';
+import { secureErrorService, SecurityErrorType, SecureErrorContext, SecureErrorService } from '@/services/security/secureErrorService';
 
 export function useSecureErrorNotification() {
   const { showError, showWarning, showSuccess } = useErrorNotification();
@@ -30,7 +30,7 @@ export function useSecureErrorNotification() {
     // Determine severity based on error type and content
     let severity: 'low' | 'medium' | 'high' | 'critical' = 'medium';
     
-    if (secureErrorService.constructor.isSecurityThreat(error)) {
+    if (SecureErrorService.isSecurityThreat(error)) {
       severity = 'high';
     }
     
