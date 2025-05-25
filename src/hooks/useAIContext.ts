@@ -32,14 +32,20 @@ export function useAIContext() {
       const context = await aiContextService.generateAIContext();
       console.log('✅ useAIContext: Context generated successfully:', context);
       
-      setContextData(context);
-      setLastUpdated(new Date());
-      setIsLoading(false);
+      // Ensure we have the context data before setting state
+      if (context) {
+        setContextData(context);
+        setLastUpdated(new Date());
+      } else {
+        throw new Error('No context data returned from service');
+      }
       
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';
       console.error('❌ useAIContext: Failed to refresh context:', errorMessage, err);
       setError(errorMessage);
+      setContextData(null);
+    } finally {
       setIsLoading(false);
     }
   }, []);
@@ -69,6 +75,11 @@ export function useAIContext() {
 
     return () => clearInterval(interval);
   }, [refreshContext]);
+
+  // Debug logging
+  useEffect(() => {
+    console.log('🔍 useAIContext state:', { contextData, isLoading, error });
+  }, [contextData, isLoading, error]);
 
   return {
     contextData,

@@ -1,4 +1,3 @@
-
 // AI Context Service
 // Phase 1.7: AI Context System - Service for generating real AI context data
 
@@ -23,6 +22,8 @@ class AIContextServiceImpl {
       // Use real implementation state scanner with actual document parsing
       const implementationState = await implementationStateScanner.scanImplementationState();
       
+      console.log('📊 Implementation state received:', implementationState);
+      
       // Generate context based on real parsed data
       const context: AIContextData = {
         implementationState,
@@ -32,13 +33,32 @@ class AIContextServiceImpl {
         suggestions: this.generateSuggestions(implementationState)
       };
 
+      console.log('🎯 Generated AI context:', context);
+
       this.cacheContext(context);
       console.log(`✅ Real AI context generated from actual docs in ${Date.now() - startTime}ms`);
       
       return context;
     } catch (error) {
       console.error('❌ Failed to generate real AI context:', error);
-      throw error;
+      
+      // Return a fallback context instead of throwing
+      const fallbackContext: AIContextData = {
+        implementationState: {
+          phases: [],
+          overallCompletion: 0,
+          currentPhase: 1,
+          blockers: ['Context generation failed'],
+          recommendations: ['Check system status'],
+          lastScanned: new Date().toISOString()
+        },
+        completedFeatures: [],
+        currentCapabilities: [],
+        activeValidations: [],
+        suggestions: ['System initialization needed']
+      };
+      
+      return fallbackContext;
     }
   }
 
@@ -72,19 +92,24 @@ class AIContextServiceImpl {
     const completedPhases = implementationState.phases.filter(p => p.completed).length;
     const overallCompletion = implementationState.overallCompletion;
     
+    if (completedPhases >= 1 && overallCompletion > 20) {
+      capabilities.push('🏗️ Project foundation established');
+      capabilities.push('🔐 Authentication system operational');
+    }
+    
     if (completedPhases >= 2 && overallCompletion > 40) {
-      capabilities.push('🏗️ Solid project foundation');
-      capabilities.push('🔐 Basic authentication system');
+      capabilities.push('👥 Role-based access control active');
+      capabilities.push('🛡️ Security infrastructure implemented');
     }
     
     if (completedPhases >= 3 && overallCompletion > 60) {
-      capabilities.push('👥 Role-based access control');
-      capabilities.push('🛡️ Security infrastructure');
+      capabilities.push('🏢 Multi-tenant architecture operational');
+      capabilities.push('📊 Progress tracking system active');
     }
     
     if (completedPhases >= 4 && overallCompletion > 80) {
-      capabilities.push('🏢 Multi-tenant architecture');
-      capabilities.push('📊 Real-time progress tracking');
+      capabilities.push('🚀 Production-ready system');
+      capabilities.push('⭐ Enterprise-grade features complete');
     }
     
     return [...new Set(capabilities)];
@@ -112,10 +137,10 @@ class AIContextServiceImpl {
     const incompletePhases = implementationState.phases.filter(p => !p.completed);
     if (incompletePhases.length > 0) {
       const nextPhase = incompletePhases[0];
-      suggestions.push(`Focus on completing ${nextPhase.name}`);
+      suggestions.push(`🎯 Focus on completing ${nextPhase.name}`);
       
       if (nextPhase.pendingFeatures.length > 0) {
-        suggestions.push(`Next task: ${nextPhase.pendingFeatures[0]}`);
+        suggestions.push(`📋 Next task: ${nextPhase.pendingFeatures[0]}`);
       }
     }
     
@@ -125,7 +150,7 @@ class AIContextServiceImpl {
     // Add validation-based suggestions
     implementationState.phases.forEach(phase => {
       if (phase.validationStatus.warnings.length > 0) {
-        suggestions.push(`Address warnings in ${phase.name}`);
+        suggestions.push(`⚠️ Address warnings in ${phase.name}`);
       }
     });
     
@@ -142,7 +167,7 @@ class AIContextServiceImpl {
     return `
       Real Implementation Analysis Summary:
       - Overall Completion: ${implementationState.overallCompletion}% (based on actual requirements)
-      - Current Phase: ${implementationState.currentPhase} of 6 foundation phases
+      - Current Phase: ${implementationState.currentPhase} of 4 phases
       - Completed Features: ${completedFeatures.length} real features detected
       - Current Capabilities: ${currentCapabilities.length} active capabilities
       - Active Blockers: ${implementationState.blockers.length} critical issues
