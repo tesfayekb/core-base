@@ -3,7 +3,7 @@ import React from 'react';
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { Menu } from 'lucide-react';
 import { SidebarNavItem } from './SidebarNavItem';
-import { Home, Shield, Layout } from 'lucide-react';
+import { Home, Shield, Layout, Puzzle } from 'lucide-react';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -19,6 +19,7 @@ export function Sidebar({ isOpen, toggleSidebar }: SidebarProps) {
     { icon: Home, label: 'Dashboard', path: '/' },
     { icon: Shield, label: 'Validation', path: '/validation' },
     { icon: Layout, label: 'Components', path: '/components' },
+    { icon: Puzzle, label: 'Integration', path: '/integration' },
   ];
 
   return (
