@@ -34,8 +34,8 @@ function AppContent() {
           <Route index element={<Navigate to="/dashboard" replace />} />
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="users" element={<Users />} />
-          <Route path="validation" element={<ValidationDashboard />} />
           <Route path="settings" element={<Settings />} />
+          <Route path="validation" element={<ValidationDashboard />} />
         </Route>
       </Routes>
     </Router>
