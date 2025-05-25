@@ -4,6 +4,8 @@ import { PermissionCache } from './PermissionCache';
 import { PermissionValidator, PermissionContext } from './PermissionValidator';
 import { PermissionMetrics } from './PermissionMetrics';
 import { advancedCacheManager } from './AdvancedCacheManager';
+import { advancedPermissionDependencyResolver } from './AdvancedPermissionDependencyResolver';
+import { EntityBoundaryValidator } from './EntityBoundaryValidator';
 
 export interface PermissionResolutionResult {
   granted: boolean;
@@ -11,6 +13,8 @@ export interface PermissionResolutionResult {
   dependencies: string[];
   resolutionTime: number;
   cacheHit: boolean;
+  dependencyChain?: string[];
+  missingDependencies?: string[];
 }
 
 export type { PermissionContext };
@@ -70,35 +74,61 @@ export class EnhancedPermissionResolver {
       }
 
       // Entity boundary validation
-      const entityValid = await this.validator.validateEntityBoundary(userId, context);
-      if (!entityValid) {
-        const result = {
-          granted: false,
-          reason: 'Entity boundary violation',
-          dependencies: [],
-          resolutionTime: performance.now() - startTime,
-          cacheHit: false
-        };
-        this.cache.cachePermissionResult(cacheKey, result.granted, result.dependencies, userId);
-        return result;
+      if (context.entityId || context.tenantId) {
+        const isValidBoundary = await EntityBoundaryValidator.validateEntityBoundary(
+          {
+            userId,
+            entityId: context.entityId || context.tenantId || '',
+            operation: 'permission_check',
+            metadata: context.metadata
+          },
+          async (uid: string, permission: string) => {
+            const [permAction, permResource] = permission.split(':');
+            return this.validator.hasDirectPermission(uid, permAction, permResource, context);
+          }
+        );
+
+        if (!isValidBoundary) {
+          const result = {
+            granted: false,
+            reason: 'Entity boundary violation',
+            dependencies: [],
+            resolutionTime: performance.now() - startTime,
+            cacheHit: false
+          };
+          this.cache.cachePermissionResult(cacheKey, result.granted, result.dependencies, userId);
+          return result;
+        }
       }
 
-      // Enhanced dependency resolution
-      const dependencyResult = await granularDependencyResolver.resolvePermissionWithDependencies(
+      // Enhanced dependency resolution with advanced resolver
+      const dependencyResult = await advancedPermissionDependencyResolver.resolvePermissionWithAdvancedDependencies(
         userId,
-        `${action}:${resource}`,
-        async (uid: string, permission: string) => {
-          const [permAction, permResource] = permission.split(':');
-          return this.validator.hasDirectPermission(uid, permAction, permResource, context);
+        action,
+        resource,
+        context.resourceId,
+        {
+          tenantId: context.tenantId,
+          entityId: context.entityId,
+          resourceId: context.resourceId,
+          metadata: context.metadata
+        },
+        async (uid: string, permAction: string, permResource: string, permResourceId?: string) => {
+          return this.validator.hasDirectPermission(uid, permAction, permResource, {
+            ...context,
+            resourceId: permResourceId
+          });
         }
       );
 
-      const result = {
+      const result: PermissionResolutionResult = {
         granted: dependencyResult.granted,
-        reason: dependencyResult.granted ? 'Permission granted via dependency resolution' : 'Permission denied',
-        dependencies: dependencyResult.resolutionPath,
+        reason: dependencyResult.reason,
+        dependencies: dependencyResult.dependencyChain,
         resolutionTime: performance.now() - startTime,
-        cacheHit: false
+        cacheHit: false,
+        dependencyChain: dependencyResult.dependencyChain,
+        missingDependencies: dependencyResult.missingDependencies
       };
 
       this.cache.cachePermissionResult(cacheKey, result.granted, result.dependencies, userId);
@@ -124,6 +154,8 @@ export class EnhancedPermissionResolver {
 
   invalidateUserCache(userId: string): void {
     this.cache.invalidateUserCache(userId);
+    advancedPermissionDependencyResolver.clearCache(userId);
+    EntityBoundaryValidator.clearCache(userId);
   }
 
   getCacheStats(): { 
@@ -160,6 +192,16 @@ export class EnhancedPermissionResolver {
         return result.granted;
       }
     );
+  }
+
+  getDependencyMetrics(): {
+    granularMetrics: any;
+    advancedMetrics: any;
+  } {
+    return {
+      granularMetrics: granularDependencyResolver.getMetrics(),
+      advancedMetrics: advancedPermissionDependencyResolver.getMetrics()
+    };
   }
 }
 
