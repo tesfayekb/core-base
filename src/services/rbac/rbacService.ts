@@ -1,5 +1,7 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { auditService } from '@/services/audit/auditService';
+import { Role, Permission } from '@/types/rbac';
 
 interface PermissionCacheEntry {
   hasPermission: boolean;
@@ -25,6 +27,11 @@ export class RBACService {
   }
 
   private constructor() { }
+
+  clearCache(): void {
+    this.permissionCache.clear();
+    this.userPermissionsCache.clear();
+  }
 
   private invalidateCache(userId: string): void {
     // Invalidate permission cache for user
@@ -55,9 +62,9 @@ export class RBACService {
   }
 
   /**
-   * Check if user has direct permission (without dependencies)
+   * Check if user has permission (updated signature)
    */
-  async hasDirectPermission(
+  async checkPermission(
     userId: string,
     action: string,
     resource: string,
@@ -82,7 +89,6 @@ export class RBACService {
         resourceId
       });
 
-      // Updated function call to match the existing database function signature
       const { data, error } = await supabase.rpc('check_user_permission', {
         p_user_id: userId,
         p_action: action,
@@ -92,10 +98,7 @@ export class RBACService {
 
       if (error) {
         console.error('Database permission check error:', error);
-        
-        // Audit the permission check failure
         await auditService.logPermissionCheck(action, resource, 'failure', resourceId);
-        
         return false;
       }
 
@@ -107,51 +110,21 @@ export class RBACService {
         timestamp: Date.now()
       });
 
-      // Audit successful permission check
       await auditService.logPermissionCheck(action, resource, 'success', resourceId);
-
       console.log('✅ RBAC: Permission check result:', hasPermission);
       return hasPermission;
 
     } catch (error) {
       console.error('Database permission check error:', error);
-      
-      // Audit the permission check error
       await auditService.logPermissionCheck(action, resource, 'failure', resourceId);
-      
       return false;
     }
   }
 
   /**
-   * Check if user has permission, including dependencies
+   * Get all permissions for a user (returns Permission objects)
    */
-  async checkPermission(
-    userId: string,
-    action: string,
-    resource: string,
-    resourceId?: string
-  ): Promise<boolean> {
-    // 1. Check direct permission
-    if (await this.hasDirectPermission(userId, action, resource, resourceId)) {
-      return true;
-    }
-
-    // Future: Add permission dependency resolution here
-
-    return false;
-  }
-
-  /**
-   * Get all permissions for a user
-   */
-  async getUserPermissions(userId: string): Promise<string[]> {
-    // Check cache
-    const cachedPermissions = await this.getCachedUserPermissions(userId);
-    if (cachedPermissions) {
-      return cachedPermissions;
-    }
-
+  async getUserPermissions(userId: string): Promise<Permission[]> {
     try {
       console.log('RBAC: Fetching all permissions from database for user:', userId);
 
@@ -164,9 +137,17 @@ export class RBACService {
         return [];
       }
 
-      const permissions: string[] = data?.map((item: any) => `${item.action_name}:${item.resource_name}`) || [];
+      // Convert to Permission objects
+      const permissions: Permission[] = data?.map((item: any) => ({
+        id: item.id || `${item.action_name}-${item.resource_name}`,
+        tenant_id: item.tenant_id || '',
+        name: `${item.action_name}:${item.resource_name}`,
+        resource: item.resource_name,
+        action: item.action_name,
+        description: item.description,
+        created_at: item.created_at || new Date().toISOString()
+      })) || [];
 
-      this.cacheUserPermissions(userId, permissions);
       return permissions;
 
     } catch (error) {
@@ -176,9 +157,32 @@ export class RBACService {
   }
 
   /**
-   * Assign a role to a user
+   * Get user roles
    */
-  async assignRole(userId: string, roleId: string): Promise<boolean> {
+  async getUserRoles(userId: string): Promise<Role[]> {
+    try {
+      console.log('RBAC: Fetching user roles from database for user:', userId);
+
+      const { data, error } = await supabase.rpc('get_user_roles', {
+        p_user_id: userId
+      });
+
+      if (error) {
+        console.error('Error fetching user roles:', error);
+        return [];
+      }
+
+      return data || [];
+    } catch (error) {
+      console.error('Error fetching user roles:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Assign a role to a user (returns success/error object)
+   */
+  async assignRole(userId: string, roleId: string): Promise<{ success: boolean; error?: string }> {
     try {
       console.log(`RBAC: Assigning role ${roleId} to user ${userId}`);
 
@@ -190,25 +194,25 @@ export class RBACService {
       if (error) {
         console.error('Error assigning role to user:', error);
         await auditService.logRoleAssignment(userId, roleId, 'failure', error.message);
-        return false;
+        return { success: false, error: error.message };
       }
 
-      // Invalidate cache for user
       this.invalidateCache(userId);
       await auditService.logRoleAssignment(userId, roleId, 'success');
-      return true;
+      return { success: true };
 
     } catch (error) {
       console.error('Error assigning role to user:', error);
-      await auditService.logRoleAssignment(userId, roleId, 'failure', String(error));
-      return false;
+      const errorMessage = String(error);
+      await auditService.logRoleAssignment(userId, roleId, 'failure', errorMessage);
+      return { success: false, error: errorMessage };
     }
   }
 
   /**
    * Remove a role from a user
    */
-  async removeRole(userId: string, roleId: string): Promise<boolean> {
+  async removeRole(userId: string, roleId: string): Promise<{ success: boolean; error?: string }> {
     try {
       console.log(`RBAC: Removing role ${roleId} from user ${userId}`);
 
@@ -220,17 +224,18 @@ export class RBACService {
       if (error) {
         console.error('Error removing role from user:', error);
         await auditService.logRoleAssignment(userId, roleId, 'failure', error.message);
-        return false;
+        return { success: false, error: error.message };
       }
 
       this.invalidateCache(userId);
       await auditService.logRoleAssignment(userId, roleId, 'success');
-      return true;
+      return { success: true };
 
     } catch (error) {
       console.error('Error removing role from user:', error);
-      await auditService.logRoleAssignment(userId, roleId, 'failure', String(error));
-      return false;
+      const errorMessage = String(error);
+      await auditService.logRoleAssignment(userId, roleId, 'failure', errorMessage);
+      return { success: false, error: errorMessage };
     }
   }
 }

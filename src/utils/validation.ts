@@ -64,17 +64,19 @@ export function sanitizeText(input: string): string {
   return div.innerHTML;
 }
 
-// Sanitize object fields recursively
+// Sanitize object fields recursively (fixed generic type handling)
 export function sanitizeObject<T extends Record<string, any>>(obj: T): T {
-  const result = { ...obj };
+  const result = {} as T;
   
-  Object.keys(result).forEach(key => {
-    const value = result[key];
+  Object.keys(obj).forEach(key => {
+    const value = obj[key];
     
     if (typeof value === 'string') {
-      result[key] = sanitizeText(value);
+      (result as any)[key] = sanitizeText(value);
     } else if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
-      result[key] = sanitizeObject(value);
+      (result as any)[key] = sanitizeObject(value);
+    } else {
+      (result as any)[key] = value;
     }
   });
   
