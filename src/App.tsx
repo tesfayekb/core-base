@@ -9,7 +9,6 @@ import Dashboard from '@/pages/Dashboard';
 import Users from '@/pages/Users';
 import Settings from '@/pages/Settings';
 import ValidationDashboard from '@/pages/ValidationDashboard';
-import AIContextDashboard from '@/pages/AIContextDashboard';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { useSecurityHeaders } from '@/hooks/useSecurityHeaders';
 import { useEffect } from 'react';
@@ -35,7 +34,6 @@ function AppContent() {
           <Route index element={<Navigate to="/dashboard" replace />} />
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="users" element={<Users />} />
-          <Route path="ai-context" element={<AIContextDashboard />} />
           <Route path="validation" element={<ValidationDashboard />} />
           <Route path="settings" element={<Settings />} />
         </Route>
