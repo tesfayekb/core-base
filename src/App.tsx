@@ -6,7 +6,7 @@ import { Toaster } from 'sonner';
 import Navigation from './components/Navigation';
 import ImplementationDashboard from './components/dashboard/ImplementationDashboard';
 import ValidationDashboard from './tests/integration/ValidationDashboard';
-import CrossSystemValidationDashboard from './components/validation/CrossSystemValidationDashboard';
+import { CrossSystemValidationDashboard } from './components/validation/CrossSystemValidationDashboard';
 import './App.css';
 
 const queryClient = new QueryClient();
