@@ -1,4 +1,3 @@
-
 // Role Manager Component
 // Version: 1.0.0
 // Phase 1.4: RBAC Foundation
@@ -8,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useRBAC } from '@/hooks/useRBAC';
-import { useAuth } from '@/contexts/AuthProvider';
+import { useAuth } from '@/components/auth/AuthProvider';
 import { Role } from '@/types/rbac';
 
 export function RoleManager() {

@@ -1,10 +1,9 @@
-
 // Permission Guard Component
 // Version: 1.0.0
 // Phase 1.4: RBAC Foundation
 
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '@/contexts/AuthProvider';
+import { useAuth } from '@/components/auth/AuthProvider';
 import { rbacService } from '@/services/rbac/rbacService';
 import { PermissionAction, ResourceType } from '@/types/rbac';
 

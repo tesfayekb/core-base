@@ -1,9 +1,8 @@
-
 // RBAC Service - Direct Permission Assignment Model
 // Version: 1.0.0
 // Phase 1.4: RBAC Foundation
 
-import { supabase } from '@/lib/supabase';
+import { supabase } from '@/services/database/connection';
 import { 
   PermissionCheck, 
   EffectivePermission, 

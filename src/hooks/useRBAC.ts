@@ -1,11 +1,10 @@
-
 // RBAC React Hook
 // Version: 1.0.0
 // Phase 1.4: RBAC Foundation
 
 import { useState, useEffect, useCallback } from 'react';
 import { rbacService } from '@/services/rbac/rbacService';
-import { useAuth } from '@/contexts/AuthProvider';
+import { useAuth } from '@/components/auth/AuthProvider';
 import { 
   PermissionCheck, 
   EffectivePermission, 
