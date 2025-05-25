@@ -1,16 +1,25 @@
-// RBAC Service Implementation with Database Integration
-// Phase 1.4: RBAC Foundation with Database Queries + Audit Integration
 
-import { Role, Permission, UserRole, PermissionCheck } from '../../types/rbac';
-import { PermissionDependencyResolver } from './permissionDependencies';
-import { EntityBoundaryValidator } from './entityBoundaries';
-import { supabase } from '../database';
-import { enhancedAuditService } from '../audit/enhancedAuditService';
+import { enhancedPermissionResolver } from './EnhancedPermissionResolver';
+import { entityBoundaryService } from './EntityBoundaryService';
+import { supabase } from '../database/connection';
+
+export interface PermissionCheckRequest {
+  userId: string;
+  action: string;
+  resource: string;
+  resourceId?: string;
+  entityId?: string;
+}
+
+export interface RoleAssignmentRequest {
+  assignerId: string;
+  assigneeId: string;
+  roleId: string;
+  entityId: string;
+}
 
 export class RBACService {
   private static instance: RBACService;
-  private permissionCache = new Map<string, boolean>();
-  private cacheTimeout = 5 * 60 * 1000; // 5 minutes
 
   static getInstance(): RBACService {
     if (!RBACService.instance) {
@@ -20,354 +29,238 @@ export class RBACService {
   }
 
   /**
-   * Check if user has permission with comprehensive dependency resolution
+   * Check permission with entity boundary enforcement
    */
   async checkPermission(
     userId: string,
     action: string,
     resource: string,
     resourceId?: string,
-    tenantId?: string
+    entityId?: string
   ): Promise<boolean> {
     try {
-      const cacheKey = `${userId}-${action}-${resource}-${resourceId || 'null'}-${tenantId || 'null'}`;
-      
-      // Check cache first
-      if (this.permissionCache.has(cacheKey)) {
-        const result = this.permissionCache.get(cacheKey)!;
-        
-        // Log permission check with audit service
-        await enhancedAuditService.logRBACEvent(
-          'permission_check',
-          'success',
-          {
-            userId,
-            resource,
-            permission: action,
-            granted: result
-          },
-          { tenantId }
-        );
-        
-        return result;
-      }
-
-      // Create permission checker function for dependencies
-      const hasExplicitPermission = async (checkAction: string, checkResource: string, checkResourceId?: string) => {
-        return this.hasDirectPermission(userId, checkAction, checkResource, checkResourceId, tenantId);
-      };
-      
-      // Use enhanced dependency resolver with all implications
-      const result = await PermissionDependencyResolver.checkPermissionWithDependencies(
-        hasExplicitPermission,
-        action,
+      // First enforce entity boundaries
+      const boundaryCheck = await entityBoundaryService.enforceEntityBoundary(
+        userId,
+        'permission_check',
         resource,
-        resourceId
+        resourceId,
+        entityId
       );
 
-      // Cache the result
-      this.permissionCache.set(cacheKey, result);
-      setTimeout(() => this.permissionCache.delete(cacheKey), this.cacheTimeout);
-
-      // Log permission check with audit service
-      await enhancedAuditService.logRBACEvent(
-        'permission_check',
-        'success',
-        {
-          userId,
-          resource,
-          permission: action,
-          granted: result
-        },
-        { tenantId }
-      );
-
-      return result;
-    } catch (error) {
-      console.error('Permission check failed:', error);
-      
-      // Log failed permission check
-      await enhancedAuditService.logRBACEvent(
-        'permission_check',
-        'error',
-        {
-          userId,
-          resource,
-          permission: action,
-          granted: false
-        },
-        { tenantId }
-      );
-      
-      return false;
-    }
-  }
-
-  /**
-   * Direct permission check with database queries
-   */
-  private async hasDirectPermission(
-    userId: string,
-    action: string,
-    resource: string,
-    resourceId?: string,
-    tenantId?: string
-  ): Promise<boolean> {
-    try {
-      // Check if user is SuperAdmin first (bypass all checks)
-      if (await this.isSuperAdmin(userId)) {
-        return true;
-      }
-
-      // Use Supabase RPC function to check permission
-      const { data, error } = await supabase.rpc('check_user_permission', {
-        p_user_id: userId,
-        p_action: action,
-        p_resource: resource,
-        p_resource_id: resourceId || null,
-        p_tenant_id: tenantId || null
-      });
-
-      if (error) {
-        console.error('Database permission check error:', error);
+      if (!boundaryCheck.allowed) {
+        console.warn('Entity boundary violation:', boundaryCheck.reason);
         return false;
       }
 
-      return !!data;
+      // Then check the actual permission
+      const result = await enhancedPermissionResolver.resolvePermission(
+        userId,
+        action,
+        resource,
+        {
+          entityId: boundaryCheck.entityId,
+          resourceId,
+          tenantId: boundaryCheck.entityId // For backward compatibility
+        }
+      );
+
+      return result.granted;
     } catch (error) {
-      console.error('Direct permission check failed:', error);
+      console.error('Permission check failed:', error);
       return false;
     }
   }
 
   /**
-   * Check if user is SuperAdmin using database
-   */
-  private async isSuperAdmin(userId: string): Promise<boolean> {
-    try {
-      const { data, error } = await supabase
-        .from('user_roles')
-        .select(`
-          roles!inner (
-            name
-          )
-        `)
-        .eq('user_id', userId)
-        .eq('roles.name', 'SuperAdmin')
-        .single();
-
-      return !error && !!data;
-    } catch (error) {
-      console.error('SuperAdmin check failed:', error);
-      return false;
-    }
-  }
-
-  /**
-   * Get user roles with database queries
-   */
-  async getUserRoles(userId: string, tenantId?: string): Promise<Role[]> {
-    try {
-      let query = supabase
-        .from('user_roles')
-        .select(`
-          roles (
-            id,
-            tenant_id,
-            name,
-            description,
-            is_system_role,
-            metadata,
-            created_at,
-            updated_at
-          )
-        `)
-        .eq('user_id', userId);
-
-      if (tenantId) {
-        query = query.eq('roles.tenant_id', tenantId);
-      }
-
-      const { data, error } = await query;
-
-      if (error) {
-        console.error('Failed to get user roles:', error);
-        return [];
-      }
-
-      // Transform the nested data structure
-      const roles = data?.map(item => item.roles).filter(Boolean) || [];
-      return roles.map(role => ({
-        ...role,
-        permissions: [] // Will be populated separately if needed
-      }));
-    } catch (error) {
-      console.error('Failed to get user roles:', error);
-      return [];
-    }
-  }
-
-  /**
-   * Assign role to user with comprehensive entity boundary validation
+   * Assign role with entity boundary validation
    */
   async assignRole(
     assignerId: string,
     assigneeId: string,
     roleId: string,
-    tenantId: string
+    entityId: string
   ): Promise<{ success: boolean; error?: string }> {
     try {
-      // Enhanced entity boundary validation
-      const boundaryCheck = await EntityBoundaryValidator.validateEntityBoundary(
-        {
-          userId: assignerId,
-          entityId: tenantId,
-          operation: 'assign_role',
-          targetUserId: assigneeId
-        },
-        (userId, permission) => this.hasDirectPermission(userId, permission, 'roles')
+      // Validate entity boundary for role assignment
+      const boundaryCheck = await entityBoundaryService.enforceEntityBoundary(
+        assignerId,
+        'assign_role',
+        'roles',
+        roleId,
+        entityId
       );
 
-      if (!boundaryCheck) {
-        // Log failed role assignment
-        await enhancedAuditService.logRBACEvent(
-          'role_assign',
-          'failure',
-          {
-            userId: assignerId,
-            targetUserId: assigneeId,
-            roleId
-          },
-          { tenantId }
-        );
-        
-        return { success: false, error: 'Entity boundary violation' };
+      if (!boundaryCheck.allowed) {
+        return { 
+          success: false, 
+          error: `Entity boundary violation: ${boundaryCheck.reason}` 
+        };
       }
 
-      // Check if assigner can grant permissions
-      const permissionGrantCheck = await EntityBoundaryValidator.canGrantPermission(
-        {
-          grantor: { userId: assignerId, entityId: tenantId },
-          grantee: { userId: assigneeId, entityId: tenantId },
-          permission: `Assign:roles:${roleId}`
-        },
-        (userId, permission) => this.hasDirectPermission(userId, permission, 'roles')
+      // Check if assigner can grant this specific role
+      const canAssignRole = await this.checkPermission(
+        assignerId,
+        'assign',
+        'roles',
+        roleId,
+        entityId
       );
 
-      if (!permissionGrantCheck.valid) {
-        // Log failed role assignment
-        await enhancedAuditService.logRBACEvent(
-          'role_assign',
-          'failure',
-          {
-            userId: assignerId,
-            targetUserId: assigneeId,
-            roleId
-          },
-          { tenantId }
-        );
-        
-        return { success: false, error: permissionGrantCheck.reason };
+      if (!canAssignRole) {
+        return { 
+          success: false, 
+          error: 'Insufficient permissions to assign this role' 
+        };
       }
 
-      // Insert role assignment
+      // Perform the role assignment
       const { error } = await supabase
         .from('user_roles')
-        .insert({
+        .upsert({
           user_id: assigneeId,
           role_id: roleId,
-          tenant_id: tenantId,
-          assigned_by: assignerId
+          entity_id: entityId,
+          assigned_by: assignerId,
+          assigned_at: new Date().toISOString()
         });
 
       if (error) {
-        // Log failed role assignment
-        await enhancedAuditService.logRBACEvent(
-          'role_assign',
-          'error',
-          {
-            userId: assignerId,
-            targetUserId: assigneeId,
-            roleId
-          },
-          { tenantId }
-        );
-        
         return { success: false, error: error.message };
       }
 
-      // Clear permission cache for affected user
-      this.clearUserCache(assigneeId);
-
-      // Log successful role assignment
-      await enhancedAuditService.logRBACEvent(
-        'role_assign',
-        'success',
-        {
-          userId: assignerId,
-          targetUserId: assigneeId,
-          roleId
-        },
-        { tenantId }
-      );
+      // Clear caches for affected users
+      enhancedPermissionResolver.invalidateUserCache(assigneeId);
+      enhancedPermissionResolver.invalidateUserCache(assignerId);
 
       return { success: true };
     } catch (error) {
       console.error('Role assignment failed:', error);
-      
-      // Log failed role assignment
-      await enhancedAuditService.logRBACEvent(
-        'role_assign',
-        'error',
-        {
-          userId: assignerId,
-          targetUserId: assigneeId,
-          roleId
-        },
-        { tenantId }
-      );
-      
       return { success: false, error: 'Role assignment failed' };
     }
   }
 
   /**
-   * Get effective permissions for user
+   * Remove role with entity boundary validation
    */
-  async getUserPermissions(userId: string, tenantId?: string): Promise<Permission[]> {
+  async removeRole(
+    removerId: string,
+    userId: string,
+    roleId: string,
+    entityId: string
+  ): Promise<{ success: boolean; error?: string }> {
     try {
-      const { data, error } = await supabase.rpc('get_user_permissions', {
-        p_user_id: userId,
-        p_tenant_id: tenantId || null
-      });
+      // Validate entity boundary for role removal
+      const boundaryCheck = await entityBoundaryService.enforceEntityBoundary(
+        removerId,
+        'remove_role',
+        'roles',
+        roleId,
+        entityId
+      );
 
-      if (error) {
-        console.error('Failed to get user permissions:', error);
-        return [];
+      if (!boundaryCheck.allowed) {
+        return { 
+          success: false, 
+          error: `Entity boundary violation: ${boundaryCheck.reason}` 
+        };
       }
 
-      return data || [];
+      // Check if remover can remove this specific role
+      const canRemoveRole = await this.checkPermission(
+        removerId,
+        'remove',
+        'roles',
+        roleId,
+        entityId
+      );
+
+      if (!canRemoveRole) {
+        return { 
+          success: false, 
+          error: 'Insufficient permissions to remove this role' 
+        };
+      }
+
+      // Perform the role removal
+      const { error } = await supabase
+        .from('user_roles')
+        .delete()
+        .eq('user_id', userId)
+        .eq('role_id', roleId)
+        .eq('entity_id', entityId);
+
+      if (error) {
+        return { success: false, error: error.message };
+      }
+
+      // Clear cache for affected user
+      enhancedPermissionResolver.invalidateUserCache(userId);
+
+      return { success: true };
     } catch (error) {
-      console.error('Failed to get user permissions:', error);
-      return [];
+      console.error('Role removal failed:', error);
+      return { success: false, error: 'Role removal failed' };
     }
   }
 
   /**
-   * Clear permission cache for a user
+   * Switch user's entity context
    */
-  private clearUserCache(userId: string): void {
-    const keysToDelete = Array.from(this.permissionCache.keys())
-      .filter(key => key.startsWith(`${userId}-`));
-    
-    keysToDelete.forEach(key => this.permissionCache.delete(key));
+  async switchEntityContext(
+    userId: string,
+    newEntityId: string
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      // Validate that user has access to the target entity
+      const boundaryCheck = await entityBoundaryService.enforceEntityBoundary(
+        userId,
+        'switch_context',
+        'entities',
+        newEntityId,
+        newEntityId
+      );
+
+      if (!boundaryCheck.allowed) {
+        return { 
+          success: false, 
+          error: `Cannot switch to entity: ${boundaryCheck.reason}` 
+        };
+      }
+
+      // Set the new entity context
+      const success = await entityBoundaryService.setUserEntityContext(userId, newEntityId);
+      
+      if (!success) {
+        return { success: false, error: 'Failed to switch entity context' };
+      }
+
+      return { success: true };
+    } catch (error) {
+      console.error('Entity context switch failed:', error);
+      return { success: false, error: 'Entity context switch failed' };
+    }
   }
 
   /**
-   * Clear all permission cache
+   * Get user's available entities
    */
-  clearCache(): void {
-    this.permissionCache.clear();
+  async getUserEntities(userId: string) {
+    return await entityBoundaryService.getUserEntityBoundaries(userId);
+  }
+
+  /**
+   * Get enhanced permission resolver stats
+   */
+  getPermissionStats() {
+    return enhancedPermissionResolver.getPerformanceStats();
+  }
+
+  /**
+   * Get cache statistics
+   */
+  getCacheStats() {
+    return enhancedPermissionResolver.getCacheStats();
   }
 }
 
