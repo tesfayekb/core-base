@@ -3,7 +3,6 @@ import { useState } from "react";
 import { NavLink } from "react-router-dom";
 import { 
   LayoutDashboard, 
-  BarChart3, 
   Users, 
   Settings, 
   Menu,
@@ -22,13 +21,8 @@ type NavItem = {
 const navItems: NavItem[] = [
   {
     title: "Dashboard",
-    href: "/",
+    href: "/dashboard",
     icon: <LayoutDashboard className="h-5 w-5" />,
-  },
-  {
-    title: "Analytics",
-    href: "/analytics",
-    icon: <BarChart3 className="h-5 w-5" />,
   },
   {
     title: "Users",
@@ -70,7 +64,7 @@ export function Sidebar({
       >
         <div className="flex h-16 items-center justify-between border-b px-4">
           <div className="flex items-center">
-            <span className="font-semibold text-xl">Dashboard</span>
+            <span className="font-semibold text-xl">Enterprise App</span>
           </div>
           <Button variant="ghost" size="icon" onClick={toggleSidebar}>
             <X className="h-5 w-5" />

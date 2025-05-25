@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from '@/components/ui/sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { ThemeProvider } from 'next-themes';
-import Navigation from '@/components/Navigation';
+import { MainLayout } from '@/components/layout/MainLayout';
 import Dashboard from '@/pages/Dashboard';
 import Users from '@/pages/Users';
 import Settings from '@/pages/Settings';
@@ -19,17 +19,14 @@ function App() {
         <TooltipProvider>
           <AuthProvider>
             <Router>
-              <div className="min-h-screen bg-background">
-                <Navigation />
-                <main className="container mx-auto px-4 py-8">
-                  <Routes>
-                    <Route path="/" element={<Navigate to="/dashboard" replace />} />
-                    <Route path="/dashboard" element={<Dashboard />} />
-                    <Route path="/users" element={<Users />} />
-                    <Route path="/settings" element={<Settings />} />
-                  </Routes>
-                </main>
-              </div>
+              <Routes>
+                <Route path="/" element={<MainLayout />}>
+                  <Route index element={<Navigate to="/dashboard" replace />} />
+                  <Route path="dashboard" element={<Dashboard />} />
+                  <Route path="users" element={<Users />} />
+                  <Route path="settings" element={<Settings />} />
+                </Route>
+              </Routes>
             </Router>
           </AuthProvider>
           <Toaster />
