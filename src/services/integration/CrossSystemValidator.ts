@@ -1,6 +1,6 @@
+
 import { phase1Monitor } from '../performance/Phase1Monitor';
 import { detailedMetricsCollector } from '../performance/DetailedMetricsCollector';
-import { Phase1Metrics } from '../performance/metrics/Phase1Metrics';
 
 export interface ValidationResult {
   system: string;
@@ -23,6 +23,31 @@ export interface CrossSystemValidationReport {
   recommendations: string[];
 }
 
+// Define the metrics structure we actually receive from phase1Monitor
+interface ActualMetrics {
+  database: {
+    totalQueries: number;
+    averageQueryTime: number;
+    slowQueries: number;
+    connectionPoolStatus: string;
+  };
+  permissions: {
+    totalChecks: number;
+    averageCheckTime: number;
+    cacheHitRate: number;
+  };
+  multiTenant: {
+    contextSwitches: number;
+    averageSwitchTime: number;
+    isolationViolations: number;
+  };
+  audit: {
+    eventsLogged: number;
+    averageLogTime: number;
+    batchOperations: number;
+  };
+}
+
 export class CrossSystemValidator {
   private static instance: CrossSystemValidator;
 
@@ -35,7 +60,7 @@ export class CrossSystemValidator {
 
   async validateAllSystems(): Promise<CrossSystemValidationReport> {
     const results: ValidationResult[] = [];
-    const metrics = phase1Monitor.getMetrics();
+    const metrics = phase1Monitor.getMetrics() as ActualMetrics;
 
     // Validate Performance Monitoring
     results.push(await this.validatePerformanceMonitoring(metrics));
@@ -72,7 +97,7 @@ export class CrossSystemValidator {
     };
   }
 
-  private async validatePerformanceMonitoring(metrics: Phase1Metrics): Promise<ValidationResult> {
+  private async validatePerformanceMonitoring(metrics: ActualMetrics): Promise<ValidationResult> {
     const issues: string[] = [];
     let score = 100;
 
@@ -82,15 +107,15 @@ export class CrossSystemValidator {
       score -= 20;
     }
 
-    // Check permission system performance - using correct property name
-    if (metrics.rbac.averageCheckTime > 15) {
+    // Check permission system performance
+    if (metrics.permissions.averageCheckTime > 15) {
       issues.push('Permission checks exceed 15ms target');
       score -= 20;
     }
 
-    // Check auth performance
-    if (metrics.auth.averageAuthTime > 1000) {
-      issues.push('Authentication exceeds 1000ms target');
+    // Check connection pool status
+    if (metrics.database.connectionPoolStatus !== 'healthy') {
+      issues.push('Database connection pool is not healthy');
       score -= 15;
     }
 
@@ -102,18 +127,12 @@ export class CrossSystemValidator {
     };
   }
 
-  private async validateSecurityInfrastructure(metrics: Phase1Metrics): Promise<ValidationResult> {
+  private async validateSecurityInfrastructure(metrics: ActualMetrics): Promise<ValidationResult> {
     const issues: string[] = [];
     let score = 100;
 
-    // Check auth security
-    if (metrics.auth.failedAttempts > 10) {
-      issues.push('High number of failed authentication attempts');
-      score -= 25;
-    }
-
-    // Check permission cache effectiveness - using correct property name
-    if (metrics.rbac.cacheHitRate < 85) {
+    // Check permission cache effectiveness
+    if (metrics.permissions.cacheHitRate < 85) {
       issues.push('Permission cache hit rate below 85% target');
       score -= 15;
     }
@@ -124,6 +143,12 @@ export class CrossSystemValidator {
       score -= 50;
     }
 
+    // Check tenant switching performance
+    if (metrics.multiTenant.averageSwitchTime > 200) {
+      issues.push('Tenant switching exceeds 200ms target');
+      score -= 15;
+    }
+
     return {
       system: 'Security Infrastructure',
       passed: issues.length === 0,
@@ -132,12 +157,12 @@ export class CrossSystemValidator {
     };
   }
 
-  private async validateDataCollection(metrics: Phase1Metrics): Promise<ValidationResult> {
+  private async validateDataCollection(metrics: ActualMetrics): Promise<ValidationResult> {
     const issues: string[] = [];
     let score = 100;
 
-    // Check database query volume - using correct property name
-    if (metrics.database.queryCount === 0) {
+    // Check database query volume
+    if (metrics.database.totalQueries === 0) {
       issues.push('No database queries recorded');
       score -= 30;
     }
@@ -148,9 +173,9 @@ export class CrossSystemValidator {
       score -= 15;
     }
 
-    // Check error rates
-    if (metrics.errors?.rate > 0.01) {
-      issues.push('Error rate exceeds 1% threshold');
+    // Check permission system activity
+    if (metrics.permissions.totalChecks === 0) {
+      issues.push('No permission checks recorded');
       score -= 20;
     }
 
@@ -162,7 +187,7 @@ export class CrossSystemValidator {
     };
   }
 
-  private async validateSystemIntegration(metrics: Phase1Metrics): Promise<ValidationResult> {
+  private async validateSystemIntegration(metrics: ActualMetrics): Promise<ValidationResult> {
     const issues: string[] = [];
     let score = 100;
 
@@ -184,7 +209,7 @@ export class CrossSystemValidator {
     // Validate integration points are working
     try {
       // Test that all monitoring systems are collecting data
-      if (metrics.database.queryCount === 0 && metrics.rbac.permissionChecks === 0) {
+      if (metrics.database.totalQueries === 0 && metrics.permissions.totalChecks === 0) {
         issues.push('Multiple monitoring systems appear inactive');
         score -= 30;
       }
@@ -258,17 +283,13 @@ export class CrossSystemValidator {
   // Test specific integration points
   async validateCrossSystemData(): Promise<{ consistent: boolean; issues: string[] }> {
     const issues: string[] = [];
-    const metrics = phase1Monitor.getMetrics();
+    const metrics = phase1Monitor.getMetrics() as ActualMetrics;
 
     // Check data consistency between systems
     try {
       // Validate metrics correlation
-      if (metrics.database.queryCount > 0 && metrics.rbac.permissionChecks === 0) {
+      if (metrics.database.totalQueries > 0 && metrics.permissions.totalChecks === 0) {
         issues.push('Database activity without permission checks suggests integration issue');
-      }
-
-      if (metrics.auth.totalAuthAttempts > 0 && metrics.audit.eventsLogged === 0) {
-        issues.push('Authentication activity not being audited');
       }
 
       // Check system synchronization
