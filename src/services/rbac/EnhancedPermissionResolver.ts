@@ -13,7 +13,7 @@ export interface PermissionResolutionResult {
   cacheHit: boolean;
 }
 
-export { PermissionContext };
+export type { PermissionContext };
 
 export class EnhancedPermissionResolver {
   private static instance: EnhancedPermissionResolver;
