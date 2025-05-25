@@ -15,4 +15,15 @@ export const supabase = createClient(supabaseUrl, supabaseKey, {
   }
 });
 
+// Test database connection
+export const testConnection = async (): Promise<boolean> => {
+  try {
+    const { data, error } = await supabase.from('tenants').select('count', { count: 'exact', head: true });
+    return !error;
+  } catch (error) {
+    console.error('Database connection test failed:', error);
+    return false;
+  }
+};
+
 export default supabase;

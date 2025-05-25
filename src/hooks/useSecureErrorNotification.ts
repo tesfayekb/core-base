@@ -73,10 +73,38 @@ export function useSecureErrorNotification() {
     toast.error(userMessage, 'System Error');
   }, [toast]);
 
+  // Authentication-specific error handling
+  const handleAuthenticationError = useCallback(async (
+    error: Error,
+    context: { operation: string }
+  ) => {
+    console.warn('🔐 Authentication error:', {
+      operation: context.operation,
+      timestamp: new Date().toISOString(),
+    });
+
+    // Generic authentication error message for security
+    toast.error(
+      'Authentication failed. Please check your credentials and try again.',
+      'Login Error'
+    );
+  }, [toast]);
+
+  // Input validation error handling
+  const handleInputValidationError = useCallback((
+    error: Error,
+    field: string
+  ) => {
+    const displayMessage = `${field}: ${error.message}`;
+    toast.warning(displayMessage, 'Validation Error');
+  }, [toast]);
+
   return {
     handleSuspiciousActivity,
     handlePermissionError,
     handleValidationError,
     handleSystemError,
+    handleAuthenticationError,
+    handleInputValidationError,
   };
 }
