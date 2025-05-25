@@ -57,10 +57,10 @@ describe('Password Security Integration Tests', () => {
         </AuthProvider>
       );
 
-      const emailInput = screen.getByLabelText(/email/i);
-      const passwordInput = screen.getByLabelText(/^password$/i);
-      const confirmInput = screen.getByLabelText(/confirm password/i);
-      const submitButton = screen.getByRole('button', { name: /create account/i });
+      const emailInput = screen.getByLabelText('Email');
+      const passwordInput = screen.getByLabelText('Password', { exact: false });
+      const confirmInput = screen.getByLabelText('Confirm Password');
+      const submitButton = screen.getByRole('button', { name: 'Create Account' });
 
       await user.type(emailInput, 'integration@example.com');
       await user.type(passwordInput, 'weak');
@@ -109,8 +109,8 @@ describe('Password Security Integration Tests', () => {
         </AuthProvider>
       );
 
-      const emailInput = screen.getByLabelText(/email/i);
-      const submitButton = screen.getByRole('button', { name: /send reset instructions/i });
+      const emailInput = screen.getByLabelText('Email');
+      const submitButton = screen.getByRole('button', { name: 'Send Reset Instructions' });
 
       // First reset attempt - should succeed
       mockResetPasswordForEmail.mockResolvedValue({ error: null });
@@ -137,13 +137,13 @@ describe('Password Security Integration Tests', () => {
         </AuthProvider>
       );
 
-      const newEmailInput = screen.getByLabelText(/email/i);
-      const newSubmitButton = screen.getByRole('button', { name: /send reset instructions/i });
+      const newEmailInput = screen.getByLabelText('Email');
+      const newSubmitButton = screen.getByRole('button', { name: 'Send Reset Instructions' });
 
       await user.type(newEmailInput, 'reset@example.com');
 
       // Should show rate limiting message and disable button
-      expect(screen.getByText(/too many password reset requests/i)).toBeInTheDocument();
+      expect(screen.getByText('Too many password reset requests')).toBeInTheDocument();
       expect(newSubmitButton).toBeDisabled();
     });
   });
@@ -158,17 +158,17 @@ describe('Password Security Integration Tests', () => {
         </AuthProvider>
       );
 
-      const passwordInput = screen.getByLabelText(/^password$/i);
+      const passwordInput = screen.getByLabelText('Password', { exact: false });
 
       // Start with empty password - no indicator
-      expect(screen.queryByText(/password strength/i)).not.toBeInTheDocument();
+      expect(screen.queryByText('Password strength')).not.toBeInTheDocument();
 
       // Enter weak password
       await user.type(passwordInput, 'weak');
       
       await waitFor(() => {
-        expect(screen.getByText(/password strength/i)).toBeInTheDocument();
-        expect(screen.getByText(/weak/i)).toBeInTheDocument();
+        expect(screen.getByText('Password strength')).toBeInTheDocument();
+        expect(screen.getByText('Weak')).toBeInTheDocument();
       });
 
       // Improve to strong password
@@ -176,7 +176,7 @@ describe('Password Security Integration Tests', () => {
       await user.type(passwordInput, 'VerySecurePassword123!@#');
 
       await waitFor(() => {
-        expect(screen.getByText(/strong/i)).toBeInTheDocument();
+        expect(screen.getByText('Strong')).toBeInTheDocument();
       });
     });
 
@@ -189,14 +189,14 @@ describe('Password Security Integration Tests', () => {
         </AuthProvider>
       );
 
-      const passwordInput = screen.getByLabelText(/^password$/i);
-      const confirmInput = screen.getByLabelText(/confirm password/i);
+      const passwordInput = screen.getByLabelText('Password', { exact: false });
+      const confirmInput = screen.getByLabelText('Confirm Password');
 
       await user.type(passwordInput, 'SecurePassword123!');
       await user.type(confirmInput, 'DifferentPassword123!');
 
       await waitFor(() => {
-        expect(screen.getByText(/passwords do not match/i)).toBeInTheDocument();
+        expect(screen.getByText('Passwords do not match')).toBeInTheDocument();
       });
 
       // Fix the mismatch
@@ -204,7 +204,7 @@ describe('Password Security Integration Tests', () => {
       await user.type(confirmInput, 'SecurePassword123!');
 
       await waitFor(() => {
-        expect(screen.queryByText(/passwords do not match/i)).not.toBeInTheDocument();
+        expect(screen.queryByText('Passwords do not match')).not.toBeInTheDocument();
       });
     });
   });
@@ -219,10 +219,10 @@ describe('Password Security Integration Tests', () => {
         </AuthProvider>
       );
 
-      const emailInput = screen.getByLabelText(/email/i);
-      const passwordInput = screen.getByLabelText(/^password$/i);
-      const confirmInput = screen.getByLabelText(/confirm password/i);
-      const submitButton = screen.getByRole('button', { name: /create account/i });
+      const emailInput = screen.getByLabelText('Email');
+      const passwordInput = screen.getByLabelText('Password', { exact: false });
+      const confirmInput = screen.getByLabelText('Confirm Password');
+      const submitButton = screen.getByRole('button', { name: 'Create Account' });
 
       // Fill form
       await user.type(emailInput, 'error@example.com');
@@ -235,7 +235,7 @@ describe('Password Security Integration Tests', () => {
       await user.click(submitButton);
 
       await waitFor(() => {
-        expect(screen.getByText(/unexpected error/i)).toBeInTheDocument();
+        expect(screen.getByText('An unexpected error occurred during registration')).toBeInTheDocument();
       });
 
       // Second attempt succeeds
@@ -265,7 +265,7 @@ describe('Password Security Integration Tests', () => {
         </AuthProvider>
       );
 
-      const passwordInput = screen.getByLabelText(/^password$/i);
+      const passwordInput = screen.getByLabelText('Password', { exact: false });
 
       const startTime = performance.now();
 

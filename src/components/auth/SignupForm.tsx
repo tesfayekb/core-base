@@ -1,14 +1,12 @@
 
-import React, { useState } from 'react';
+import React from 'react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loader2, UserPlus } from 'lucide-react';
 import { useAuth } from './AuthProvider';
-import { PasswordStrengthIndicator } from './PasswordStrengthIndicator';
 import { LoadingWrapper } from '@/components/ui/loading-wrapper';
-import { useErrorNotification } from '@/hooks/useErrorNotification';
+import { SignupFormFields } from './signup/SignupFormFields';
+import { useSignupForm } from './signup/useSignupForm';
 
 interface SignupFormProps {
   onToggleMode?: () => void;
@@ -16,86 +14,15 @@ interface SignupFormProps {
 }
 
 export function SignupForm({ onToggleMode, onSuccess }: SignupFormProps) {
-  const [formData, setFormData] = useState({
-    email: '',
-    password: '',
-    confirmPassword: '',
-    firstName: '',
-    lastName: ''
-  });
-  const [isLoading, setIsLoading] = useState(false);
-  const [passwordMismatch, setPasswordMismatch] = useState(false);
-  const { signUp, authError, clearAuthError } = useAuth();
-  const { showError, showSuccess } = useErrorNotification();
-
-  const validatePasswordStrength = (password: string): boolean => {
-    const checks = [
-      password.length >= 8,
-      /[a-z]/.test(password),
-      /[A-Z]/.test(password),
-      /\d/.test(password),
-      /[!@#$%^&*(),.?":{}|<>]/.test(password)
-    ];
-    
-    return checks.filter(Boolean).length >= 4; // At least 4 out of 5 checks must pass
-  };
-
-  const handleInputChange = (field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-    
-    if (field === 'confirmPassword' || field === 'password') {
-      const newPassword = field === 'password' ? value : formData.password;
-      const newConfirmPassword = field === 'confirmPassword' ? value : formData.confirmPassword;
-      setPasswordMismatch(newConfirmPassword !== '' && newPassword !== newConfirmPassword);
-    }
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (formData.password !== formData.confirmPassword) {
-      showError('Passwords do not match');
-      return;
-    }
-
-    if (!validatePasswordStrength(formData.password)) {
-      showError('Password does not meet security requirements');
-      return;
-    }
-
-    setIsLoading(true);
-    clearAuthError();
-
-    try {
-      const result = await signUp(
-        formData.email,
-        formData.password,
-        formData.firstName,
-        formData.lastName
-      );
-      
-      if (result.success) {
-        if (result.requiresVerification) {
-          showSuccess('Registration successful! Please check your email to verify your account.');
-        } else {
-          showSuccess('Registration successful!');
-        }
-        onSuccess?.();
-      } else if (result.error) {
-        showError(result.error);
-      }
-    } catch (error) {
-      showError('An unexpected error occurred during registration');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const isFormValid = formData.email && 
-                     formData.password && 
-                     formData.confirmPassword && 
-                     !passwordMismatch &&
-                     validatePasswordStrength(formData.password);
+  const { authError } = useAuth();
+  const {
+    formData,
+    isLoading,
+    passwordMismatch,
+    isFormValid,
+    handleInputChange,
+    handleSubmit
+  } = useSignupForm(onSuccess);
 
   return (
     <Card className="w-full max-w-md mx-auto">
@@ -115,72 +42,12 @@ export function SignupForm({ onToggleMode, onSuccess }: SignupFormProps) {
           onRetry={() => window.location.reload()}
         >
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="firstName">First Name</Label>
-                <Input
-                  id="firstName"
-                  placeholder="John"
-                  value={formData.firstName}
-                  onChange={(e) => handleInputChange('firstName', e.target.value)}
-                  disabled={isLoading}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="lastName">Last Name</Label>
-                <Input
-                  id="lastName"
-                  placeholder="Doe"
-                  value={formData.lastName}
-                  onChange={(e) => handleInputChange('lastName', e.target.value)}
-                  disabled={isLoading}
-                />
-              </div>
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="Enter your email"
-                value={formData.email}
-                onChange={(e) => handleInputChange('email', e.target.value)}
-                required
-                disabled={isLoading}
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="Create a secure password"
-                value={formData.password}
-                onChange={(e) => handleInputChange('password', e.target.value)}
-                required
-                disabled={isLoading}
-              />
-              <PasswordStrengthIndicator password={formData.password} />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="confirmPassword">Confirm Password</Label>
-              <Input
-                id="confirmPassword"
-                type="password"
-                placeholder="Confirm your password"
-                value={formData.confirmPassword}
-                onChange={(e) => handleInputChange('confirmPassword', e.target.value)}
-                required
-                disabled={isLoading}
-                className={passwordMismatch ? 'border-red-500' : ''}
-              />
-              {passwordMismatch && (
-                <p className="text-sm text-red-600">Passwords do not match</p>
-              )}
-            </div>
+            <SignupFormFields
+              formData={formData}
+              passwordMismatch={passwordMismatch}
+              isLoading={isLoading}
+              onInputChange={handleInputChange}
+            />
             
             <Button 
               type="submit" 
