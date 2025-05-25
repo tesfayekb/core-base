@@ -16,4 +16,6 @@ export interface CacheStats {
   cacheHits: number;
   cacheMisses: number;
   lastCleanup: number;
+  evictions: number;
+  memoryPressure: boolean;
 }
