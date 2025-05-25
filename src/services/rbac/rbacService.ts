@@ -1,5 +1,6 @@
 import { enhancedPermissionResolver } from './EnhancedPermissionResolver';
 import { entityBoundaryService } from './EntityBoundaryService';
+import { dependencyValidationService } from './DependencyValidationService';
 import { supabase } from '../database/connection';
 
 export interface PermissionCheckRequest {
@@ -124,7 +125,7 @@ export class RBACService {
   }
 
   /**
-   * Assign role with entity boundary validation
+   * Assign role with comprehensive dependency validation
    */
   async assignRole(
     assignerId: string,
@@ -133,6 +134,26 @@ export class RBACService {
     entityId: string
   ): Promise<{ success: boolean; error?: string }> {
     try {
+      // Pre-validate the assignment with dependency checking
+      const preValidation = await dependencyValidationService.preValidateRoleAssignment(
+        assignerId,
+        roleId,
+        assigneeId,
+        entityId
+      );
+
+      if (!preValidation.canProceed) {
+        return { 
+          success: false, 
+          error: `Assignment blocked: ${preValidation.blockingIssues.join('; ')}` 
+        };
+      }
+
+      // Log warnings if any
+      if (preValidation.warnings.length > 0) {
+        console.warn('Role assignment warnings:', preValidation.warnings);
+      }
+
       // Validate entity boundary for role assignment
       const boundaryCheck = await entityBoundaryService.enforceEntityBoundary(
         assignerId,

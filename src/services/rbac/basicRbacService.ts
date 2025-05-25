@@ -1,10 +1,10 @@
-
 // Basic RBAC Service Implementation - Enhanced for Phase 1.4 Completion
 // Phase 1.4: RBAC Foundation with Complete Dependency Resolution
 
 import { Role, Permission, UserRole, PermissionCheck } from '../../types/rbac';
 import { rbacService } from './rbacService';
 import { EntityBoundaryValidator } from './EntityBoundaryValidator';
+import { dependencyValidationService } from './DependencyValidationService';
 
 export class BasicRBACService {
   
@@ -49,15 +49,37 @@ export class BasicRBACService {
   }
   
   /**
-   * Assign role to user with comprehensive entity boundary validation
+   * Assign role to user with comprehensive dependency validation
    */
   async assignRole(
     assignerId: string,
     assigneeId: string,
     roleId: string,
     tenantId: string
-  ): Promise<{ success: boolean; error?: string }> {
-    return rbacService.assignRole(assignerId, assigneeId, roleId, tenantId);
+  ): Promise<{ success: boolean; error?: string; warnings?: string[] }> {
+    // Pre-validate with dependency checking
+    const validation = await dependencyValidationService.preValidateRoleAssignment(
+      assignerId,
+      roleId,
+      assigneeId,
+      tenantId
+    );
+
+    if (!validation.canProceed) {
+      return { 
+        success: false, 
+        error: validation.blockingIssues.join('; '),
+        warnings: validation.warnings
+      };
+    }
+
+    // Proceed with the assignment
+    const result = await rbacService.assignRole(assignerId, assigneeId, roleId, tenantId);
+    
+    return {
+      ...result,
+      warnings: validation.warnings.length > 0 ? validation.warnings : undefined
+    };
   }
   
   /**
@@ -128,6 +150,29 @@ export class BasicRBACService {
     entityId: string
   ): Promise<boolean> {
     return this.validateEntityBoundary(userId, entityId, `access_${resourceType}`, resourceId);
+  }
+
+    /**
+   * Validate role assignment before execution
+   */
+  async validateRoleAssignment(
+    assignerId: string,
+    roleId: string,
+    assigneeId: string,
+    tenantId: string
+  ): Promise<{ valid: boolean; missingDependencies: string[]; warnings: string[] }> {
+    const validation = await dependencyValidationService.validateRoleAssignment(
+      assignerId,
+      roleId,
+      assigneeId,
+      tenantId
+    );
+
+    return {
+      valid: validation.valid,
+      missingDependencies: validation.missingDependencies,
+      warnings: validation.warnings
+    };
   }
 }
 
