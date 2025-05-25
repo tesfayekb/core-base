@@ -13,13 +13,16 @@ export interface PhaseCompletionStatus {
   lastUpdated: string;
 }
 
-// Add PhaseState as an alias for backward compatibility
+// PhaseState should match PhaseCompletionStatus for consistency
 export interface PhaseState {
   phase: number;
   name: string;
+  completed: boolean;
+  completionPercentage: number;
   completedFeatures: string[];
   pendingFeatures: string[];
   validationStatus: ValidationStatus;
+  lastUpdated: string;
 }
 
 export interface ValidationStatus {

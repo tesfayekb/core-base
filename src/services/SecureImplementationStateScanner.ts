@@ -1,4 +1,3 @@
-
 // Secure Implementation State Scanner
 // Security-enhanced version with proper access controls
 
@@ -62,34 +61,47 @@ class SecureImplementationStateScannerService {
   }
 
   private analyzePhases(files: any[]): PhaseState[] {
+    const now = new Date().toISOString();
     const phases: PhaseState[] = [
       {
         phase: 1,
         name: 'Foundation',
+        completed: false,
+        completionPercentage: 0,
         completedFeatures: [],
         pendingFeatures: ['Database Setup', 'Authentication System', 'RBAC Foundation', 'Multi-tenant Foundation'],
-        validationStatus: { passed: false, warnings: [], errors: [] }
+        validationStatus: { passed: false, warnings: [], errors: [], score: 0 },
+        lastUpdated: now
       },
       {
         phase: 2,
         name: 'Core Features',
+        completed: false,
+        completionPercentage: 0,
         completedFeatures: [],
         pendingFeatures: ['User Management', 'Advanced RBAC', 'Enhanced Multi-tenant'],
-        validationStatus: { passed: false, warnings: [], errors: [] }
+        validationStatus: { passed: false, warnings: [], errors: [], score: 0 },
+        lastUpdated: now
       },
       {
         phase: 3,
         name: 'Advanced Features',
+        completed: false,
+        completionPercentage: 0,
         completedFeatures: [],
         pendingFeatures: ['Audit Dashboard', 'Security Monitoring', 'Performance Optimization'],
-        validationStatus: { passed: false, warnings: [], errors: [] }
+        validationStatus: { passed: false, warnings: [], errors: [], score: 0 },
+        lastUpdated: now
       },
       {
         phase: 4,
         name: 'Production',
+        completed: false,
+        completionPercentage: 0,
         completedFeatures: [],
         pendingFeatures: ['Mobile Strategy', 'UI Polish', 'Production Deployment'],
-        validationStatus: { passed: false, warnings: [], errors: [] }
+        validationStatus: { passed: false, warnings: [], errors: [], score: 0 },
+        lastUpdated: now
       }
     ];
 
@@ -119,14 +131,15 @@ class SecureImplementationStateScannerService {
       phases[0].pendingFeatures = phases[0].pendingFeatures.filter(f => f !== 'Multi-tenant Foundation');
     }
 
-    // Update validation status
+    // Update completion percentage and status for each phase
     phases.forEach(phase => {
       const totalFeatures = phase.completedFeatures.length + phase.pendingFeatures.length;
-      const completionRate = totalFeatures > 0 ? phase.completedFeatures.length / totalFeatures : 0;
+      phase.completionPercentage = totalFeatures > 0 ? Math.round((phase.completedFeatures.length / totalFeatures) * 100) : 0;
+      phase.completed = phase.completionPercentage === 100;
+      phase.validationStatus.passed = phase.completionPercentage >= 80;
+      phase.validationStatus.score = phase.completionPercentage;
       
-      phase.validationStatus.passed = completionRate >= 0.8;
-      
-      if (completionRate < 0.5) {
+      if (phase.completionPercentage < 50) {
         phase.validationStatus.warnings.push('Phase significantly incomplete');
       }
     });
@@ -149,7 +162,7 @@ class SecureImplementationStateScannerService {
       totalFeatures += phaseTotal;
       completedFeatures += phase.completedFeatures.length;
       
-      if (phase.completedFeatures.length > 0 && phase.pendingFeatures.length === 0) {
+      if (phase.completed) {
         currentPhase = Math.max(currentPhase, index + 2);
       }
       
