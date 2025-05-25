@@ -1,4 +1,3 @@
-
 #!/usr/bin/env node
 // CI/CD Validation Script
 // Automated validation for build pipelines
