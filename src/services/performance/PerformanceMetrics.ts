@@ -18,7 +18,7 @@ export interface PerformanceMetrics {
     completedAt: Date;
   }>;
 
-  // Database metrics
+  // Database metrics - Enhanced
   databaseQueries?: Array<{
     query: string;
     duration: number;
@@ -30,6 +30,16 @@ export interface PerformanceMetrics {
     averageQueryTime: number;
     totalQueries: number;
     failedQueries: number;
+    slowQueries: number;
+    connectionPoolStatus: string;
+  };
+
+  // Authentication metrics - New
+  auth?: {
+    loginTime: number;
+    registrationTime: number;
+    tokenValidation: number;
+    failedAttempts: number;
   };
 
   // External service metrics
@@ -76,13 +86,14 @@ export interface PerformanceMetrics {
     recordedAt: Date;
   }>;
 
-  // Error tracking
+  // Error tracking - Enhanced
   errors?: Array<{
     errorType: string;
     message: string;
     stackTrace?: string;
     timestamp: number;
     occurredAt: Date;
+    rate?: number;
   }>;
 
   // Custom events
