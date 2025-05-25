@@ -1,7 +1,7 @@
 
 import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { useErrorNotification } from '@/hooks/useErrorNotification';
+import { useSecureErrorNotification } from '@/hooks/useSecureErrorNotification';
 import { useFormValidation } from '@/hooks/useFormValidation';
 import { loginFormSchema } from '@/utils/validation';
 
@@ -17,7 +17,7 @@ export function useLoginForm(onSuccess?: () => void) {
   });
 
   const { signIn } = useAuth();
-  const { showError, showSuccess } = useErrorNotification();
+  const { handleAuthenticationError, handleInputValidationError } = useSecureErrorNotification();
 
   const {
     errors,
@@ -34,13 +34,21 @@ export function useLoginForm(onSuccess?: () => void) {
         const result = await signIn(validatedData.email, validatedData.password);
         
         if (result.success) {
-          showSuccess('Login successful!');
+          // Don't show success message for security reasons - just redirect
           onSuccess?.();
         } else if (result.error) {
-          showError(result.error);
+          // Use secure error handling for authentication failures
+          await handleAuthenticationError(
+            new Error(result.error),
+            { operation: 'login_attempt' }
+          );
         }
       } catch (error) {
-        showError('An unexpected error occurred during login');
+        // Handle unexpected errors securely
+        await handleAuthenticationError(
+          error instanceof Error ? error : new Error('Unexpected login error'),
+          { operation: 'login_system_error' }
+        );
       }
     }
   });
@@ -51,13 +59,29 @@ export function useLoginForm(onSuccess?: () => void) {
     
     // Validate field in real-time if it has been touched
     if (touched[field]) {
-      validateField(field, value, newFormData);
+      try {
+        validateField(field, value, newFormData);
+      } catch (validationError) {
+        // Handle validation errors securely
+        handleInputValidationError(
+          validationError instanceof Error ? validationError : new Error('Validation failed'),
+          field
+        );
+      }
     }
   };
 
   const handleFieldBlur = (field: keyof LoginFormData) => {
     setFieldTouched(field);
-    validateField(field, formData[field], formData);
+    try {
+      validateField(field, formData[field], formData);
+    } catch (validationError) {
+      // Handle validation errors securely
+      handleInputValidationError(
+        validationError instanceof Error ? validationError : new Error('Field validation failed'),
+        field
+      );
+    }
   };
 
   const submitForm = async () => {
