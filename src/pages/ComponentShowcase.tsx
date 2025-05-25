@@ -4,12 +4,11 @@ import { MetricCard } from '@/components/ui/metric-card'
 import { DashboardGrid } from '@/components/ui/dashboard-grid'
 import { FormField } from '@/components/ui/form-field'
 import { FormSection } from '@/components/ui/form-section'
-import { DataTable } from '@/components/ui/data-table'
+import { SimpleDataTable } from '@/components/ui/simple-data-table'
 import { Modal, ConfirmModal } from '@/components/ui/modal'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { ColumnDef } from '@tanstack/react-table'
-import { ArrowUpDown, Users, DollarSign, Activity, CreditCard } from 'lucide-react'
+import { Users, DollarSign, Activity, CreditCard } from 'lucide-react'
 
 interface User {
   id: string
@@ -25,42 +24,22 @@ const sampleData: User[] = [
   { id: '3', name: 'Mike Johnson', email: 'mike@example.com', role: 'User', status: 'inactive' }
 ]
 
-const columns: ColumnDef<User>[] = [
+const columns = [
+  { key: 'name', header: 'Name' },
+  { key: 'email', header: 'Email' },
+  { key: 'role', header: 'Role' },
   {
-    accessorKey: "name",
-    header: ({ column }) => (
-      <Button
-        variant="ghost"
-        onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-      >
-        Name
-        <ArrowUpDown className="ml-2 h-4 w-4" />
-      </Button>
+    key: 'status',
+    header: 'Status',
+    render: (user: User) => (
+      <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
+        user.status === 'active' 
+          ? 'bg-green-100 text-green-800' 
+          : 'bg-red-100 text-red-800'
+      }`}>
+        {user.status}
+      </span>
     )
-  },
-  {
-    accessorKey: "email",
-    header: "Email"
-  },
-  {
-    accessorKey: "role", 
-    header: "Role"
-  },
-  {
-    accessorKey: "status",
-    header: "Status",
-    cell: ({ row }) => {
-      const status = row.getValue("status") as string
-      return (
-        <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
-          status === 'active' 
-            ? 'bg-green-100 text-green-800' 
-            : 'bg-red-100 text-red-800'
-        }`}>
-          {status}
-        </span>
-      )
-    }
   }
 ]
 
@@ -140,7 +119,7 @@ export default function ComponentShowcase() {
             <CardTitle>Users</CardTitle>
           </CardHeader>
           <CardContent>
-            <DataTable
+            <SimpleDataTable
               columns={columns}
               data={sampleData}
               searchPlaceholder="Search users..."

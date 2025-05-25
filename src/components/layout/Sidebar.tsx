@@ -1,18 +1,18 @@
+
 import React from 'react';
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { Menu } from 'lucide-react';
 import { SidebarNavItem } from './SidebarNavItem';
 import { Home, Shield, Layout } from 'lucide-react';
 
-export function Sidebar() {
-  const [open, setOpen] = React.useState(false);
+interface SidebarProps {
+  isOpen: boolean;
+  toggleSidebar: () => void;
+}
 
-  const handleOpen = () => {
-    setOpen(true);
-  };
-
+export function Sidebar({ isOpen, toggleSidebar }: SidebarProps) {
   const handleClose = () => {
-    setOpen(false);
+    toggleSidebar();
   };
 
   const menuItems = [
@@ -22,9 +22,9 @@ export function Sidebar() {
   ];
 
   return (
-    <Sheet open={open} onOpenChange={setOpen}>
+    <Sheet open={isOpen} onOpenChange={toggleSidebar}>
       <SheetTrigger asChild>
-        <Menu className="md:hidden h-6 w-6" onClick={handleOpen} />
+        <Menu className="md:hidden h-6 w-6" onClick={toggleSidebar} />
       </SheetTrigger>
       <SheetContent side="left" className="w-64 p-0 border-r">
         <div className="flex flex-col h-full">
