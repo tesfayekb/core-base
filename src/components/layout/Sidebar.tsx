@@ -1,102 +1,96 @@
 
 import { useState } from "react";
-import { NavLink } from "react-router-dom";
+import { NavLink, useLocation } from "react-router-dom";
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { 
   LayoutDashboard, 
   Users, 
   Settings, 
-  Menu,
-  X,
-  CheckCircle
+  Menu, 
+  X, 
+  CheckSquare,
+  Brain
 } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
-import { useIsMobile } from "@/hooks/use-mobile";
 
-type NavItem = {
-  title: string;
-  href: string;
-  icon: React.ReactNode;
-};
-
-const navItems: NavItem[] = [
-  {
-    title: "Dashboard",
-    href: "/dashboard",
-    icon: <LayoutDashboard className="h-5 w-5" />,
-  },
-  {
-    title: "Users",
-    href: "/users",
-    icon: <Users className="h-5 w-5" />,
-  },
-  {
-    title: "Validation",
-    href: "/validation",
-    icon: <CheckCircle className="h-5 w-5" />,
-  },
-  {
-    title: "Settings",
-    href: "/settings",
-    icon: <Settings className="h-5 w-5" />,
-  },
+const navigation = [
+  { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+  { name: "Users", href: "/users", icon: Users },
+  { name: "AI Context", href: "/ai-context", icon: Brain },
+  { name: "Validation", href: "/validation", icon: CheckSquare },
+  { name: "Settings", href: "/settings", icon: Settings },
 ];
 
-export function Sidebar({ 
-  isOpen, 
-  toggleSidebar 
-}: { 
-  isOpen: boolean; 
-  toggleSidebar: () => void; 
-}) {
+interface SidebarProps {
+  isOpen: boolean;
+  toggleSidebar: () => void;
+}
+
+export function Sidebar({ isOpen, toggleSidebar }: SidebarProps) {
+  const location = useLocation();
   const isMobile = useIsMobile();
 
-  return (
-    <>
-      {/* Mobile overlay */}
-      {isMobile && isOpen && (
-        <div 
-          className="fixed inset-0 bg-background/80 backdrop-blur-sm z-40"
-          onClick={toggleSidebar}
-        />
-      )}
-
-      {/* Sidebar */}
-      <aside
-        className={cn(
-          "fixed top-0 bottom-0 z-50 w-64 border-r bg-card transition-all duration-300 ease-in-out",
-          isOpen ? "left-0" : isMobile ? "-left-full" : "-left-64"
-        )}
-      >
-        <div className="flex h-16 items-center justify-between border-b px-4">
-          <div className="flex items-center">
-            <span className="font-semibold text-xl">Enterprise App</span>
-          </div>
-          <Button variant="ghost" size="icon" onClick={toggleSidebar}>
-            <X className="h-5 w-5" />
+  const SidebarContent = () => (
+    <div className="flex h-full flex-col">
+      <div className="flex h-14 items-center border-b px-4">
+        <h1 className="text-lg font-semibold">Enterprise System</h1>
+        {isMobile && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={toggleSidebar}
+            className="ml-auto"
+          >
+            <X className="h-4 w-4" />
           </Button>
-        </div>
-
+        )}
+      </div>
+      <ScrollArea className="flex-1">
         <nav className="flex flex-col gap-2 p-4">
-          {navItems.map((item) => (
+          {navigation.map((item) => (
             <NavLink
-              key={item.href}
+              key={item.name}
               to={item.href}
+              onClick={() => isMobile && toggleSidebar()}
               className={({ isActive }) =>
                 cn(
-                  "flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors",
+                  "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
                   isActive
                     ? "bg-primary text-primary-foreground"
-                    : "hover:bg-accent hover:text-accent-foreground"
+                    : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
                 )
               }
             >
-              {item.icon}
-              {item.title}
+              <item.icon className="h-4 w-4" />
+              {item.name}
             </NavLink>
           ))}
         </nav>
-      </aside>
-    </>
+      </ScrollArea>
+    </div>
+  );
+
+  if (isMobile) {
+    return (
+      <Sheet open={isOpen} onOpenChange={toggleSidebar}>
+        <SheetContent side="left" className="p-0 w-64">
+          <SidebarContent />
+        </SheetContent>
+      </Sheet>
+    );
+  }
+
+  return (
+    <div
+      className={cn(
+        "fixed left-0 top-0 z-40 h-screen w-64 transform border-r bg-background transition-transform duration-300 ease-in-out",
+        isOpen ? "translate-x-0" : "-translate-x-full"
+      )}
+    >
+      <SidebarContent />
+    </div>
   );
 }
