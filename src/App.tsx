@@ -8,6 +8,7 @@ import { MainLayout } from '@/components/layout/MainLayout';
 import Dashboard from '@/pages/Dashboard';
 import Users from '@/pages/Users';
 import Settings from '@/pages/Settings';
+import ValidationDashboard from '@/pages/ValidationDashboard';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { useSecurityHeaders } from '@/hooks/useSecurityHeaders';
 import { useEffect } from 'react';
@@ -34,6 +35,7 @@ function AppContent() {
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="users" element={<Users />} />
           <Route path="settings" element={<Settings />} />
+          <Route path="validation" element={<ValidationDashboard />} />
         </Route>
       </Routes>
     </Router>

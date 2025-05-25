@@ -6,7 +6,8 @@ import {
   Users, 
   Settings, 
   Menu,
-  X
+  X,
+  CheckCircle
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -28,6 +29,11 @@ const navItems: NavItem[] = [
     title: "Users",
     href: "/users",
     icon: <Users className="h-5 w-5" />,
+  },
+  {
+    title: "Validation",
+    href: "/validation",
+    icon: <CheckCircle className="h-5 w-5" />,
   },
   {
     title: "Settings",
