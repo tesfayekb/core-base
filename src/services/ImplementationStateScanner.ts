@@ -1,10 +1,14 @@
-
-// Implementation State Scanner Service
-// Phase 1.5: AI Context System - Scans codebase for completed features
+// Implementation State Scanner Service - Enhanced
+// Phase 1.5: AI Context System - Now with real file system integration
 
 import { PhaseCompletionStatus, ImplementationState, FeatureDefinition, ScanResult } from '@/types/ImplementationState';
+import { fileSystemScanner, FileContent } from './FileSystemScanner';
 
 class ImplementationStateScannerService {
+  private cacheValidityMs = 15 * 60 * 1000; // Increased to 15 minutes for large codebases
+  private lastFullScan: Date | null = null;
+  private memoryCleanupThreshold = 50 * 1024 * 1024; // 50MB
+
   private readonly PHASE_DEFINITIONS: Record<number, FeatureDefinition[]> = {
     1: [
       {
@@ -68,7 +72,10 @@ class ImplementationStateScannerService {
 
   async scanImplementationState(): Promise<ImplementationState> {
     try {
-      console.log('🔍 Starting implementation state scan...');
+      console.log('🔍 Starting enhanced implementation state scan...');
+      
+      // Memory cleanup check
+      await this.performMemoryCleanupIfNeeded();
       
       const phases: PhaseCompletionStatus[] = [];
       
@@ -89,10 +96,13 @@ class ImplementationStateScannerService {
         lastScanned: new Date().toISOString()
       };
 
-      console.log('✅ Implementation scan completed:', {
+      this.lastFullScan = new Date();
+
+      console.log('✅ Enhanced implementation scan completed:', {
         overallCompletion: `${overallCompletion}%`,
         currentPhase,
-        totalPhases: phases.length
+        totalPhases: phases.length,
+        cacheStats: fileSystemScanner.getCacheStats()
       });
 
       return state;
@@ -102,13 +112,22 @@ class ImplementationStateScannerService {
     }
   }
 
+  private async performMemoryCleanupIfNeeded(): Promise<void> {
+    const cacheStats = fileSystemScanner.getCacheStats();
+    
+    if (cacheStats.memoryUsage > this.memoryCleanupThreshold) {
+      console.log('🧹 Performing memory cleanup...');
+      fileSystemScanner.clearCache();
+    }
+  }
+
   private async scanPhase(phaseNumber: number): Promise<PhaseCompletionStatus> {
     const features = this.PHASE_DEFINITIONS[phaseNumber] || [];
     const completedFeatures: string[] = [];
     const pendingFeatures: string[] = [];
 
     for (const feature of features) {
-      const isCompleted = await this.checkFeatureCompletion(feature);
+      const isCompleted = await this.checkFeatureCompletionEnhanced(feature);
       if (isCompleted) {
         completedFeatures.push(feature.name);
       } else {
@@ -134,66 +153,53 @@ class ImplementationStateScannerService {
     };
   }
 
-  private async checkFeatureCompletion(feature: FeatureDefinition): Promise<boolean> {
+  private async checkFeatureCompletionEnhanced(feature: FeatureDefinition): Promise<boolean> {
     try {
-      // Check required files exist
+      let fileScore = 0;
+      let functionScore = 0;
+      let componentScore = 0;
+
+      // Enhanced file checking with real file system
       for (const filePath of feature.requiredFiles) {
-        if (!await this.fileExists(filePath)) {
-          return false;
+        const fileContent = await fileSystemScanner.scanFile(filePath);
+        if (fileContent) {
+          fileScore++;
+          
+          // Check for required functions in the actual file content
+          for (const func of feature.requiredFunctions) {
+            if (fileContent.functions.includes(func)) {
+              functionScore++;
+            }
+          }
+          
+          // Check for required components in the actual file content
+          for (const component of feature.requiredComponents) {
+            if (fileContent.components.includes(component)) {
+              componentScore++;
+            }
+          }
         }
       }
 
-      // Check required components/functions exist in codebase
-      // This is a simplified check - in production would parse AST
-      let foundFunctions = 0;
-      let foundComponents = 0;
+      // Calculate completion based on actual findings
+      const fileCompletion = feature.requiredFiles.length > 0 
+        ? fileScore / feature.requiredFiles.length 
+        : 1;
+      
+      const functionCompletion = feature.requiredFunctions.length > 0
+        ? functionScore / feature.requiredFunctions.length
+        : 1;
+        
+      const componentCompletion = feature.requiredComponents.length > 0
+        ? componentScore / feature.requiredComponents.length
+        : 1;
 
-      for (const func of feature.requiredFunctions) {
-        if (await this.functionExists(func)) {
-          foundFunctions++;
-        }
-      }
-
-      for (const component of feature.requiredComponents) {
-        if (await this.componentExists(component)) {
-          foundComponents++;
-        }
-      }
-
-      const functionsComplete = foundFunctions >= feature.requiredFunctions.length * 0.8; // 80% threshold
-      const componentsComplete = foundComponents >= feature.requiredComponents.length * 0.8;
-
-      return functionsComplete && componentsComplete;
+      // Feature is complete if all categories meet 80% threshold
+      return fileCompletion >= 0.8 && functionCompletion >= 0.8 && componentCompletion >= 0.8;
     } catch (error) {
-      console.warn(`⚠️ Error checking feature ${feature.name}:`, error);
+      console.warn(`⚠️ Error checking enhanced feature ${feature.name}:`, error);
       return false;
     }
-  }
-
-  private async fileExists(filePath: string): Promise<boolean> {
-    // In a real implementation, this would check the file system
-    // For now, we'll simulate based on known files
-    const knownFiles = [
-      'src/contexts/AuthContext.tsx',
-      'src/components/layout/MainLayout.tsx',
-      'src/pages/Users.tsx',
-      'src/pages/Dashboard.tsx',
-      'src/hooks/useAuditLogging.ts'
-    ];
-    
-    return knownFiles.some(file => filePath.includes(file.split('/').pop() || ''));
-  }
-
-  private async functionExists(functionName: string): Promise<boolean> {
-    // Simulate function detection based on known functions
-    const knownFunctions = ['signIn', 'signOut', 'signUp', 'logAuthEvent', 'logPermissionCheck'];
-    return knownFunctions.includes(functionName);
-  }
-
-  private async componentExists(componentName: string): Promise<boolean> {
-    // Simulate component detection
-    const knownComponents = ['AuthProvider', 'MainLayout', 'Users', 'Dashboard'];
-    return knownComponents.includes(componentName);
   }
 
   private async validatePhase(phaseNumber: number, completedFeatures: string[]): Promise<{ passed: boolean; errors: string[]; warnings: string[]; score: number }> {
@@ -201,7 +207,6 @@ class ImplementationStateScannerService {
     const warnings: string[] = [];
     let score = 0;
 
-    // Phase-specific validation logic
     switch (phaseNumber) {
       case 1:
         if (completedFeatures.includes('Authentication System')) score += 30;
@@ -240,7 +245,7 @@ class ImplementationStateScannerService {
         return i + 1;
       }
     }
-    return phases.length; // All phases completed
+    return phases.length;
   }
 
   private identifyBlockers(phases: PhaseCompletionStatus[]): string[] {
@@ -285,6 +290,16 @@ class ImplementationStateScannerService {
       blockers: ['Scanner initialization failed'],
       recommendations: ['Check system configuration'],
       lastScanned: new Date().toISOString()
+    };
+  }
+
+  // New method for getting enhanced cache information
+  getCacheInformation() {
+    return {
+      fileSystemCache: fileSystemScanner.getCacheStats(),
+      lastFullScan: this.lastFullScan,
+      cacheValidity: this.cacheValidityMs,
+      memoryThreshold: this.memoryCleanupThreshold
     };
   }
 }
