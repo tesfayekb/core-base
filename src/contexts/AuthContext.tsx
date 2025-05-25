@@ -188,15 +188,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (user) {
         setTenantId(newTenantId);
         
-        // Log tenant switch
+        // Log tenant switch with correct parameter order
         await enhancedAuditService.logSecurityEvent(
           'access_denied', // This might need a better event type
+          'success',
           {
             action: 'tenant_switch',
             fromTenant: tenantId,
             toTenant: newTenantId
           },
-          'success'
+          {
+            userId: user.id,
+            tenantId: newTenantId
+          }
         );
       }
     } catch (error) {
