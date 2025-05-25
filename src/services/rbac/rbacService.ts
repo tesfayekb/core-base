@@ -1,3 +1,4 @@
+
 // RBAC Service Implementation with Database Integration
 // Phase 1.4: RBAC Foundation with Database Queries
 
