@@ -184,8 +184,8 @@ export class FormValidationService {
     
     return {
       formsValidated: ['login', 'signup', 'user-management'],
-      securityIssues: report.vulnerabilitiesFound > 0 
-        ? [`${report.vulnerabilitiesFound} potential vulnerabilities found`]
+      securityIssues: report.summary.vulnerabilitiesFound > 0 
+        ? [`${report.summary.vulnerabilitiesFound} potential vulnerabilities found`]
         : [],
       recommendations: [
         'All forms should use comprehensive validation',
