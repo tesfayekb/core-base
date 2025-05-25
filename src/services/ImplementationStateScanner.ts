@@ -1,24 +1,28 @@
 
 // Implementation State Scanner
-// Real implementation scanner using actual document parsing and codebase analysis
+// Enhanced multi-phase implementation scanner with database integration
 
 import { ImplementationState, PhaseState, ValidationStatus } from '@/types/ImplementationState';
 import { realDocumentParser } from './RealDocumentParser';
 import { realCodebaseAnalyzer } from './RealCodebaseAnalyzer';
+import { supabase } from '@/integrations/supabase/client';
 
 class ImplementationStateScannerService {
   async scanImplementationState(): Promise<ImplementationState> {
-    console.log('🔍 Scanning real implementation state with actual document parsing...');
+    console.log('🔍 Scanning enhanced multi-phase implementation state...');
     
     try {
-      // Parse real documentation to get phase structure
+      // Parse all phase documentation
       const phaseDocuments = await realDocumentParser.parseImplementationDocs();
       
-      // Analyze real codebase to detect implemented features
+      // Analyze codebase against all phases
       const codebaseAnalysis = await realCodebaseAnalyzer.analyzeCodebase();
       
-      // Generate phase states based on real data comparison
-      const phases = this.generateRealPhaseAnalysis(phaseDocuments, codebaseAnalysis);
+      // Get progress from database
+      const databaseProgress = await this.getProgressFromDatabase();
+      
+      // Generate enhanced phase analysis
+      const phases = await this.generateEnhancedPhaseAnalysis(phaseDocuments, codebaseAnalysis, databaseProgress);
       const overall = this.calculateOverallProgress(phases);
       
       return {
@@ -26,93 +30,174 @@ class ImplementationStateScannerService {
         overallCompletion: overall.completion,
         currentPhase: overall.currentPhase,
         blockers: overall.blockers,
-        recommendations: this.generateRealRecommendations(phases, codebaseAnalysis),
+        recommendations: this.generateEnhancedRecommendations(phases, codebaseAnalysis),
         lastScanned: new Date().toISOString()
       };
     } catch (error) {
-      console.error('❌ Real implementation scan failed:', error);
+      console.error('❌ Enhanced implementation scan failed:', error);
       return this.getEmptyState();
     }
   }
 
-  private generateRealPhaseAnalysis(phaseDocuments: any[], codebaseAnalysis: any): PhaseState[] {
+  private async getProgressFromDatabase(): Promise<any[]> {
+    try {
+      const { data, error } = await supabase
+        .from('implementation_progress')
+        .select('*')
+        .order('phase', { ascending: true });
+      
+      if (error) {
+        console.error('❌ Failed to fetch progress from database:', error);
+        return [];
+      }
+      
+      return data || [];
+    } catch (error) {
+      console.error('❌ Database progress fetch failed:', error);
+      return [];
+    }
+  }
+
+  private async generateEnhancedPhaseAnalysis(
+    phaseDocuments: any[], 
+    codebaseAnalysis: any, 
+    databaseProgress: any[]
+  ): Promise<PhaseState[]> {
     const now = new Date().toISOString();
     
-    return phaseDocuments.map((doc, index) => {
-      // Find corresponding feature in real codebase analysis
-      const feature = codebaseAnalysis.features.find((f: any) => 
-        f.name.toLowerCase().includes(doc.name.toLowerCase()) ||
-        doc.name.toLowerCase().includes(f.name.toLowerCase())
+    // Group features by major phase
+    const phaseGroups = this.groupFeaturesByPhase(codebaseAnalysis.features);
+    
+    const phases: PhaseState[] = [];
+    
+    // Process each major phase (1, 2, 3, 4)
+    for (let majorPhase = 1; majorPhase <= 4; majorPhase++) {
+      const phaseKey = majorPhase.toString();
+      const phaseFeatures = phaseGroups[phaseKey] || [];
+      const phaseProgress = databaseProgress.filter(p => p.phase.startsWith(phaseKey));
+      
+      const phaseName = this.getPhaseName(majorPhase);
+      const completedFeatures = this.extractCompletedFeatures(phaseFeatures, phaseProgress);
+      const pendingFeatures = this.extractPendingFeatures(phaseFeatures, phaseProgress);
+      const completionPercentage = this.calculatePhaseCompletion(phaseFeatures);
+      const isCompleted = completionPercentage >= 80;
+      
+      const validationStatus = this.generatePhaseValidationStatus(
+        phaseFeatures, 
+        phaseProgress, 
+        completionPercentage
       );
       
-      const completionPercentage = feature ? feature.confidence : 0;
-      const isCompleted = completionPercentage >= 80; // Higher threshold for "completed"
-      
-      // Use real data from documents and codebase
-      const completedFeatures = feature ? feature.requirementsMet : [];
-      const pendingFeatures = feature ? feature.requirementsPending : doc.tasks;
-      
-      // Real validation based on actual requirements
-      const validationStatus: ValidationStatus = this.generateRealValidationStatus(
-        doc, feature, completionPercentage
-      );
-      
-      return {
-        phase: index + 1,
-        name: `Phase 1.${index + 1}: ${doc.name}`,
+      phases.push({
+        phase: majorPhase,
+        name: phaseName,
         completed: isCompleted,
         completionPercentage,
         completedFeatures,
         pendingFeatures,
         validationStatus,
         lastUpdated: now
-      };
-    });
+      });
+    }
+    
+    return phases;
   }
 
-  private generateRealValidationStatus(doc: any, feature: any, completion: number): ValidationStatus {
+  private groupFeaturesByPhase(features: any[]): { [phase: string]: any[] } {
+    const groups: { [phase: string]: any[] } = {};
+    
+    features.forEach(feature => {
+      const majorPhase = feature.phase.split('.')[0];
+      if (!groups[majorPhase]) {
+        groups[majorPhase] = [];
+      }
+      groups[majorPhase].push(feature);
+    });
+    
+    return groups;
+  }
+
+  private getPhaseName(phase: number): string {
+    const names = {
+      1: 'Foundation',
+      2: 'Core Features', 
+      3: 'Advanced Features',
+      4: 'Production Readiness'
+    };
+    return names[phase as keyof typeof names] || `Phase ${phase}`;
+  }
+
+  private extractCompletedFeatures(phaseFeatures: any[], phaseProgress: any[]): string[] {
+    const completed: string[] = [];
+    
+    phaseFeatures.forEach(feature => {
+      if (feature.implemented) {
+        completed.push(feature.name);
+        completed.push(...feature.requirementsMet.slice(0, 2));
+      }
+    });
+    
+    // Add from database progress
+    const completedFromDB = phaseProgress
+      .filter(p => p.status === 'completed')
+      .map(p => p.task_name);
+    
+    completed.push(...completedFromDB);
+    
+    return [...new Set(completed)].slice(0, 8); // Limit for UI
+  }
+
+  private extractPendingFeatures(phaseFeatures: any[], phaseProgress: any[]): string[] {
+    const pending: string[] = [];
+    
+    phaseFeatures.forEach(feature => {
+      if (!feature.implemented) {
+        pending.push(...feature.requirementsPending.slice(0, 3));
+      }
+    });
+    
+    // Add from database progress
+    const pendingFromDB = phaseProgress
+      .filter(p => p.status === 'pending')
+      .map(p => p.task_name);
+    
+    pending.push(...pendingFromDB);
+    
+    return [...new Set(pending)].slice(0, 5); // Limit for UI
+  }
+
+  private calculatePhaseCompletion(phaseFeatures: any[]): number {
+    if (phaseFeatures.length === 0) return 0;
+    
+    const totalConfidence = phaseFeatures.reduce((sum, feature) => sum + feature.confidence, 0);
+    return Math.round(totalConfidence / phaseFeatures.length);
+  }
+
+  private generatePhaseValidationStatus(
+    phaseFeatures: any[], 
+    phaseProgress: any[], 
+    completion: number
+  ): ValidationStatus {
     const warnings: string[] = [];
     const errors: string[] = [];
     
-    if (!feature) {
-      errors.push(`${doc.name} implementation not detected in codebase`);
-      return {
-        passed: false,
-        warnings,
-        errors,
-        score: 0
-      };
+    // Check for incomplete critical features
+    const incompleteFeatures = phaseFeatures.filter(f => !f.implemented);
+    if (incompleteFeatures.length > 0 && completion > 30) {
+      warnings.push(`${incompleteFeatures.length} features still need implementation`);
     }
     
-    // Generate warnings for partially implemented features
-    if (completion > 30 && completion < 80) {
-      warnings.push(`${doc.name} partially implemented (${completion}%)`);
-      
-      if (feature.requirementsPending.length > 0) {
-        warnings.push(`Missing: ${feature.requirementsPending.slice(0, 2).join(', ')}`);
-      }
+    // Check for blocked tasks
+    const blockedTasks = phaseProgress.filter(p => p.status === 'blocked');
+    if (blockedTasks.length > 0) {
+      errors.push(`${blockedTasks.length} tasks are blocked`);
     }
     
-    // Generate errors for critical missing requirements
+    // Check completion threshold
     if (completion < 30) {
-      errors.push(`${doc.name} implementation insufficient (${completion}%)`);
-      
-      if (feature.requirementsPending.length > 0) {
-        errors.push(`Critical missing: ${feature.requirementsPending[0]}`);
-      }
-    }
-    
-    // Success criteria validation
-    if (completion >= 80 && doc.successCriteria) {
-      const unmetCriteria = doc.successCriteria.filter((criteria: string) => 
-        !feature.evidence.some((evidence: string) => 
-          evidence.toLowerCase().includes(criteria.toLowerCase().split(' ')[0])
-        )
-      );
-      
-      if (unmetCriteria.length > 0) {
-        warnings.push(`Success criteria not verified: ${unmetCriteria[0]}`);
-      }
+      errors.push(`Phase completion too low (${completion}%)`);
+    } else if (completion < 70) {
+      warnings.push(`Phase needs more work (${completion}%)`);
     }
     
     return {
@@ -151,50 +236,47 @@ class ImplementationStateScannerService {
     return { 
       completion, 
       currentPhase: Math.min(currentPhase, phases.length), 
-      blockers: [...new Set(blockers)] // Remove duplicates
+      blockers: [...new Set(blockers)]
     };
   }
 
-  private generateRealRecommendations(phases: PhaseState[], codebaseAnalysis: any): string[] {
+  private generateEnhancedRecommendations(phases: PhaseState[], codebaseAnalysis: any): string[] {
     const recommendations: string[] = [];
 
-    // Find the first incomplete phase and provide specific guidance
+    // Find the current phase and provide specific guidance
     const incompletePhase = phases.find(p => !p.completed);
     if (incompletePhase) {
-      recommendations.push(`🎯 Focus on completing ${incompletePhase.name}`);
+      recommendations.push(`🎯 Focus on completing Phase ${incompletePhase.phase}: ${incompletePhase.name}`);
       
       if (incompletePhase.pendingFeatures.length > 0) {
         recommendations.push(`📋 Next task: ${incompletePhase.pendingFeatures[0]}`);
       }
-      
-      // Add specific recommendations based on validation status
-      if (incompletePhase.validationStatus.errors.length > 0) {
-        recommendations.push(`🚨 Critical: ${incompletePhase.validationStatus.errors[0]}`);
-      }
     }
 
-    // Add recommendations based on real codebase analysis
-    const lowConfidenceFeatures = codebaseAnalysis.features.filter((f: any) => 
-      f.confidence < 50 && f.confidence > 0
-    );
-    
-    if (lowConfidenceFeatures.length > 0) {
-      recommendations.push(`⚠️ Improve implementation quality: ${lowConfidenceFeatures[0].name}`);
-    }
-
-    // Phase-specific recommendations based on real progress
+    // Phase-specific recommendations
     const completedPhases = phases.filter(p => p.completed).length;
-    if (completedPhases < 2) {
-      recommendations.push('🏗️ Complete foundation phases before proceeding to advanced features');
-    }
     
-    if (completedPhases >= 4) {
-      recommendations.push('🚀 Foundation strong - ready for Phase 2 core features');
+    if (completedPhases === 0) {
+      recommendations.push('🏗️ Start with Phase 1 foundation - critical for all other features');
+    } else if (completedPhases === 1) {
+      recommendations.push('🔐 Phase 1 complete! Move to Phase 2 core features');
+    } else if (completedPhases === 2) {
+      recommendations.push('🚀 Strong foundation! Ready for Phase 3 advanced features');
+    } else if (completedPhases === 3) {
+      recommendations.push('⭐ Excellent progress! Phase 4 will make you production-ready');
     }
 
-    // Add real implementation path guidance
-    recommendations.push('📚 Follow Phase 1 implementation guides in src/docs/implementation/phase1/');
-    recommendations.push('✅ Validate each phase before proceeding to maintain quality');
+    // Add specific implementation guidance
+    if (codebaseAnalysis.phaseProgress) {
+      Object.entries(codebaseAnalysis.phaseProgress).forEach(([phase, progress]) => {
+        if ((progress as number) < 50) {
+          recommendations.push(`⚠️ Phase ${phase} needs attention (${progress}% complete)`);
+        }
+      });
+    }
+
+    recommendations.push('📚 Follow phase documentation in src/docs/implementation/');
+    recommendations.push('✅ Use database progress tracking for accurate monitoring');
 
     return recommendations;
   }
@@ -204,11 +286,11 @@ class ImplementationStateScannerService {
       phases: [],
       overallCompletion: 0,
       currentPhase: 1,
-      blockers: ['Real-time scanning failed - check document parsing and codebase analysis'],
+      blockers: ['Enhanced multi-phase scanning failed'],
       recommendations: [
-        'Verify implementation documentation exists in src/docs/',
-        'Check codebase analyzer can access project files',
-        'Review console for specific parsing errors'
+        'Check database connectivity for progress tracking',
+        'Verify phase documentation exists',
+        'Review console for specific errors'
       ],
       lastScanned: new Date().toISOString()
     };

@@ -72,6 +72,57 @@ export type Database = {
           },
         ]
       }
+      implementation_progress: {
+        Row: {
+          completed_at: string | null
+          completed_by: string | null
+          completion_percentage: number | null
+          created_at: string
+          evidence: Json | null
+          id: string
+          metadata: Json | null
+          phase: string
+          phase_name: string
+          status: string
+          task_id: string
+          task_name: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          completed_at?: string | null
+          completed_by?: string | null
+          completion_percentage?: number | null
+          created_at?: string
+          evidence?: Json | null
+          id?: string
+          metadata?: Json | null
+          phase: string
+          phase_name: string
+          status?: string
+          task_id: string
+          task_name: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          completed_at?: string | null
+          completed_by?: string | null
+          completion_percentage?: number | null
+          created_at?: string
+          evidence?: Json | null
+          id?: string
+          metadata?: Json | null
+          phase?: string
+          phase_name?: string
+          status?: string
+          task_id?: string
+          task_name?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       permissions: {
         Row: {
           action: Database["public"]["Enums"]["permission_action"]
@@ -112,6 +163,48 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      phase_definitions: {
+        Row: {
+          created_at: string
+          description: string | null
+          documents_referenced: string[] | null
+          estimated_hours: number | null
+          id: string
+          metadata: Json | null
+          phase: string
+          phase_name: string
+          prerequisites: string[] | null
+          success_criteria: string[] | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          documents_referenced?: string[] | null
+          estimated_hours?: number | null
+          id?: string
+          metadata?: Json | null
+          phase: string
+          phase_name: string
+          prerequisites?: string[] | null
+          success_criteria?: string[] | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          documents_referenced?: string[] | null
+          estimated_hours?: number | null
+          id?: string
+          metadata?: Json | null
+          phase?: string
+          phase_name?: string
+          prerequisites?: string[] | null
+          success_criteria?: string[] | null
+          updated_at?: string
+        }
+        Relationships: []
       }
       role_permissions: {
         Row: {
@@ -544,6 +637,16 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: string
       }
+      get_phase_progress_summary: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          phase: string
+          phase_name: string
+          total_tasks: number
+          completed_tasks: number
+          completion_percentage: number
+        }[]
+      }
       get_user_permissions: {
         Args: { p_user_id: string }
         Returns: {
@@ -577,6 +680,16 @@ export type Database = {
       switch_tenant_context: {
         Args: { p_user_id: string; p_tenant_id: string }
         Returns: boolean
+      }
+      update_task_progress: {
+        Args: {
+          p_phase: string
+          p_task_id: string
+          p_status: string
+          p_completion_percentage?: number
+          p_evidence?: Json
+        }
+        Returns: string
       }
       validate_tenant_access: {
         Args: { p_user_id: string; p_tenant_id: string }
