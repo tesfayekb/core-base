@@ -1,5 +1,6 @@
 
 
+
 // RBAC Service - Direct Permission Assignment Model
 // Version: 1.0.0
 // Phase 1.4: RBAC Foundation
@@ -180,7 +181,7 @@ export class RBACService {
       let query = supabase
         .from('user_roles')
         .select(`
-          roles (
+          roles!inner (
             id,
             tenant_id,
             name,
@@ -204,9 +205,8 @@ export class RBACService {
         return [];
       }
 
-      // Fix: Properly extract roles from the nested structure
-      // Each item in data has a 'roles' property containing the role object
-      return data?.map(item => item.roles).filter((role): role is Role => role !== null) || [];
+      // Fix: The roles property contains the role object directly, not an array
+      return data?.map(item => item.roles).filter(role => role !== null) as Role[] || [];
     } catch (error) {
       console.error('Get user roles failed:', error);
       return [];
