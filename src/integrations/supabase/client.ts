@@ -13,7 +13,9 @@ export const supabase = {
     }),
     insert: () => Promise.resolve({ error: { message: 'Supabase not connected' } }),
     delete: () => ({
-      eq: () => Promise.resolve({ error: { message: 'Supabase not connected' } })
+      eq: () => ({
+        eq: () => Promise.resolve({ error: { message: 'Supabase not connected' } })
+      })
     })
   })
 };

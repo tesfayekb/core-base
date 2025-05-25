@@ -62,7 +62,7 @@ export class RBACService {
   }
 
   /**
-   * Check if user has permission (updated signature)
+   * Check if user has permission
    */
   async checkPermission(
     userId: string,

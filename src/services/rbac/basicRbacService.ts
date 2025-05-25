@@ -39,6 +39,18 @@ export class BasicRBACService {
   async getUserPermissions(userId: string): Promise<Permission[]> {
     return rbacService.getUserPermissions(userId);
   }
+
+  /**
+   * Validate entity boundary (placeholder implementation)
+   */
+  async validateEntityBoundary(
+    userId: string,
+    entityId: string,
+    operation: string
+  ): Promise<boolean> {
+    // Basic validation - in real implementation this would check entity boundaries
+    return this.checkPermission(userId, operation, 'entity', entityId);
+  }
 }
 
 // Export singleton instance

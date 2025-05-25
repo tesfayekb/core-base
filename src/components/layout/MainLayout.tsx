@@ -1,29 +1,24 @@
 
-import { useState } from "react";
-import { Outlet } from "react-router-dom";
-import { Header } from "./Header";
-import { Sidebar } from "./Sidebar";
-import { useIsMobile } from "@/hooks/use-mobile";
+import { ReactNode } from 'react';
+import { Header } from './Header';
+import { Sidebar } from './Sidebar';
 
-export function MainLayout() {
-  const isMobile = useIsMobile();
-  const [sidebarOpen, setSidebarOpen] = useState(!isMobile);
+interface MainLayoutProps {
+  children: ReactNode;
+}
 
-  const toggleSidebar = () => setSidebarOpen(!sidebarOpen);
-
+export function MainLayout({ children }: MainLayoutProps) {
   return (
     <div className="min-h-screen bg-background">
-      <Sidebar isOpen={sidebarOpen} toggleSidebar={toggleSidebar} />
-      <div
-        className={`transition-all duration-300 ${
-          sidebarOpen && !isMobile ? "ml-64" : "ml-0"
-        }`}
-      >
-        <Header toggleSidebar={toggleSidebar} />
-        <main className="container mx-auto p-4 md:p-6">
-          <Outlet />
+      <Header />
+      <div className="flex">
+        <Sidebar />
+        <main className="flex-1 p-6">
+          {children}
         </main>
       </div>
     </div>
   );
 }
+
+export default MainLayout;

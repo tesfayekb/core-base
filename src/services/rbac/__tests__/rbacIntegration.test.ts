@@ -75,10 +75,8 @@ describe('RBAC Integration Tests with Seed Data', () => {
         });
 
         const result = await rbacService.assignRole(
-          scenario.assigner,
           scenario.assignee,
-          scenario.role,
-          'tenant-corp-a'
+          scenario.role
         );
         
         expect(result.success).toBe(scenario.expectedResult);
@@ -180,9 +178,7 @@ describe('RBAC Integration Tests with Seed Data', () => {
           const result = await rbacService.checkPermission(
             tenantAdmin.id,
             permission,
-            resource,
-            undefined,
-            tenantAdmin.tenantId
+            resource
           );
           expect(result).toBe(true);
         }
