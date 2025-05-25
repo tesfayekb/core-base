@@ -9,7 +9,6 @@ DOMPurify.setConfig({
   FORCE_BODY: true,
   RETURN_DOM: false,
   RETURN_DOM_FRAGMENT: false,
-  RETURN_DOM_IMPORT: false,
   SANITIZE_DOM: true,
   KEEP_CONTENT: false
 });
@@ -36,20 +35,20 @@ export function sanitizeObject<T extends Record<string, any>>(obj: T): T {
     return obj;
   }
 
-  const result = { ...obj };
+  const result = { ...obj } as T;
   
   Object.keys(result).forEach(key => {
-    const value = result[key];
+    const value = result[key as keyof T];
     
     if (typeof value === 'string') {
-      result[key] = sanitizeHTML(value);
+      (result as any)[key] = sanitizeHTML(value);
     } else if (Array.isArray(value)) {
-      result[key] = value.map(item => 
+      (result as any)[key] = value.map(item => 
         typeof item === 'string' ? sanitizeHTML(item) : 
         typeof item === 'object' ? sanitizeObject(item) : item
       );
     } else if (typeof value === 'object' && value !== null) {
-      result[key] = sanitizeObject(value);
+      (result as any)[key] = sanitizeObject(value);
     }
   });
   
