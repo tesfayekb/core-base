@@ -1,102 +1,47 @@
+import React from 'react';
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
+import { Menu } from 'lucide-react';
+import { SidebarNavItem } from './SidebarNavItem';
+import { Home, Shield, Layout } from 'lucide-react';
 
-import { useState } from "react";
-import { NavLink } from "react-router-dom";
-import { 
-  LayoutDashboard, 
-  Users, 
-  Settings, 
-  Menu,
-  X,
-  CheckCircle
-} from "lucide-react";
-import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
-import { useIsMobile } from "@/hooks/use-mobile";
+export function Sidebar() {
+  const [open, setOpen] = React.useState(false);
 
-type NavItem = {
-  title: string;
-  href: string;
-  icon: React.ReactNode;
-};
+  const handleOpen = () => {
+    setOpen(true);
+  };
 
-const navItems: NavItem[] = [
-  {
-    title: "Dashboard",
-    href: "/dashboard",
-    icon: <LayoutDashboard className="h-5 w-5" />,
-  },
-  {
-    title: "Users",
-    href: "/users",
-    icon: <Users className="h-5 w-5" />,
-  },
-  {
-    title: "Validation",
-    href: "/validation",
-    icon: <CheckCircle className="h-5 w-5" />,
-  },
-  {
-    title: "Settings",
-    href: "/settings",
-    icon: <Settings className="h-5 w-5" />,
-  },
-];
+  const handleClose = () => {
+    setOpen(false);
+  };
 
-export function Sidebar({ 
-  isOpen, 
-  toggleSidebar 
-}: { 
-  isOpen: boolean; 
-  toggleSidebar: () => void; 
-}) {
-  const isMobile = useIsMobile();
+  const menuItems = [
+    { icon: Home, label: 'Dashboard', path: '/' },
+    { icon: Shield, label: 'Validation', path: '/validation' },
+    { icon: Layout, label: 'Components', path: '/components' },
+  ];
 
   return (
-    <>
-      {/* Mobile overlay */}
-      {isMobile && isOpen && (
-        <div 
-          className="fixed inset-0 bg-background/80 backdrop-blur-sm z-40"
-          onClick={toggleSidebar}
-        />
-      )}
-
-      {/* Sidebar */}
-      <aside
-        className={cn(
-          "fixed top-0 bottom-0 z-50 w-64 border-r bg-card transition-all duration-300 ease-in-out",
-          isOpen ? "left-0" : isMobile ? "-left-full" : "-left-64"
-        )}
-      >
-        <div className="flex h-16 items-center justify-between border-b px-4">
-          <div className="flex items-center">
-            <span className="font-semibold text-xl">Enterprise App</span>
+    <Sheet open={open} onOpenChange={setOpen}>
+      <SheetTrigger asChild>
+        <Menu className="md:hidden h-6 w-6" onClick={handleOpen} />
+      </SheetTrigger>
+      <SheetContent side="left" className="w-64 p-0 border-r">
+        <div className="flex flex-col h-full">
+          <div className="px-4 py-6">
+            <h1 className="text-lg font-semibold">Windsurf</h1>
           </div>
-          <Button variant="ghost" size="icon" onClick={toggleSidebar}>
-            <X className="h-5 w-5" />
-          </Button>
+          <nav className="flex-1">
+            <ul className="space-y-1">
+              {menuItems.map((item, index) => (
+                <li key={index}>
+                  <SidebarNavItem item={item} onClose={handleClose} />
+                </li>
+              ))}
+            </ul>
+          </nav>
         </div>
-
-        <nav className="flex flex-col gap-2 p-4">
-          {navItems.map((item) => (
-            <NavLink
-              key={item.href}
-              to={item.href}
-              className={({ isActive }) =>
-                cn(
-                  "flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors",
-                  isActive
-                    ? "bg-primary text-primary-foreground"
-                    : "hover:bg-accent hover:text-accent-foreground"
-                )
-              }
-            >
-              {item.icon}
-              {item.title}
-            </NavLink>
-          ))}
-        </nav>
-      </aside>
-    </>
+      </SheetContent>
+    </Sheet>
   );
 }
