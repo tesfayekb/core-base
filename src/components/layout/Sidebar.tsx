@@ -7,7 +7,8 @@ import {
   Settings, 
   Menu,
   X,
-  CheckCircle
+  CheckCircle,
+  Cog
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -24,6 +25,11 @@ const navItems: NavItem[] = [
     title: "Dashboard",
     href: "/dashboard",
     icon: <LayoutDashboard className="h-5 w-5" />,
+  },
+  {
+    title: "Implementation",
+    href: "/implementation",
+    icon: <Cog className="h-5 w-5" />,
   },
   {
     title: "Users",
