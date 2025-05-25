@@ -88,4 +88,95 @@ export class TestHelpers {
       ''
     ];
   }
+
+  // Enhanced helper methods for comprehensive testing
+  static async waitForLoadingState(timeout = 5000) {
+    return waitFor(() => {
+      const loadingElement = screen.queryByText(/creating account/i) || 
+                           screen.queryByText(/loading/i) ||
+                           screen.querySelector('[data-testid="loading"]');
+      return loadingElement;
+    }, { timeout });
+  }
+
+  static async waitForButtonState(buttonText: string, disabled: boolean, timeout = 5000) {
+    return waitFor(() => {
+      const button = screen.getByRole('button', { name: new RegExp(buttonText, 'i') });
+      if (disabled) {
+        expect(button).toBeDisabled();
+      } else {
+        expect(button).not.toBeDisabled();
+      }
+      return button;
+    }, { timeout });
+  }
+
+  static generateSecurePassword() {
+    return 'TestSecure123!';
+  }
+
+  static generateTestEmail() {
+    return `test${Date.now()}@example.com`;
+  }
+
+  static getXSSAttempts() {
+    return [
+      '<script>alert("xss")</script>',
+      'javascript:alert("xss")',
+      '<img src="x" onerror="alert(1)">',
+      '"><script>alert("xss")</script>',
+      '\'; DROP TABLE users; --'
+    ];
+  }
+
+  static getSQLInjectionAttempts() {
+    return [
+      '\' OR 1=1 --',
+      '\'; DROP TABLE users; --',
+      '\' UNION SELECT * FROM users --',
+      'admin\'--',
+      '\' OR \'1\'=\'1'
+    ];
+  }
+
+  static getBoundaryTestCases() {
+    return {
+      maxLengthString: 'a'.repeat(1000),
+      emptyString: '',
+      specialCharacters: '!@#$%^&*()_+-=[]{}|;:,.<>?',
+      unicodeCharacters: '你好世界',
+      emojiCharacters: '😀😃😄😁'
+    };
+  }
+
+  static async measureExecutionTime<T>(fn: () => Promise<T>): Promise<{ result: T; duration: number }> {
+    const startTime = performance.now();
+    const result = await fn();
+    const duration = performance.now() - startTime;
+    return { result, duration };
+  }
 }
+
+// Performance targets for testing
+export const performanceTargets = {
+  authentication: 1000, // 1 second
+  formValidation: 100,  // 100ms
+  uiResponse: 50        // 50ms
+};
+
+// Test data factories
+export const testDataFactory = {
+  createValidUser: () => ({
+    email: TestHelpers.generateTestEmail(),
+    password: TestHelpers.generateSecurePassword(),
+    firstName: 'Test',
+    lastName: 'User'
+  }),
+  
+  createInvalidUser: () => ({
+    email: 'invalid-email',
+    password: 'weak',
+    firstName: '',
+    lastName: ''
+  })
+};

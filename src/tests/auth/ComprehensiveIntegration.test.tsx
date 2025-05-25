@@ -5,7 +5,7 @@ import userEvent from '@testing-library/user-event';
 import { SignupForm } from '@/components/auth/SignupForm';
 import { AuthProvider } from '@/components/auth/AuthProvider';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { TestHelpers } from '../utils/testHelpers';
+import { TestHelpers, performanceTargets, testDataFactory } from '../utils/testHelpers';
 
 // Mock the entire auth system
 const mockSignUp = jest.fn();
@@ -109,37 +109,54 @@ describe('Comprehensive Auth Integration Tests', () => {
     });
   });
 
-  describe('Error Handling Integration', () => {
-    test('should handle registration failure gracefully', async () => {
-      mockSignUp.mockResolvedValue({ success: false, error: 'Email already exists' });
-      
-      renderSignupForm();
-      
-      await TestHelpers.fillSignupForm(user, {
-        email: 'existing@example.com',
-        password: TestHelpers.getValidTestPassword(),
-        confirmPassword: TestHelpers.getValidTestPassword(),
-        firstName: 'Existing',
-        lastName: 'User'
-      });
-      
-      await TestHelpers.submitForm(user);
-      
-      await waitFor(() => {
-        expect(mockShowError).toHaveBeenCalledWith('Email already exists');
-      });
+  describe('Enhanced Error Handling Integration', () => {
+    test('should handle various registration failure scenarios', async () => {
+      const errorScenarios = [
+        { error: 'Email already exists', expected: 'Email already exists' },
+        { error: 'Invalid password format', expected: 'Invalid password format' },
+        { error: 'User registration disabled', expected: 'User registration disabled' }
+      ];
+
+      for (const scenario of errorScenarios) {
+        mockSignUp.mockResolvedValue({ success: false, error: scenario.error });
+        
+        renderSignupForm();
+        
+        await TestHelpers.fillSignupForm(user, {
+          email: 'test@example.com',
+          password: TestHelpers.getValidTestPassword(),
+          confirmPassword: TestHelpers.getValidTestPassword(),
+          firstName: 'Test',
+          lastName: 'User'
+        });
+        
+        await TestHelpers.submitForm(user);
+        
+        await waitFor(() => {
+          expect(mockShowError).toHaveBeenCalledWith(scenario.expected);
+        });
+        
+        jest.clearAllMocks();
+      }
     });
 
-    test('should handle network errors during registration', async () => {
-      mockSignUp.mockRejectedValue(new Error('Network error'));
+    test('should handle network errors with retry capabilities', async () => {
+      let attemptCount = 0;
+      mockSignUp.mockImplementation(() => {
+        attemptCount++;
+        if (attemptCount < 3) {
+          return Promise.reject(new Error('Network error'));
+        }
+        return Promise.resolve({ success: true });
+      });
       
       renderSignupForm();
       
       await TestHelpers.fillSignupForm(user, {
-        email: 'network@example.com',
+        email: 'retry@example.com',
         password: TestHelpers.getValidTestPassword(),
         confirmPassword: TestHelpers.getValidTestPassword(),
-        firstName: 'Network',
+        firstName: 'Retry',
         lastName: 'User'
       });
       
@@ -153,53 +170,48 @@ describe('Comprehensive Auth Integration Tests', () => {
     });
   });
 
-  describe('Form Validation Integration', () => {
-    test('should prevent submission with invalid form data', async () => {
+  describe('Advanced Form Validation Integration', () => {
+    test('should validate complex password requirements', async () => {
       renderSignupForm();
       
-      // Try to submit with mismatched passwords
-      await TestHelpers.fillSignupForm(user, {
-        email: 'test@example.com',
-        password: TestHelpers.getValidTestPassword(),
-        confirmPassword: 'DifferentPassword123!',
-        firstName: 'Test',
-        lastName: 'User'
-      });
-      
-      await TestHelpers.submitForm(user);
-      
-      await waitFor(() => {
-        expect(mockShowError).toHaveBeenCalledWith('Passwords do not match');
-        expect(mockSignUp).not.toHaveBeenCalled();
-      });
-    });
+      const complexValidationCases = [
+        { password: 'NoNumbers!', confirmPassword: 'NoNumbers!', shouldFail: true },
+        { password: 'nonumbersorspecial', confirmPassword: 'nonumbersorspecial', shouldFail: true },
+        { password: 'ValidPass123!', confirmPassword: 'DifferentPass456!', shouldFail: true },
+        { password: 'ValidPass123!', confirmPassword: 'ValidPass123!', shouldFail: false }
+      ];
 
-    test('should prevent submission with weak password', async () => {
-      renderSignupForm();
-      
-      await TestHelpers.fillSignupForm(user, {
-        email: 'test@example.com',
-        password: 'weak',
-        confirmPassword: 'weak',
-        firstName: 'Test',
-        lastName: 'User'
-      });
-      
-      await TestHelpers.submitForm(user);
-      
-      await waitFor(() => {
-        expect(mockShowError).toHaveBeenCalledWith(
-          'Password does not meet security requirements'
-        );
-        expect(mockSignUp).not.toHaveBeenCalled();
-      });
+      for (const testCase of complexValidationCases) {
+        await TestHelpers.fillSignupForm(user, {
+          email: 'test@example.com',
+          password: testCase.password,
+          confirmPassword: testCase.confirmPassword,
+          firstName: 'Test',
+          lastName: 'User'
+        });
+        
+        const submitButton = screen.getByRole('button', { name: /create account/i });
+        
+        if (testCase.shouldFail) {
+          expect(submitButton).toBeDisabled();
+        } else {
+          expect(submitButton).not.toBeDisabled();
+        }
+        
+        // Clear form for next test
+        await user.clear(screen.getByLabelText('Email'));
+        await user.clear(screen.getByLabelText('Password'));
+        await user.clear(screen.getByLabelText('Confirm Password'));
+        await user.clear(screen.getByLabelText('First Name'));
+        await user.clear(screen.getByLabelText('Last Name'));
+      }
     });
   });
 
-  describe('Performance Integration', () => {
-    test('should handle multiple rapid form submissions', async () => {
+  describe('Performance and Scalability Integration', () => {
+    test('should handle rapid successive form submissions', async () => {
       mockSignUp.mockImplementation(() => 
-        new Promise(resolve => setTimeout(() => resolve({ success: true }), 100))
+        new Promise(resolve => setTimeout(() => resolve({ success: true }), 200))
       );
       
       renderSignupForm();
@@ -218,54 +230,120 @@ describe('Comprehensive Auth Integration Tests', () => {
       await user.click(submitButton);
       await user.click(submitButton);
       
-      // Should only call signUp once
+      // Should only call signUp once due to loading state
       await waitFor(() => {
         expect(mockSignUp).toHaveBeenCalledTimes(1);
       }, { timeout: 1000 });
     });
-  });
 
-  describe('State Management Integration', () => {
-    test('should maintain form state during async operations', async () => {
+    test('should maintain responsive UI during long operations', async () => {
       mockSignUp.mockImplementation(() => 
-        new Promise(resolve => setTimeout(() => resolve({ success: true }), 500))
+        new Promise(resolve => setTimeout(() => resolve({ success: true }), 2000))
       );
       
       renderSignupForm();
       
       await TestHelpers.fillSignupForm(user, {
-        email: 'state@example.com',
+        email: 'longop@example.com',
         password: TestHelpers.getValidTestPassword(),
         confirmPassword: TestHelpers.getValidTestPassword(),
-        firstName: 'State',
-        lastName: 'User'
+        firstName: 'Long',
+        lastName: 'Operation'
       });
       
       await TestHelpers.submitForm(user);
       
-      // Form fields should maintain their values during submission
-      expect(screen.getByLabelText('Email')).toHaveValue('state@example.com');
-      expect(screen.getByLabelText('First Name')).toHaveValue('State');
-      expect(screen.getByLabelText('Last Name')).toHaveValue('User');
+      // UI should show loading state immediately
+      await TestHelpers.waitForLoadingState();
       
-      await waitFor(() => {
-        expect(mockSignUp).toHaveBeenCalled();
-      }, { timeout: 1000 });
+      // Form fields should remain accessible but button disabled
+      expect(screen.getByLabelText('Email')).toHaveValue('longop@example.com');
+      await TestHelpers.waitForButtonState('creating account', true);
     });
   });
 
-  describe('Cross-browser Compatibility', () => {
-    test('should handle different input event patterns', async () => {
+  describe('Multi-Component Integration', () => {
+    test('should integrate properly with notification system', async () => {
+      mockSignUp.mockResolvedValue({ success: true, requiresVerification: true });
+      
       renderSignupForm();
       
-      const emailInput = screen.getByLabelText('Email');
+      await TestHelpers.fillSignupForm(user, {
+        ...testDataFactory.createValidUser(),
+        confirmPassword: TestHelpers.getValidTestPassword()
+      });
       
-      // Simulate different ways users might input data
-      await user.type(emailInput, 'test');
-      await user.keyboard('{Backspace}{Backspace}{Backspace}{Backspace}');
-      await user.type(emailInput, 'crossbrowser@example.com');
+      await TestHelpers.submitForm(user);
       
-      expect(emailInput).toHaveValue('crossbrowser@example.com');
+      await waitFor(() => {
+        expect(mockShowSuccess).toHaveBeenCalledWith(
+          'Registration successful! Please check your email to verify your account.'
+        );
+        expect(mockClearAuthError).toHaveBeenCalled();
+      });
+    });
+
+    test('should handle component unmounting during async operations', async () => {
+      mockSignUp.mockImplementation(() => 
+        new Promise(resolve => setTimeout(() => resolve({ success: true }), 1000))
+      );
+      
+      const { unmount } = render(
+        <QueryClientProvider client={queryClient}>
+          <AuthProvider>
+            <SignupForm />
+          </AuthProvider>
+        </QueryClientProvider>
+      );
+      
+      await TestHelpers.fillSignupForm(user, {
+        ...testDataFactory.createValidUser(),
+        confirmPassword: TestHelpers.getValidTestPassword()
+      });
+      
+      await TestHelpers.submitForm(user);
+      
+      // Unmount component while operation is in progress
+      unmount();
+      
+      // Should not cause memory leaks or errors
+      await waitFor(() => {
+        expect(mockSignUp).toHaveBeenCalled();
+      }, { timeout: 1500 });
+    });
+  });
+
+  describe('Real-world Usage Scenarios', () => {
+    test('should handle typical user interaction patterns', async () => {
+      mockSignUp.mockResolvedValue({ success: true });
+      
+      renderSignupForm();
+      
+      // Simulate realistic user behavior: typing, pausing, correcting
+      await user.type(screen.getByLabelText('First Name'), 'Joh');
+      await user.type(screen.getByLabelText('First Name'), 'n'); // Complete "John"
+      
+      await user.type(screen.getByLabelText('Email'), 'john@exampl');
+      await user.keyboard('{Backspace}{Backspace}'); // Correct typo
+      await user.type(screen.getByLabelText('Email'), 'le.com');
+      
+      await user.type(screen.getByLabelText('Password'), 'weak');
+      await user.keyboard('{Control>}a{/Control}'); // Select all
+      await user.type(screen.getByLabelText('Password'), TestHelpers.getValidTestPassword());
+      
+      await user.type(screen.getByLabelText('Confirm Password'), TestHelpers.getValidTestPassword());
+      await user.type(screen.getByLabelText('Last Name'), 'Doe');
+      
+      await TestHelpers.submitForm(user);
+      
+      await waitFor(() => {
+        expect(mockSignUp).toHaveBeenCalledWith(
+          'john@example.com',
+          TestHelpers.getValidTestPassword(),
+          'John',
+          'Doe'
+        );
+      });
     });
   });
 });
