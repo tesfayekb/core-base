@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -18,7 +19,7 @@ interface UserRole {
 }
 
 export function RoleManagement() {
-  const { user } = useAuth();
+  const { user, tenantId } = useAuth();
   const { toast } = useToast();
   const [userRoles, setUserRoles] = useState<UserRole[]>([]);
   const [availableRoles, setAvailableRoles] = useState<Role[]>([]);
@@ -29,9 +30,11 @@ export function RoleManagement() {
   useEffect(() => {
     loadUserRoles();
     loadAvailableRoles();
-  }, []);
+  }, [tenantId]);
 
   const loadUserRoles = async () => {
+    if (!tenantId) return;
+    
     setIsLoading(true);
     try {
       // Mock data for demonstration - in real app, this would fetch from API
@@ -42,7 +45,7 @@ export function RoleManagement() {
           roles: [{ 
             id: 'admin-role', 
             name: 'Admin', 
-            tenant_id: 'tenantId',
+            tenant_id: tenantId,
             description: 'Full administrative access',
             is_system_role: false,
             permissions: [],
@@ -56,7 +59,7 @@ export function RoleManagement() {
           roles: [{ 
             id: 'editor-role', 
             name: 'Editor', 
-            tenant_id: 'tenantId',
+            tenant_id: tenantId,
             description: 'Content editing permissions',
             is_system_role: false,
             permissions: [],
@@ -80,13 +83,15 @@ export function RoleManagement() {
   };
 
   const loadAvailableRoles = async () => {
+    if (!tenantId) return;
+
     try {
       // Mock data for demonstration
       const mockRoles: Role[] = [
         { 
           id: 'admin-role', 
           name: 'Admin', 
-          tenant_id: 'tenantId',
+          tenant_id: tenantId,
           description: 'Full administrative access',
           is_system_role: false,
           permissions: [],
@@ -96,7 +101,7 @@ export function RoleManagement() {
         { 
           id: 'editor-role', 
           name: 'Editor', 
-          tenant_id: 'tenantId',
+          tenant_id: tenantId,
           description: 'Content editing permissions',
           is_system_role: false,
           permissions: [],
@@ -106,7 +111,7 @@ export function RoleManagement() {
         { 
           id: 'viewer-role', 
           name: 'Viewer', 
-          tenant_id: 'tenantId',
+          tenant_id: tenantId,
           description: 'Read-only access',
           is_system_role: false,
           permissions: [],
@@ -122,11 +127,11 @@ export function RoleManagement() {
   };
 
   const handleAssignRole = async () => {
-    if (!selectedUser || !selectedRole || !user) return;
+    if (!selectedUser || !selectedRole || !user || !tenantId) return;
 
     setIsLoading(true);
     try {
-      const result = await rbacService.assignRole(selectedUser, selectedRole);
+      const result = await rbacService.assignRole(user.id, selectedUser, selectedRole, tenantId);
       
       if (result.success) {
         toast({
@@ -156,6 +161,8 @@ export function RoleManagement() {
   };
 
   const handleRemoveRole = async (userId: string, roleId: string) => {
+    if (!user || !tenantId) return;
+
     setIsLoading(true);
     try {
       // In real implementation, this would call rbacService.removeRole
