@@ -1,21 +1,14 @@
 
-import { useState, useEffect, useCallback } from 'react';
-import { aiContextDebugger, DebugSession } from '@/services/AIContextDebugger';
-import { aiContextService } from '@/services/AIContextService';
+// AI Context Debug Hook
+// Developer tools hook for debugging AI context system
 
-export const useAIContextDebug = () => {
+import { useState, useCallback } from 'react';
+import { aiContextDebugger, DebugSession } from '@/services/AIContextDebugger';
+
+export function useAIContextDebug() {
   const [sessions, setSessions] = useState<DebugSession[]>([]);
   const [isDebugging, setIsDebugging] = useState(false);
   const [overrides, setOverrides] = useState<Record<string, any>>({});
-
-  const refreshData = useCallback(() => {
-    setSessions(aiContextDebugger.getDebugSessions());
-    setOverrides(aiContextDebugger.getOverrides());
-  }, []);
-
-  useEffect(() => {
-    refreshData();
-  }, [refreshData]);
 
   const startDebugging = useCallback(() => {
     aiContextDebugger.startDebugging();
@@ -28,48 +21,15 @@ export const useAIContextDebug = () => {
   }, []);
 
   const captureSession = useCallback(async () => {
-    await aiContextDebugger.captureDebugSession();
-    refreshData();
-  }, [refreshData]);
-
-  const addOverride = useCallback((key: string, value: any) => {
-    aiContextDebugger.setOverride(key, value);
-    refreshData();
-  }, [refreshData]);
-
-  const removeOverride = useCallback((key: string) => {
-    aiContextDebugger.removeOverride(key);
-    refreshData();
-  }, [refreshData]);
-
-  const clearAllOverrides = useCallback(() => {
-    aiContextDebugger.clearOverrides();
-    refreshData();
-  }, [refreshData]);
-
-  const generateContextWithOverrides = useCallback(async () => {
-    // Apply overrides temporarily
-    const originalContext = await aiContextService.generateAIContext();
-    
-    // Apply user overrides to the context
-    const modifiedContext = { ...originalContext };
-    Object.entries(overrides).forEach(([key, value]) => {
-      if (key.includes('.')) {
-        // Handle nested properties
-        const keys = key.split('.');
-        let target = modifiedContext as any;
-        for (let i = 0; i < keys.length - 1; i++) {
-          if (!target[keys[i]]) target[keys[i]] = {};
-          target = target[keys[i]];
-        }
-        target[keys[keys.length - 1]] = value;
-      } else {
-        (modifiedContext as any)[key] = value;
-      }
-    });
-
-    return modifiedContext;
-  }, [overrides]);
+    try {
+      const session = await aiContextDebugger.captureDebugSession();
+      setSessions(prev => [...prev, session]);
+      return session;
+    } catch (error) {
+      console.error('Failed to capture debug session:', error);
+      throw error;
+    }
+  }, []);
 
   const exportDebugData = useCallback(() => {
     const data = aiContextDebugger.exportDebugData();
@@ -77,7 +37,7 @@ export const useAIContextDebug = () => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `ai-context-debug-${Date.now()}.json`;
+    a.download = `ai-context-debug-${new Date().toISOString()}.json`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -88,6 +48,16 @@ export const useAIContextDebug = () => {
     return aiContextDebugger.getPerformanceMetrics();
   }, []);
 
+  const refreshData = useCallback(() => {
+    setSessions(aiContextDebugger.getDebugSessions());
+    setOverrides(aiContextDebugger.getOverrides());
+  }, []);
+
+  // Initialize data on mount
+  useState(() => {
+    refreshData();
+  });
+
   return {
     sessions,
     isDebugging,
@@ -95,12 +65,8 @@ export const useAIContextDebug = () => {
     startDebugging,
     stopDebugging,
     captureSession,
-    addOverride,
-    removeOverride,
-    clearAllOverrides,
-    generateContextWithOverrides,
     exportDebugData,
     getPerformanceMetrics,
     refreshData
   };
-};
+}
