@@ -5,8 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'sonner';
 import Navigation from './components/Navigation';
 import ImplementationDashboard from './components/dashboard/ImplementationDashboard';
-import ValidationDashboard from './tests/integration/ValidationDashboard';
-import { CrossSystemValidationDashboard } from './components/validation/CrossSystemValidationDashboard';
+import ValidationDashboard from './pages/ValidationDashboard';
 import './App.css';
 
 const queryClient = new QueryClient();
@@ -21,8 +20,7 @@ function App() {
             <Routes>
               <Route path="/" element={<ImplementationDashboard />} />
               <Route path="/implementation" element={<ImplementationDashboard />} />
-              <Route path="/validation" element={<ValidationDashboard report={null} isRunning={false} onRunValidation={() => {}} />} />
-              <Route path="/cross-validation" element={<CrossSystemValidationDashboard />} />
+              <Route path="/validation" element={<ValidationDashboard />} />
             </Routes>
           </main>
           <Toaster />
