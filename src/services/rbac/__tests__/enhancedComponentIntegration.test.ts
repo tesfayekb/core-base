@@ -97,3 +97,4 @@ describe('Enhanced RBAC Component Integration', () => {
     // Stop monitoring
     rbacService.stopMonitoring();
   });
+});
