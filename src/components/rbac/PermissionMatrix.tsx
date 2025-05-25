@@ -3,17 +3,9 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Switch } from '@/components/ui/switch';
 import { useAuth } from '@/contexts/AuthContext';
-import { rbacService } from '@/services/rbac/rbacService';
+import { rbacService, Permission } from '@/services/rbac/rbacService';
 import { Grid, Check, X } from 'lucide-react';
-
-interface Permission {
-  id: string;
-  action: string;
-  resource: string;
-  description?: string;
-}
 
 interface PermissionMatrixData {
   resource: string;
@@ -37,7 +29,7 @@ export function PermissionMatrix() {
 
     setIsLoading(true);
     try {
-      const userPermissions = await rbacService.getUserPermissions(user.id, tenantId);
+      const userPermissions = await rbacService.getUserPermissions(user.id, tenantId || undefined);
       setPermissions(userPermissions);
       
       // Transform permissions into matrix format

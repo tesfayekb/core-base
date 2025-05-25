@@ -8,8 +8,20 @@ export function useSecureErrorNotification() {
     console.error('Validation error:', error, 'Field:', field);
   };
 
+  const handleSuspiciousActivity = async (error: Error, activityType: string) => {
+    console.error('Suspicious activity detected:', error, 'Type:', activityType);
+    // In production, this would alert security team
+  };
+
+  const handlePermissionError = async (error: Error, resource: string, action: string) => {
+    console.error('Permission error:', error, 'Resource:', resource, 'Action:', action);
+    // In production, this would log the permission denial
+  };
+
   return {
     handleAuthenticationError,
-    handleInputValidationError
+    handleInputValidationError,
+    handleSuspiciousActivity,
+    handlePermissionError
   };
 }
