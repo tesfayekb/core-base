@@ -6,6 +6,12 @@ interface SecurityStatus {
   httpsEnabled: boolean;
   headersApplied: boolean;
   cspActive: boolean;
+  hstsActive: boolean;
+  hstsConfiguration: {
+    maxAge: number;
+    includeSubDomains: boolean;
+    preload: boolean;
+  };
   recommendations: string[];
   isSecure: boolean;
 }
@@ -15,6 +21,12 @@ export function useSecurityHeaders() {
     httpsEnabled: false,
     headersApplied: false,
     cspActive: false,
+    hstsActive: false,
+    hstsConfiguration: {
+      maxAge: 0,
+      includeSubDomains: false,
+      preload: false
+    },
     recommendations: [],
     isSecure: false
   });
@@ -25,7 +37,7 @@ export function useSecurityHeaders() {
     
     // Check compliance
     const compliance = securityHeadersService.checkSecurityCompliance();
-    const isSecure = compliance.httpsEnabled && compliance.headersApplied;
+    const isSecure = compliance.httpsEnabled && compliance.headersApplied && compliance.hstsActive;
     
     setSecurityStatus({
       ...compliance,
@@ -34,7 +46,7 @@ export function useSecurityHeaders() {
 
     // Log security status
     if (isSecure) {
-      console.log('✅ Security headers applied successfully');
+      console.log('✅ Security headers applied successfully with HSTS verification');
     } else {
       console.warn('⚠️ Security compliance issues detected:', compliance.recommendations);
     }
@@ -45,13 +57,14 @@ export function useSecurityHeaders() {
     const compliance = securityHeadersService.checkSecurityCompliance();
     setSecurityStatus({
       ...compliance,
-      isSecure: compliance.httpsEnabled && compliance.headersApplied
+      isSecure: compliance.httpsEnabled && compliance.headersApplied && compliance.hstsActive
     });
   };
 
   return {
     securityStatus,
     reapplyHeaders,
-    getSecurityHeaders: () => securityHeadersService.getSecurityHeaders()
+    getSecurityHeaders: () => securityHeadersService.getSecurityHeaders(),
+    getHSTSDetails: () => securityHeadersService.getHSTSDetails()
   };
 }

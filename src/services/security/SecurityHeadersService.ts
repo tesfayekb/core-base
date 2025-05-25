@@ -35,6 +35,14 @@ export class SecurityHeadersService {
   getPermissionsPolicyDetails(): Record<string, string> {
     return SecurityHeadersConfig.getPermissionsPolicyDetails();
   }
+
+  getHSTSDetails(): Record<string, string> {
+    return SecurityHeadersConfig.getHSTSDetails();
+  }
+
+  validateHSTSConfiguration(): { active: boolean; configuration: any } {
+    return SecurityComplianceChecker.validateHSTS();
+  }
 }
 
 export const securityHeadersService = SecurityHeadersService.getInstance();

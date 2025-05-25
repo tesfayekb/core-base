@@ -83,6 +83,12 @@ export class SecurityHeadersConfig {
     return policies.join(', ');
   }
 
+  static getHSTSHeader(): string {
+    // Enhanced HSTS configuration for maximum security
+    // max-age=31536000 (1 year), includeSubDomains, preload
+    return 'max-age=31536000; includeSubDomains; preload';
+  }
+
   static getSecurityHeaders(): SecurityHeaders {
     return {
       'Content-Security-Policy': this.getCSPHeader(),
@@ -91,7 +97,7 @@ export class SecurityHeadersConfig {
       'X-XSS-Protection': '1; mode=block',
       'Referrer-Policy': 'strict-origin-when-cross-origin',
       'Permissions-Policy': this.getPermissionsPolicyHeader(),
-      'Strict-Transport-Security': 'max-age=31536000; includeSubDomains; preload'
+      'Strict-Transport-Security': this.getHSTSHeader()
     };
   }
 
@@ -105,6 +111,15 @@ export class SecurityHeadersConfig {
       'Storage': 'Storage access allowed for self-origin',
       'Display Controls': 'Fullscreen and display capture allowed for self',
       'Tracking': 'All advertising and tracking features disabled'
+    };
+  }
+
+  static getHSTSDetails(): Record<string, string> {
+    return {
+      'Max Age': '31536000 seconds (1 year) - Forces HTTPS for the entire duration',
+      'Include Subdomains': 'All subdomains must also use HTTPS',
+      'Preload': 'Domain can be included in browser HSTS preload lists',
+      'Security Level': 'Maximum - Prevents any HTTP connections to this domain'
     };
   }
 }

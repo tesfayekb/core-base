@@ -5,19 +5,21 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { Shield, AlertTriangle, CheckCircle, ChevronDown, ChevronRight, Info } from 'lucide-react';
+import { Shield, AlertTriangle, CheckCircle, ChevronDown, ChevronRight, Info, Lock } from 'lucide-react';
 import { useSecurityHeaders } from '@/hooks/useSecurityHeaders';
 import { securityHeadersService } from '@/services/security/SecurityHeadersService';
 
 export function SecurityStatus() {
   const { securityStatus } = useSecurityHeaders();
   const [showPermissionsDetails, setShowPermissionsDetails] = useState(false);
+  const [showHSTSDetails, setShowHSTSDetails] = useState(false);
 
   if (process.env.NODE_ENV === 'production') {
     return null; // Don't show in production
   }
 
   const permissionsDetails = securityHeadersService.getPermissionsPolicyDetails();
+  const hstsDetails = securityHeadersService.getHSTSDetails();
 
   return (
     <Card className="w-full max-w-2xl">
@@ -27,7 +29,7 @@ export function SecurityStatus() {
           Security Status
         </CardTitle>
         <CardDescription>
-          Development security compliance check with granular permissions
+          Development security compliance check with enhanced HSTS verification
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -66,6 +68,68 @@ export function SecurityStatus() {
             {securityStatus.cspActive ? 'Yes' : 'Partial'}
           </Badge>
         </div>
+
+        <div className="flex items-center justify-between">
+          <span>HSTS Active</span>
+          <Badge variant={securityStatus.hstsActive ? "default" : "destructive"}>
+            {securityStatus.hstsActive ? (
+              <Lock className="h-3 w-3 mr-1" />
+            ) : (
+              <AlertTriangle className="h-3 w-3 mr-1" />
+            )}
+            {securityStatus.hstsActive ? 'Configured' : 'Missing'}
+          </Badge>
+        </div>
+
+        <Collapsible open={showHSTSDetails} onOpenChange={setShowHSTSDetails}>
+          <CollapsibleTrigger asChild>
+            <Button variant="outline" className="w-full justify-between">
+              <span className="flex items-center gap-2">
+                <Lock className="h-4 w-4" />
+                HSTS Configuration Details
+              </span>
+              {showHSTSDetails ? (
+                <ChevronDown className="h-4 w-4" />
+              ) : (
+                <ChevronRight className="h-4 w-4" />
+              )}
+            </Button>
+          </CollapsibleTrigger>
+          <CollapsibleContent className="space-y-2 mt-3">
+            <div className="text-sm text-muted-foreground mb-2">
+              HTTP Strict Transport Security configuration:
+            </div>
+            {securityStatus.hstsConfiguration && (
+              <div className="space-y-2">
+                <div className="flex items-start gap-2 p-2 bg-gray-50 rounded text-sm">
+                  <div className="font-medium">Max Age:</div>
+                  <div className="text-muted-foreground">
+                    {securityStatus.hstsConfiguration.maxAge} seconds 
+                    {securityStatus.hstsConfiguration.maxAge >= 31536000 ? ' ✅' : ' ⚠️ (should be ≥31536000)'}
+                  </div>
+                </div>
+                <div className="flex items-start gap-2 p-2 bg-gray-50 rounded text-sm">
+                  <div className="font-medium">Include Subdomains:</div>
+                  <div className="text-muted-foreground">
+                    {securityStatus.hstsConfiguration.includeSubDomains ? 'Yes ✅' : 'No ⚠️'}
+                  </div>
+                </div>
+                <div className="flex items-start gap-2 p-2 bg-gray-50 rounded text-sm">
+                  <div className="font-medium">Preload:</div>
+                  <div className="text-muted-foreground">
+                    {securityStatus.hstsConfiguration.preload ? 'Yes ✅' : 'No (optional)'}
+                  </div>
+                </div>
+              </div>
+            )}
+            {Object.entries(hstsDetails).map(([feature, description]) => (
+              <div key={feature} className="flex items-start gap-2 p-2 bg-blue-50 rounded text-sm">
+                <div className="font-medium min-w-0 flex-shrink-0">{feature}:</div>
+                <div className="text-muted-foreground">{description}</div>
+              </div>
+            ))}
+          </CollapsibleContent>
+        </Collapsible>
 
         <Collapsible open={showPermissionsDetails} onOpenChange={setShowPermissionsDetails}>
           <CollapsibleTrigger asChild>
