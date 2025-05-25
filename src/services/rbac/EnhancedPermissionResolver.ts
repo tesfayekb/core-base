@@ -1,3 +1,4 @@
+
 import { supabase } from '../database/connection';
 import { granularDependencyResolver } from './GranularDependencyResolver';
 import { EntityBoundaryValidator } from './entityBoundaries';
@@ -20,6 +21,10 @@ export interface PermissionContext {
 
 export class EnhancedPermissionResolver {
   private static instance: EnhancedPermissionResolver;
+  
+  // Add missing property declarations
+  private entityBoundaryCache = new Map<string, { valid: boolean; timestamp: number }>();
+  private cacheTimeout = 5 * 60 * 1000; // 5 minutes
   private performanceMetrics = new Map<string, number[]>();
 
   static getInstance(): EnhancedPermissionResolver {
@@ -268,7 +273,7 @@ export class EnhancedPermissionResolver {
     const cacheStats = advancedCacheManager.getStats();
     return {
       permissionCacheSize: cacheStats.totalEntries,
-      entityCacheSize: 0, // Legacy compatibility
+      entityCacheSize: this.entityBoundaryCache.size,
       hitRate: cacheStats.hitRate
     };
   }
