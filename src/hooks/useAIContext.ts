@@ -8,7 +8,7 @@ import { aiContextService } from '@/services/AIContextService';
 
 export function useAIContext() {
   const [contextData, setContextData] = useState<AIContextData | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
@@ -17,16 +17,27 @@ export function useAIContext() {
       setIsLoading(true);
       setError(null);
       
-      console.log('🔄 Refreshing AI context...');
+      console.log('🔄 useAIContext: Starting context refresh...');
+      
+      // Check for cached data first
+      const cachedContext = aiContextService.getCachedContext();
+      if (cachedContext) {
+        console.log('📦 useAIContext: Using cached context data');
+        setContextData(cachedContext);
+        setLastUpdated(new Date());
+        setIsLoading(false);
+        return;
+      }
       
       const context = await aiContextService.generateAIContext();
+      console.log('✅ useAIContext: Context generated successfully:', context);
+      
       setContextData(context);
       setLastUpdated(new Date());
       
-      console.log('✅ AI context refreshed successfully');
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';
-      console.error('❌ Failed to refresh AI context:', errorMessage);
+      console.error('❌ useAIContext: Failed to refresh context:', errorMessage, err);
       setError(errorMessage);
     } finally {
       setIsLoading(false);
@@ -34,6 +45,7 @@ export function useAIContext() {
   }, []);
 
   const invalidateContext = useCallback(async () => {
+    console.log('🗑️ useAIContext: Invalidating context cache...');
     await aiContextService.invalidateCache();
     await refreshContext();
   }, [refreshContext]);
@@ -44,13 +56,14 @@ export function useAIContext() {
 
   // Initialize context on mount
   useEffect(() => {
+    console.log('🚀 useAIContext: Hook initialized, starting refresh...');
     refreshContext();
   }, [refreshContext]);
 
   // Auto-refresh context every 10 minutes
   useEffect(() => {
     const interval = setInterval(() => {
-      console.log('⏰ Auto-refreshing AI context...');
+      console.log('⏰ useAIContext: Auto-refreshing context...');
       refreshContext();
     }, 10 * 60 * 1000); // 10 minutes
 
