@@ -1,4 +1,5 @@
-import { PerformanceMetrics } from './PerformanceMetrics';
+
+import { PerformanceMetrics, HealthStatus } from './PerformanceMetrics';
 
 export class Phase1Monitor {
   private static instance: Phase1Monitor;
@@ -39,16 +40,32 @@ export class Phase1Monitor {
     console.log(`[Phase1Monitor] Cache miss recorded: ${cacheKey}`);
   }
 
-  recordDatabaseQuery(query: string, duration: number, success: boolean = true): void {
+  recordDatabaseQuery(queryOrDuration: string | number, duration?: number, success: boolean = true): void {
+    // Handle both old signature (duration) and new signature (query, duration)
+    let query: string;
+    let actualDuration: number;
+    
+    if (typeof queryOrDuration === 'string') {
+      query = queryOrDuration;
+      actualDuration = duration || 0;
+    } else {
+      query = 'unknown query';
+      actualDuration = queryOrDuration;
+    }
+
     this.metrics.databaseQueries = this.metrics.databaseQueries || [];
     this.metrics.databaseQueries.push({
       query,
-      duration,
+      duration: actualDuration,
       success,
       timestamp: Date.now(),
       executedAt: new Date()
     });
-    console.log(`[Phase1Monitor] Database query recorded: ${query} - ${duration}ms - ${success ? 'SUCCESS' : 'FAILED'}`);
+
+    // Update aggregated database metrics
+    this.updateDatabaseMetrics(actualDuration, success);
+    
+    console.log(`[Phase1Monitor] Database query recorded: ${query} - ${actualDuration}ms - ${success ? 'SUCCESS' : 'FAILED'}`);
   }
 
   recordExternalServiceCall(serviceName: string, duration: number, success: boolean = true): void {
@@ -166,12 +183,176 @@ export class Phase1Monitor {
     console.log(`[Phase1Monitor] Task ${taskId} completion recorded: ${success ? 'SUCCESS' : 'FAILED'}`);
   }
 
+  // New missing methods
+  recordAuditEvent(duration: number): void {
+    this.updateAuditMetrics(duration);
+    console.log(`[Phase1Monitor] Audit event recorded: ${duration}ms`);
+  }
+
+  recordPermissionCheck(duration: number, success: boolean = true): void {
+    this.updatePermissionMetrics(duration, success);
+    console.log(`[Phase1Monitor] Permission check recorded: ${duration}ms - ${success ? 'SUCCESS' : 'FAILED'}`);
+  }
+
+  recordTenantSwitch(duration: number): void {
+    this.updateMultiTenantMetrics(duration);
+    console.log(`[Phase1Monitor] Tenant switch recorded: ${duration}ms`);
+  }
+
+  recordDependencyResolution(count: number): void {
+    this.updateDependencyMetrics(count);
+    console.log(`[Phase1Monitor] Dependency resolution recorded: ${count} dependencies`);
+  }
+
+  reset(): void {
+    this.metrics = {};
+    console.log('[Phase1Monitor] Metrics reset');
+  }
+
+  resetMetrics(): void {
+    this.reset();
+  }
+
+  getHealthStatus(): HealthStatus {
+    const issues: string[] = [];
+    let score = 100;
+
+    // Check database performance
+    if (this.metrics.database?.averageQueryTime && this.metrics.database.averageQueryTime > 50) {
+      issues.push('Database queries are slow');
+      score -= 20;
+    }
+
+    // Check permission performance
+    if (this.metrics.permissions?.averageCheckTime && this.metrics.permissions.averageCheckTime > 15) {
+      issues.push('Permission checks are slow');
+      score -= 15;
+    }
+
+    // Check cache hit rate
+    if (this.metrics.permissions?.cacheHitRate && this.metrics.permissions.cacheHitRate < 85) {
+      issues.push('Low cache hit rate');
+      score -= 10;
+    }
+
+    // Check tenant isolation
+    if (this.metrics.multiTenant?.isolationViolations && this.metrics.multiTenant.isolationViolations > 0) {
+      issues.push('Tenant isolation violations detected');
+      score -= 30;
+    }
+
+    let status: 'excellent' | 'good' | 'warning' | 'critical';
+    if (score >= 95) status = 'excellent';
+    else if (score >= 80) status = 'good';
+    else if (score >= 60) status = 'warning';
+    else status = 'critical';
+
+    return {
+      status,
+      score,
+      issues,
+      components: {
+        database: this.metrics.database,
+        permissions: this.metrics.permissions,
+        multiTenant: this.metrics.multiTenant,
+        audit: this.metrics.audit
+      }
+    };
+  }
+
   getMetrics(): PerformanceMetrics {
     return { ...this.metrics };
   }
 
-  resetMetrics(): void {
-    this.metrics = {};
+  // Private helper methods
+  private updateDatabaseMetrics(duration: number, success: boolean): void {
+    if (!this.metrics.database) {
+      this.metrics.database = {
+        averageQueryTime: 0,
+        totalQueries: 0,
+        failedQueries: 0
+      };
+    }
+
+    this.metrics.database.totalQueries++;
+    if (!success) {
+      this.metrics.database.failedQueries++;
+    }
+
+    // Update average query time
+    const currentTotal = this.metrics.database.averageQueryTime * (this.metrics.database.totalQueries - 1);
+    this.metrics.database.averageQueryTime = (currentTotal + duration) / this.metrics.database.totalQueries;
+  }
+
+  private updatePermissionMetrics(duration: number, success: boolean): void {
+    if (!this.metrics.permissions) {
+      this.metrics.permissions = {
+        averageCheckTime: 0,
+        cacheHitRate: 0,
+        totalChecks: 0,
+        failedChecks: 0
+      };
+    }
+
+    this.metrics.permissions.totalChecks++;
+    if (!success) {
+      this.metrics.permissions.failedChecks++;
+    }
+
+    // Update average check time
+    const currentTotal = this.metrics.permissions.averageCheckTime * (this.metrics.permissions.totalChecks - 1);
+    this.metrics.permissions.averageCheckTime = (currentTotal + duration) / this.metrics.permissions.totalChecks;
+
+    // Update cache hit rate (simplified calculation)
+    const hits = this.metrics.cacheHits || 0;
+    const misses = this.metrics.cacheMisses || 0;
+    const total = hits + misses;
+    this.metrics.permissions.cacheHitRate = total > 0 ? (hits / total) * 100 : 100;
+  }
+
+  private updateMultiTenantMetrics(duration: number): void {
+    if (!this.metrics.multiTenant) {
+      this.metrics.multiTenant = {
+        averageSwitchTime: 0,
+        isolationViolations: 0,
+        totalSwitches: 0
+      };
+    }
+
+    this.metrics.multiTenant.totalSwitches++;
+
+    // Update average switch time
+    const currentTotal = this.metrics.multiTenant.averageSwitchTime * (this.metrics.multiTenant.totalSwitches - 1);
+    this.metrics.multiTenant.averageSwitchTime = (currentTotal + duration) / this.metrics.multiTenant.totalSwitches;
+  }
+
+  private updateAuditMetrics(duration: number): void {
+    if (!this.metrics.audit) {
+      this.metrics.audit = {
+        eventsLogged: 0,
+        averageLogTime: 0,
+        totalEvents: 0
+      };
+    }
+
+    this.metrics.audit.eventsLogged++;
+    this.metrics.audit.totalEvents++;
+
+    // Update average log time
+    const currentTotal = this.metrics.audit.averageLogTime * (this.metrics.audit.totalEvents - 1);
+    this.metrics.audit.averageLogTime = (currentTotal + duration) / this.metrics.audit.totalEvents;
+  }
+
+  private updateDependencyMetrics(count: number): void {
+    if (!this.metrics.dependencies) {
+      this.metrics.dependencies = {
+        resolutionCount: 0,
+        averageResolutionTime: 0,
+        failedResolutions: 0
+      };
+    }
+
+    this.metrics.dependencies.resolutionCount += count;
   }
 }
 
