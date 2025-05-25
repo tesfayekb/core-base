@@ -1,5 +1,6 @@
 
 import { advancedCacheManager } from './AdvancedCacheManager';
+import { cacheMemoryMonitor } from './caching/CacheMemoryMonitor';
 
 export interface PermissionCacheEntry {
   result: boolean;
@@ -9,6 +10,7 @@ export interface PermissionCacheEntry {
 export class PermissionCache {
   private entityBoundaryCache = new Map<string, { valid: boolean; timestamp: number }>();
   private readonly cacheTimeout = 5 * 60 * 1000; // 5 minutes
+  private readonly maxEntityCacheSize = 1000; // Limit entity boundary cache size
 
   buildCacheKey(
     userId: string,
@@ -54,14 +56,34 @@ export class PermissionCache {
     if (cached && Date.now() - cached.timestamp < this.cacheTimeout) {
       return cached;
     }
+    
+    // Clean up expired entry
+    if (cached) {
+      this.entityBoundaryCache.delete(boundaryKey);
+    }
     return undefined;
   }
 
   setEntityBoundaryCache(boundaryKey: string, isValid: boolean): void {
+    // Enforce size limit
+    this.enforceEntityCacheSize();
+    
     this.entityBoundaryCache.set(boundaryKey, {
       valid: isValid,
       timestamp: Date.now()
     });
+  }
+
+  private enforceEntityCacheSize(): void {
+    if (this.entityBoundaryCache.size >= this.maxEntityCacheSize) {
+      // Remove oldest entries (first 10% of cache)
+      const entriesToRemove = Math.floor(this.maxEntityCacheSize * 0.1);
+      const keys = Array.from(this.entityBoundaryCache.keys());
+      
+      for (let i = 0; i < entriesToRemove && i < keys.length; i++) {
+        this.entityBoundaryCache.delete(keys[i]);
+      }
+    }
   }
 
   invalidateUserCache(userId: string): void {
@@ -71,13 +93,40 @@ export class PermissionCache {
   getCacheStats(): { 
     permissionCacheSize: number; 
     entityCacheSize: number; 
-    hitRate: number; 
+    hitRate: number;
+    memoryStats: any;
   } {
     const cacheStats = advancedCacheManager.getStats();
+    const memoryStats = cacheMemoryMonitor.getCacheMemoryStats(
+      cacheStats.totalEntries + this.entityBoundaryCache.size
+    );
+    
     return {
       permissionCacheSize: cacheStats.totalEntries,
       entityCacheSize: this.entityBoundaryCache.size,
-      hitRate: cacheStats.hitRate
+      hitRate: cacheStats.hitRate,
+      memoryStats
     };
+  }
+
+  performMemoryCleanup(): void {
+    // Clean up expired entity boundary cache entries
+    const now = Date.now();
+    const expiredKeys: string[] = [];
+    
+    for (const [key, entry] of this.entityBoundaryCache.entries()) {
+      if (now - entry.timestamp > this.cacheTimeout) {
+        expiredKeys.push(key);
+      }
+    }
+    
+    expiredKeys.forEach(key => this.entityBoundaryCache.delete(key));
+    
+    // Record memory usage
+    cacheMemoryMonitor.recordMemoryUsage();
+  }
+
+  getMemoryRecommendations(): string[] {
+    return cacheMemoryMonitor.getMemoryRecommendations();
   }
 }
