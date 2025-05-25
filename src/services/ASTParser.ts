@@ -1,568 +1,312 @@
 
-// AST Parser Service for accurate code analysis
-// Enhanced AI Context System - AST-based parsing
+// Simplified AST Parser Service
+// Enhanced AI Context System - Code structure analysis without TypeScript compiler API
 
-import * as ts from 'typescript';
-
-export interface ASTAnalysisResult {
-  exports: ExportInfo[];
-  imports: ImportInfo[];
-  functions: FunctionInfo[];
-  components: ComponentInfo[];
-  classes: ClassInfo[];
-  interfaces: InterfaceInfo[];
-  dependencies: DependencyGraph;
-  complexity: ComplexityMetrics;
+export interface ParsedFile {
+  path: string;
+  functions: ParsedFunction[];
+  components: ParsedComponent[];
+  imports: ParsedImport[];
+  exports: ParsedExport[];
+  dependencies: string[];
 }
 
-export interface ExportInfo {
+export interface ParsedFunction {
   name: string;
-  type: 'function' | 'class' | 'interface' | 'const' | 'default';
-  isDefault: boolean;
-  documentation?: string;
-  location: SourceLocation;
-}
-
-export interface ImportInfo {
-  module: string;
-  imports: string[];
-  isTypeOnly: boolean;
-  location: SourceLocation;
-}
-
-export interface FunctionInfo {
-  name: string;
-  parameters: ParameterInfo[];
-  returnType?: string;
   isAsync: boolean;
+  parameters: string[];
   isExported: boolean;
-  documentation?: string;
-  location: SourceLocation;
+  lineNumber: number;
 }
 
-export interface ComponentInfo {
+export interface ParsedComponent {
   name: string;
-  props: ParameterInfo[];
   isReactComponent: boolean;
-  hooks: string[];
-  location: SourceLocation;
+  props: string[];
+  isExported: boolean;
+  lineNumber: number;
 }
 
-export interface ClassInfo {
+export interface ParsedImport {
+  source: string;
+  imports: string[];
+  isDefault: boolean;
+  lineNumber: number;
+}
+
+export interface ParsedExport {
   name: string;
-  methods: FunctionInfo[];
-  properties: PropertyInfo[];
-  extends?: string;
-  implements: string[];
-  location: SourceLocation;
-}
-
-export interface InterfaceInfo {
-  name: string;
-  properties: PropertyInfo[];
-  extends: string[];
-  location: SourceLocation;
-}
-
-export interface ParameterInfo {
-  name: string;
-  type?: string;
-  optional: boolean;
-  defaultValue?: string;
-}
-
-export interface PropertyInfo {
-  name: string;
-  type?: string;
-  optional: boolean;
-  visibility: 'public' | 'private' | 'protected';
-}
-
-export interface SourceLocation {
-  line: number;
-  column: number;
-  file: string;
+  isDefault: boolean;
+  type: 'function' | 'component' | 'variable' | 'type';
+  lineNumber: number;
 }
 
 export interface DependencyGraph {
-  internal: string[];
-  external: string[];
-  circular: string[];
-  unused: string[];
+  nodes: string[];
+  edges: Array<{ from: string; to: string; type: string }>;
 }
 
-export interface ComplexityMetrics {
-  cyclomaticComplexity: number;
-  linesOfCode: number;
-  maintainabilityIndex: number;
-}
-
-export class ASTParser {
-  private program: ts.Program | null = null;
-  private checker: ts.TypeChecker | null = null;
-
-  constructor() {
-    this.initializeCompiler();
-  }
-
-  private initializeCompiler(): void {
-    const compilerOptions: ts.CompilerOptions = {
-      target: ts.ScriptTarget.ES2020,
-      module: ts.ModuleKind.ESNext,
-      jsx: ts.JsxEmit.React,
-      allowJs: true,
-      skipLibCheck: true,
-      esModuleInterop: true,
-      allowSyntheticDefaultImports: true,
-      strict: false,
-      forceConsistentCasingInFileNames: true,
-      moduleResolution: ts.ModuleResolutionKind.NodeJs,
-      resolveJsonModule: true,
-      isolatedModules: true,
-      noEmit: true
+class ASTParserService {
+  async parseFile(filePath: string, content: string): Promise<ParsedFile> {
+    const lines = content.split('\n');
+    
+    return {
+      path: filePath,
+      functions: this.parseFunctions(content, lines),
+      components: this.parseComponents(content, lines),
+      imports: this.parseImports(content, lines),
+      exports: this.parseExports(content, lines),
+      dependencies: this.extractDependencies(content)
     };
-
-    // In a real implementation, we'd scan the actual file system
-    // For now, we'll work with the provided content
-    this.program = ts.createProgram([], compilerOptions);
-    this.checker = this.program.getTypeChecker();
   }
 
-  analyzeCode(content: string, fileName: string): ASTAnalysisResult {
-    try {
-      const sourceFile = ts.createSourceFile(
-        fileName,
-        content,
-        ts.ScriptTarget.ES2020,
-        true,
-        ts.ScriptKind.TSX
-      );
+  private parseFunctions(content: string, lines: string[]): ParsedFunction[] {
+    const functions: ParsedFunction[] = [];
+    
+    // Match function declarations and arrow functions
+    const functionPatterns = [
+      /(?:export\s+)?(?:async\s+)?function\s+(\w+)\s*\(([^)]*)\)/g,
+      /(?:export\s+)?const\s+(\w+)\s*=\s*(?:async\s+)?\(([^)]*)\)\s*=>/g,
+      /(\w+)\s*:\s*(?:async\s+)?\(([^)]*)\)\s*=>/g
+    ];
 
-      return {
-        exports: this.extractExports(sourceFile),
-        imports: this.extractImports(sourceFile),
-        functions: this.extractFunctions(sourceFile),
-        components: this.extractComponents(sourceFile),
-        classes: this.extractClasses(sourceFile),
-        interfaces: this.extractInterfaces(sourceFile),
-        dependencies: this.analyzeDependencies(sourceFile),
-        complexity: this.calculateComplexity(sourceFile)
-      };
-    } catch (error) {
-      console.warn(`AST parsing failed for ${fileName}:`, error);
-      return this.getEmptyAnalysis();
-    }
-  }
+    functionPatterns.forEach(pattern => {
+      let match;
+      while ((match = pattern.exec(content)) !== null) {
+        const name = match[1];
+        const params = match[2] ? match[2].split(',').map(p => p.trim()).filter(Boolean) : [];
+        const lineNumber = this.getLineNumber(content, match.index, lines);
+        const isAsync = match[0].includes('async');
+        const isExported = match[0].includes('export');
 
-  private extractExports(sourceFile: ts.SourceFile): ExportInfo[] {
-    const exports: ExportInfo[] = [];
-
-    const visit = (node: ts.Node) => {
-      if (ts.isExportDeclaration(node)) {
-        // Handle export { ... } declarations
-        if (node.exportClause && ts.isNamedExports(node.exportClause)) {
-          node.exportClause.elements.forEach(element => {
-            exports.push({
-              name: element.name.text,
-              type: 'const',
-              isDefault: false,
-              location: this.getLocation(element, sourceFile)
-            });
-          });
-        }
-      } else if (ts.isExportAssignment(node)) {
-        // Handle export default declarations
-        exports.push({
-          name: 'default',
-          type: 'default',
-          isDefault: true,
-          location: this.getLocation(node, sourceFile)
-        });
-      } else if (node.modifiers?.some(mod => mod.kind === ts.SyntaxKind.ExportKeyword)) {
-        // Handle exported declarations
-        if (ts.isFunctionDeclaration(node) && node.name) {
-          exports.push({
-            name: node.name.text,
-            type: 'function',
-            isDefault: false,
-            location: this.getLocation(node, sourceFile)
-          });
-        } else if (ts.isClassDeclaration(node) && node.name) {
-          exports.push({
-            name: node.name.text,
-            type: 'class',
-            isDefault: false,
-            location: this.getLocation(node, sourceFile)
-          });
-        } else if (ts.isInterfaceDeclaration(node)) {
-          exports.push({
-            name: node.name.text,
-            type: 'interface',
-            isDefault: false,
-            location: this.getLocation(node, sourceFile)
-          });
-        } else if (ts.isVariableStatement(node)) {
-          node.declarationList.declarations.forEach(decl => {
-            if (ts.isIdentifier(decl.name)) {
-              exports.push({
-                name: decl.name.text,
-                type: 'const',
-                isDefault: false,
-                location: this.getLocation(decl, sourceFile)
-              });
-            }
-          });
-        }
-      }
-
-      ts.forEachChild(node, visit);
-    };
-
-    visit(sourceFile);
-    return exports;
-  }
-
-  private extractImports(sourceFile: ts.SourceFile): ImportInfo[] {
-    const imports: ImportInfo[] = [];
-
-    const visit = (node: ts.Node) => {
-      if (ts.isImportDeclaration(node) && ts.isStringLiteral(node.moduleSpecifier)) {
-        const moduleSpecifier = node.moduleSpecifier.text;
-        const importNames: string[] = [];
-
-        if (node.importClause) {
-          // Default import
-          if (node.importClause.name) {
-            importNames.push(node.importClause.name.text);
-          }
-
-          // Named imports
-          if (node.importClause.namedBindings) {
-            if (ts.isNamedImports(node.importClause.namedBindings)) {
-              node.importClause.namedBindings.elements.forEach(element => {
-                importNames.push(element.name.text);
-              });
-            } else if (ts.isNamespaceImport(node.importClause.namedBindings)) {
-              importNames.push(node.importClause.namedBindings.name.text);
-            }
-          }
-        }
-
-        imports.push({
-          module: moduleSpecifier,
-          imports: importNames,
-          isTypeOnly: node.importClause?.isTypeOnly || false,
-          location: this.getLocation(node, sourceFile)
-        });
-      }
-
-      ts.forEachChild(node, visit);
-    };
-
-    visit(sourceFile);
-    return imports;
-  }
-
-  private extractFunctions(sourceFile: ts.SourceFile): FunctionInfo[] {
-    const functions: FunctionInfo[] = [];
-
-    const visit = (node: ts.Node) => {
-      if (ts.isFunctionDeclaration(node) && node.name) {
         functions.push({
-          name: node.name.text,
-          parameters: this.extractParameters(node.parameters),
-          returnType: node.type ? node.type.getText() : undefined,
-          isAsync: node.modifiers?.some(mod => mod.kind === ts.SyntaxKind.AsyncKeyword) || false,
-          isExported: node.modifiers?.some(mod => mod.kind === ts.SyntaxKind.ExportKeyword) || false,
-          location: this.getLocation(node, sourceFile)
+          name,
+          isAsync,
+          parameters: params,
+          isExported,
+          lineNumber
         });
-      } else if (ts.isArrowFunction(node) || ts.isFunctionExpression(node)) {
-        // Handle arrow functions and function expressions
-        const parent = node.parent;
-        if (ts.isVariableDeclaration(parent) && ts.isIdentifier(parent.name)) {
-          functions.push({
-            name: parent.name.text,
-            parameters: this.extractParameters(node.parameters),
-            returnType: node.type ? node.type.getText() : undefined,
-            isAsync: node.modifiers?.some(mod => mod.kind === ts.SyntaxKind.AsyncKeyword) || false,
-            isExported: false,
-            location: this.getLocation(node, sourceFile)
-          });
-        }
       }
+    });
 
-      ts.forEachChild(node, visit);
-    };
-
-    visit(sourceFile);
     return functions;
   }
 
-  private extractComponents(sourceFile: ts.SourceFile): ComponentInfo[] {
-    const components: ComponentInfo[] = [];
-
-    const visit = (node: ts.Node) => {
-      // React function components
-      if (ts.isFunctionDeclaration(node) && node.name) {
-        const name = node.name.text;
-        if (this.isReactComponent(node, name)) {
-          components.push({
-            name,
-            props: this.extractParameters(node.parameters),
-            isReactComponent: true,
-            hooks: this.extractReactHooks(node),
-            location: this.getLocation(node, sourceFile)
-          });
-        }
+  private parseComponents(content: string, lines: string[]): ParsedComponent[] {
+    const components: ParsedComponent[] = [];
+    
+    // Match React components (functions starting with capital letter)
+    const componentPattern = /(?:export\s+(?:default\s+)?)?(?:const\s+|function\s+)([A-Z][A-Za-z0-9]*)\s*(?:\(([^)]*)\)|=\s*\(([^)]*)\))/g;
+    
+    let match;
+    while ((match = componentPattern.exec(content)) !== null) {
+      const name = match[1];
+      const params = match[2] || match[3] || '';
+      const lineNumber = this.getLineNumber(content, match.index, lines);
+      const isExported = match[0].includes('export');
+      
+      // Check if it returns JSX
+      const functionBody = this.extractFunctionBody(content, match.index);
+      const isReactComponent = this.isReactComponent(functionBody);
+      
+      if (isReactComponent) {
+        const props = this.extractProps(params);
+        
+        components.push({
+          name,
+          isReactComponent,
+          props,
+          isExported,
+          lineNumber
+        });
       }
+    }
 
-      // Arrow function components
-      if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name)) {
-        const name = node.name.text;
-        if (node.initializer && (ts.isArrowFunction(node.initializer) || ts.isFunctionExpression(node.initializer))) {
-          if (this.isReactComponent(node.initializer, name)) {
-            components.push({
-              name,
-              props: this.extractParameters(node.initializer.parameters),
-              isReactComponent: true,
-              hooks: this.extractReactHooks(node.initializer),
-              location: this.getLocation(node, sourceFile)
-            });
-          }
-        }
-      }
-
-      ts.forEachChild(node, visit);
-    };
-
-    visit(sourceFile);
     return components;
   }
 
-  private extractClasses(sourceFile: ts.SourceFile): ClassInfo[] {
-    const classes: ClassInfo[] = [];
-
-    const visit = (node: ts.Node) => {
-      if (ts.isClassDeclaration(node) && node.name) {
-        const methods: FunctionInfo[] = [];
-        const properties: PropertyInfo[] = [];
-
-        node.members.forEach(member => {
-          if (ts.isMethodDeclaration(member) && member.name && ts.isIdentifier(member.name)) {
-            methods.push({
-              name: member.name.text,
-              parameters: this.extractParameters(member.parameters),
-              returnType: member.type ? member.type.getText() : undefined,
-              isAsync: member.modifiers?.some(mod => mod.kind === ts.SyntaxKind.AsyncKeyword) || false,
-              isExported: false,
-              location: this.getLocation(member, sourceFile)
-            });
-          } else if (ts.isPropertyDeclaration(member) && member.name && ts.isIdentifier(member.name)) {
-            properties.push({
-              name: member.name.text,
-              type: member.type ? member.type.getText() : undefined,
-              optional: member.questionToken !== undefined,
-              visibility: this.getVisibility(member)
-            });
-          }
-        });
-
-        classes.push({
-          name: node.name.text,
-          methods,
-          properties,
-          extends: node.heritageClauses?.find(clause => clause.token === ts.SyntaxKind.ExtendsKeyword)?.types[0]?.expression.getText(),
-          implements: node.heritageClauses?.find(clause => clause.token === ts.SyntaxKind.ImplementsKeyword)?.types.map(type => type.expression.getText()) || [],
-          location: this.getLocation(node, sourceFile)
-        });
+  private parseImports(content: string, lines: string[]): ParsedImport[] {
+    const imports: ParsedImport[] = [];
+    const importPattern = /import\s+(?:(\w+)|{([^}]+)}|\*\s+as\s+(\w+))\s+from\s+['"`]([^'"`]+)['"`]/g;
+    
+    let match;
+    while ((match = importPattern.exec(content)) !== null) {
+      const defaultImport = match[1];
+      const namedImports = match[2];
+      const namespaceImport = match[3];
+      const source = match[4];
+      const lineNumber = this.getLineNumber(content, match.index, lines);
+      
+      let importsList: string[] = [];
+      let isDefault = false;
+      
+      if (defaultImport) {
+        importsList = [defaultImport];
+        isDefault = true;
+      } else if (namedImports) {
+        importsList = namedImports.split(',').map(imp => imp.trim()).filter(Boolean);
+      } else if (namespaceImport) {
+        importsList = [namespaceImport];
       }
+      
+      imports.push({
+        source,
+        imports: importsList,
+        isDefault,
+        lineNumber
+      });
+    }
 
-      ts.forEachChild(node, visit);
-    };
-
-    visit(sourceFile);
-    return classes;
+    return imports;
   }
 
-  private extractInterfaces(sourceFile: ts.SourceFile): InterfaceInfo[] {
-    const interfaces: InterfaceInfo[] = [];
+  private parseExports(content: string, lines: string[]): ParsedExport[] {
+    const exports: ParsedExport[] = [];
+    
+    // Match various export patterns
+    const exportPatterns = [
+      /export\s+default\s+(?:function\s+)?(\w+)/g,
+      /export\s+(?:const|let|var)\s+(\w+)/g,
+      /export\s+function\s+(\w+)/g,
+      /export\s+class\s+(\w+)/g,
+      /export\s+{([^}]+)}/g
+    ];
 
-    const visit = (node: ts.Node) => {
-      if (ts.isInterfaceDeclaration(node)) {
-        const properties: PropertyInfo[] = [];
-
-        node.members.forEach(member => {
-          if (ts.isPropertySignature(member) && member.name && ts.isIdentifier(member.name)) {
-            properties.push({
-              name: member.name.text,
-              type: member.type ? member.type.getText() : undefined,
-              optional: member.questionToken !== undefined,
-              visibility: 'public'
+    exportPatterns.forEach((pattern, index) => {
+      let match;
+      while ((match = pattern.exec(content)) !== null) {
+        const lineNumber = this.getLineNumber(content, match.index, lines);
+        
+        if (index === 4) { // Named exports in braces
+          const namedExports = match[1].split(',').map(exp => exp.trim()).filter(Boolean);
+          namedExports.forEach(exportName => {
+            exports.push({
+              name: exportName,
+              isDefault: false,
+              type: 'variable',
+              lineNumber
             });
-          }
-        });
-
-        interfaces.push({
-          name: node.name.text,
-          properties,
-          extends: node.heritageClauses?.find(clause => clause.token === ts.SyntaxKind.ExtendsKeyword)?.types.map(type => type.expression.getText()) || [],
-          location: this.getLocation(node, sourceFile)
-        });
-      }
-
-      ts.forEachChild(node, visit);
-    };
-
-    visit(sourceFile);
-    return interfaces;
-  }
-
-  private analyzeDependencies(sourceFile: ts.SourceFile): DependencyGraph {
-    const internal: string[] = [];
-    const external: string[] = [];
-
-    const visit = (node: ts.Node) => {
-      if (ts.isImportDeclaration(node) && ts.isStringLiteral(node.moduleSpecifier)) {
-        const moduleName = node.moduleSpecifier.text;
-        if (moduleName.startsWith('.') || moduleName.startsWith('@/')) {
-          internal.push(moduleName);
+          });
         } else {
-          external.push(moduleName);
+          const name = match[1];
+          const isDefault = match[0].includes('default');
+          let type: 'function' | 'component' | 'variable' | 'type' = 'variable';
+          
+          if (match[0].includes('function')) type = 'function';
+          else if (match[0].includes('class') || /^[A-Z]/.test(name)) type = 'component';
+          
+          exports.push({
+            name,
+            isDefault,
+            type,
+            lineNumber
+          });
         }
       }
+    });
 
-      ts.forEachChild(node, visit);
-    };
-
-    visit(sourceFile);
-
-    return {
-      internal: [...new Set(internal)],
-      external: [...new Set(external)],
-      circular: [], // Would require cross-file analysis
-      unused: [] // Would require usage analysis
-    };
+    return exports;
   }
 
-  private calculateComplexity(sourceFile: ts.SourceFile): ComplexityMetrics {
-    let cyclomaticComplexity = 1; // Base complexity
-    const content = sourceFile.getFullText();
-    const linesOfCode = content.split('\n').filter(line => line.trim().length > 0).length;
-
-    const visit = (node: ts.Node) => {
-      // Increase complexity for decision points
-      if (ts.isIfStatement(node) || 
-          ts.isWhileStatement(node) || 
-          ts.isForStatement(node) || 
-          ts.isForInStatement(node) || 
-          ts.isForOfStatement(node) || 
-          ts.isSwitchStatement(node) || 
-          ts.isCatchClause(node) || 
-          ts.isConditionalExpression(node)) {
-        cyclomaticComplexity++;
-      }
-
-      ts.forEachChild(node, visit);
-    };
-
-    visit(sourceFile);
-
-    // Simple maintainability index calculation
-    const maintainabilityIndex = Math.max(0, 
-      171 - 5.2 * Math.log(linesOfCode) - 0.23 * cyclomaticComplexity
-    );
-
-    return {
-      cyclomaticComplexity,
-      linesOfCode,
-      maintainabilityIndex: Math.round(maintainabilityIndex)
-    };
-  }
-
-  private extractParameters(parameters: ts.NodeArray<ts.ParameterDeclaration>): ParameterInfo[] {
-    return parameters.map(param => ({
-      name: param.name.getText(),
-      type: param.type ? param.type.getText() : undefined,
-      optional: param.questionToken !== undefined,
-      defaultValue: param.initializer ? param.initializer.getText() : undefined
-    }));
-  }
-
-  private isReactComponent(node: ts.Node, name: string): boolean {
-    // Check if name starts with uppercase (React convention)
-    if (!/^[A-Z]/.test(name)) return false;
-
-    // Check for JSX return or React elements
-    const hasJSXReturn = this.containsJSX(node);
-    const hasReactReturn = this.containsReactElements(node);
-
-    return hasJSXReturn || hasReactReturn;
-  }
-
-  private containsJSX(node: ts.Node): boolean {
-    let hasJSX = false;
-
-    const visit = (child: ts.Node) => {
-      if (ts.isJsxElement(child) || ts.isJsxSelfClosingElement(child) || ts.isJsxFragment(child)) {
-        hasJSX = true;
-        return;
-      }
-      ts.forEachChild(child, visit);
-    };
-
-    visit(node);
-    return hasJSX;
-  }
-
-  private containsReactElements(node: ts.Node): boolean {
-    const text = node.getText();
-    return /React\.createElement|jsx\s*\(/.test(text);
-  }
-
-  private extractReactHooks(node: ts.Node): string[] {
-    const hooks: string[] = [];
-    const hookPattern = /use[A-Z]\w*/g;
-    const text = node.getText();
+  private extractDependencies(content: string): string[] {
+    const dependencies = new Set<string>();
+    const importPattern = /import\s+.*?\s+from\s+['"`]([^'"`]+)['"`]/g;
+    
     let match;
-
-    while ((match = hookPattern.exec(text)) !== null) {
-      hooks.push(match[0]);
+    while ((match = importPattern.exec(content)) !== null) {
+      const source = match[1];
+      if (!source.startsWith('.')) { // External dependencies
+        dependencies.add(source.split('/')[0]); // Get package name
+      }
     }
 
-    return [...new Set(hooks)];
+    return Array.from(dependencies);
   }
 
-  private getVisibility(member: ts.ClassElement): 'public' | 'private' | 'protected' {
-    if (member.modifiers?.some(mod => mod.kind === ts.SyntaxKind.PrivateKeyword)) {
-      return 'private';
+  buildDependencyGraph(files: ParsedFile[]): DependencyGraph {
+    const nodes = files.map(f => f.path);
+    const edges: Array<{ from: string; to: string; type: string }> = [];
+
+    files.forEach(file => {
+      file.imports.forEach(imp => {
+        if (imp.source.startsWith('.')) {
+          // Local import
+          const targetPath = this.resolvePath(file.path, imp.source);
+          if (nodes.includes(targetPath)) {
+            edges.push({
+              from: file.path,
+              to: targetPath,
+              type: 'import'
+            });
+          }
+        }
+      });
+    });
+
+    return { nodes, edges };
+  }
+
+  private getLineNumber(content: string, index: number, lines: string[]): number {
+    const beforeIndex = content.substring(0, index);
+    return beforeIndex.split('\n').length;
+  }
+
+  private extractFunctionBody(content: string, startIndex: number): string {
+    let braceCount = 0;
+    let inFunction = false;
+    
+    for (let i = startIndex; i < content.length; i++) {
+      const char = content[i];
+      
+      if (char === '{') {
+        braceCount++;
+        inFunction = true;
+      } else if (char === '}') {
+        braceCount--;
+        if (inFunction && braceCount === 0) {
+          return content.substring(startIndex, i + 1);
+        }
+      }
     }
-    if (member.modifiers?.some(mod => mod.kind === ts.SyntaxKind.ProtectedKeyword)) {
-      return 'protected';
+    
+    return '';
+  }
+
+  private isReactComponent(functionBody: string): boolean {
+    // Check for JSX patterns
+    return /return\s*\(?\s*</.test(functionBody) || 
+           /jsx/i.test(functionBody) ||
+           /<\w+/.test(functionBody);
+  }
+
+  private extractProps(paramsString: string): string[] {
+    if (!paramsString.trim()) return [];
+    
+    // Simple prop extraction - could be enhanced
+    const propsMatch = paramsString.match(/{\s*([^}]+)\s*}/);
+    if (propsMatch) {
+      return propsMatch[1].split(',').map(prop => prop.trim()).filter(Boolean);
     }
-    return 'public';
+    
+    return [paramsString.trim()];
   }
 
-  private getLocation(node: ts.Node, sourceFile: ts.SourceFile): SourceLocation {
-    const pos = sourceFile.getLineAndCharacterOfPosition(node.getStart());
-    return {
-      line: pos.line + 1,
-      column: pos.character + 1,
-      file: sourceFile.fileName
-    };
-  }
-
-  private getEmptyAnalysis(): ASTAnalysisResult {
-    return {
-      exports: [],
-      imports: [],
-      functions: [],
-      components: [],
-      classes: [],
-      interfaces: [],
-      dependencies: { internal: [], external: [], circular: [], unused: [] },
-      complexity: { cyclomaticComplexity: 0, linesOfCode: 0, maintainabilityIndex: 0 }
-    };
+  private resolvePath(currentPath: string, relativePath: string): string {
+    // Simple path resolution - could be enhanced
+    const pathParts = currentPath.split('/');
+    pathParts.pop(); // Remove filename
+    
+    const relativeParts = relativePath.split('/');
+    relativeParts.forEach(part => {
+      if (part === '..') {
+        pathParts.pop();
+      } else if (part !== '.') {
+        pathParts.push(part);
+      }
+    });
+    
+    return pathParts.join('/');
   }
 }
 
-export const astParser = new ASTParser();
+export const astParser = new ASTParserService();

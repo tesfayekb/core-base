@@ -1,4 +1,3 @@
-
 // Version Tracker Service
 // Enhanced AI Context System - Version awareness and change tracking
 
@@ -15,6 +14,7 @@ export interface ChangeInfo {
   description: string;
   impact: 'low' | 'medium' | 'high';
   affectedFeatures: string[];
+  timestamp: Date; // Add timestamp property
 }
 
 export interface VersionHistory {
@@ -58,7 +58,8 @@ export class VersionTracker {
         type: 'added',
         description: `File ${filePath} created`,
         impact: 'medium',
-        affectedFeatures: features
+        affectedFeatures: features,
+        timestamp: now // Add timestamp
       });
     } else if (lastVersion.hash !== hash) {
       // File modified
@@ -67,7 +68,8 @@ export class VersionTracker {
         type: 'modified',
         description: `File ${filePath} modified`,
         impact: changeImpact.impact,
-        affectedFeatures: changeImpact.affectedFeatures
+        affectedFeatures: changeImpact.affectedFeatures,
+        timestamp: now // Add timestamp
       });
     }
 
@@ -140,7 +142,7 @@ export class VersionTracker {
       }
     }
 
-    return changes.sort((a, b) => b.timestamp - a.timestamp);
+    return changes.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
   }
 
   getProgressTrend(days: number = 7): { date: Date; completion: number }[] {
