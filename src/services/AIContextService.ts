@@ -1,8 +1,9 @@
+
 // AI Context Service
-// Phase 1.7: AI Context System - Service for generating real AI context data
+// Phase 1.7: AI Context System - Enhanced with real codebase scanning
 
 import { ImplementationState, AIContextData } from '@/types/ImplementationState';
-import { implementationStateScanner } from './ImplementationStateScanner';
+import { enhancedImplementationStateScanner } from './EnhancedImplementationStateScanner';
 
 class AIContextServiceImpl {
   private cache: AIContextData | null = null;
@@ -10,27 +11,28 @@ class AIContextServiceImpl {
   private cacheDuration: number = 5 * 60 * 1000; // 5 minutes
 
   constructor() {
-    console.log('🤖 AI Context Service initialized with real document parsing');
+    console.log('🤖 AI Context Service initialized with enhanced scanning capability');
   }
 
-  async generateAIContext(): Promise<AIContextData> {
-    console.log('🤖 Generating real AI context from actual documentation and codebase analysis...');
+  async generateAIContext(forceRescan: boolean = false): Promise<AIContextData> {
+    console.log('🤖 Generating AI context with enhanced scanning...', { forceRescan });
     
     const startTime = Date.now();
     
     try {
-      // Use real implementation state scanner with actual document parsing
-      console.log('📊 Starting implementation state scan...');
-      const implementationState = await implementationStateScanner.scanImplementationState();
+      // Use enhanced implementation state scanner with real codebase analysis
+      console.log('📊 Starting enhanced implementation state scan...');
+      const implementationState = await enhancedImplementationStateScanner.scanImplementationState(forceRescan);
       
-      console.log('📊 Implementation state received:', {
+      console.log('📊 Enhanced implementation state received:', {
         phasesCount: implementationState.phases?.length || 0,
         overallCompletion: implementationState.overallCompletion,
         currentPhase: implementationState.currentPhase,
-        blockersCount: implementationState.blockers?.length || 0
+        blockersCount: implementationState.blockers?.length || 0,
+        dataSource: forceRescan ? 'fresh_scan' : 'database'
       });
       
-      // Generate context based on real parsed data
+      // Generate context based on real scanned data
       const context: AIContextData = {
         implementationState,
         completedFeatures: this.extractCompletedFeatures(implementationState),
@@ -39,37 +41,38 @@ class AIContextServiceImpl {
         suggestions: this.generateSuggestions(implementationState)
       };
 
-      console.log('🎯 Generated AI context:', {
+      console.log('🎯 Generated enhanced AI context:', {
         hasImplementationState: !!context.implementationState,
         completedFeaturesCount: context.completedFeatures.length,
         capabilitiesCount: context.currentCapabilities.length,
-        suggestionsCount: context.suggestions.length
+        suggestionsCount: context.suggestions.length,
+        scanDuration: Date.now() - startTime
       });
 
       this.cacheContext(context);
-      console.log(`✅ Real AI context generated from actual docs in ${Date.now() - startTime}ms`);
+      console.log(`✅ Enhanced AI context generated in ${Date.now() - startTime}ms`);
       
       return context;
     } catch (error) {
-      console.error('❌ Failed to generate real AI context:', error);
+      console.error('❌ Failed to generate enhanced AI context:', error);
       
-      // Return a fallback context instead of throwing
+      // Return a fallback context
       const fallbackContext: AIContextData = {
         implementationState: {
           phases: this.generateFallbackPhases(),
           overallCompletion: 25,
           currentPhase: 1,
-          blockers: ['Context generation failed - using fallback data'],
-          recommendations: ['Check system status', 'Verify database connection'],
+          blockers: ['Enhanced scanning failed - using fallback data'],
+          recommendations: ['Try force rescan', 'Check enhanced scanner service'],
           lastScanned: new Date().toISOString()
         },
         completedFeatures: ['Project setup', 'Basic configuration'],
         currentCapabilities: ['🏗️ Project foundation', '⚙️ Basic configuration'],
         activeValidations: [],
-        suggestions: ['System initialization needed', 'Check implementation state scanner']
+        suggestions: ['Enhanced scanner needs investigation', 'Check implementation state scanner']
       };
       
-      console.log('🔄 Using fallback context data');
+      console.log('🔄 Using enhanced fallback context data');
       return fallbackContext;
     }
   }
@@ -101,18 +104,16 @@ class AIContextServiceImpl {
       if (phase.completed) {
         completed.push(phase.name);
       }
-      // Add specific completed features from real analysis
       completed.push(...phase.completedFeatures.slice(0, 3));
     });
     
-    return [...new Set(completed)]; // Remove duplicates
+    return [...new Set(completed)];
   }
 
   private extractCurrentCapabilities(implementationState: ImplementationState): string[] {
     const capabilities: string[] = [];
     
     implementationState.phases.forEach(phase => {
-      // Add capabilities based on real implementation evidence
       phase.completedFeatures.forEach(feature => {
         if (feature.includes('configured') || feature.includes('implemented') || feature.includes('active')) {
           capabilities.push(feature);
@@ -120,7 +121,6 @@ class AIContextServiceImpl {
       });
     });
     
-    // Add system-level capabilities based on real completion
     const completedPhases = implementationState.phases.filter(p => p.completed).length;
     const overallCompletion = implementationState.overallCompletion;
     
@@ -165,7 +165,6 @@ class AIContextServiceImpl {
   private generateSuggestions(implementationState: ImplementationState): string[] {
     const suggestions: string[] = [];
     
-    // Find incomplete phases and suggest next steps
     const incompletePhases = implementationState.phases.filter(p => !p.completed);
     if (incompletePhases.length > 0) {
       const nextPhase = incompletePhases[0];
@@ -176,55 +175,74 @@ class AIContextServiceImpl {
       }
     }
     
-    // Add recommendations from implementation state
     suggestions.push(...implementationState.recommendations);
     
-    // Add validation-based suggestions
     implementationState.phases.forEach(phase => {
       if (phase.validationStatus.warnings.length > 0) {
         suggestions.push(`⚠️ Address warnings in ${phase.name}`);
       }
     });
     
-    return [...new Set(suggestions)]; // Remove duplicates
+    return [...new Set(suggestions)];
   }
 
   generateContextSummary(): string {
     if (!this.cache) {
-      return 'No context data available - run real analysis first';
+      return 'No context data available - run enhanced analysis first';
     }
 
     const { implementationState, completedFeatures, currentCapabilities } = this.cache;
 
     return `
-      Real Implementation Analysis Summary:
-      - Overall Completion: ${implementationState.overallCompletion}% (based on actual requirements)
+      Enhanced Implementation Analysis Summary:
+      - Overall Completion: ${implementationState.overallCompletion}% (real codebase analysis)
       - Current Phase: ${implementationState.currentPhase} of 4 phases
-      - Completed Features: ${completedFeatures.length} real features detected
+      - Completed Features: ${completedFeatures.length} features detected via scanning
       - Current Capabilities: ${currentCapabilities.length} active capabilities
       - Active Blockers: ${implementationState.blockers.length} critical issues
       - Last Scanned: ${implementationState.lastScanned}
+      - Data Source: Enhanced database integration with codebase scanning
     `;
   }
 
   async invalidateCache(): Promise<void> {
     this.cache = null;
     this.lastCacheTime = 0;
-    console.log('🗑️ AI Context cache invalidated');
+    console.log('🗑️ Enhanced AI Context cache invalidated');
   }
 
   private cacheContext(context: AIContextData): void {
     this.cache = context;
     this.lastCacheTime = Date.now();
-    console.log('💾 AI Context cached successfully');
+    console.log('💾 Enhanced AI Context cached successfully');
   }
 
   getCachedContext(): AIContextData | null {
     if (this.cache && Date.now() - this.lastCacheTime < this.cacheDuration) {
-      console.log('📦 Returning cached AI Context');
+      console.log('📦 Returning cached Enhanced AI Context');
       return this.cache;
     }
     return null;
+  }
+
+  private generateFallbackPhases() {
+    return [
+      {
+        phase: 1,
+        name: 'Foundation',
+        completed: false,
+        completionPercentage: 25,
+        completedFeatures: ['Project setup', 'Basic configuration'],
+        pendingFeatures: ['Database setup', 'Authentication', 'RBAC foundation'],
+        validationStatus: {
+          passed: false,
+          errors: [],
+          warnings: ['Using enhanced fallback data'],
+          score: 25
+        },
+        lastUpdated: new Date().toISOString()
+      }
+    ];
   }
 }
 
