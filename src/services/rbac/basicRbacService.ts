@@ -4,7 +4,7 @@
 
 import { Role, Permission, UserRole, PermissionCheck } from '../../types/rbac';
 import { rbacService } from './rbacService';
-import { EntityBoundaryValidator } from './entityBoundaries';
+import { EntityBoundaryValidator } from './EntityBoundaryValidator';
 
 export class BasicRBACService {
   
@@ -25,7 +25,25 @@ export class BasicRBACService {
    * Get user roles with proper typing and entity validation
    */
   async getUserRoles(userId: string, tenantId?: string): Promise<Role[]> {
-    return rbacService.getUserRoles(userId, tenantId);
+    try {
+      const roleData = await rbacService.getUserRoles(userId, tenantId);
+      
+      // Transform the returned data to match Role interface
+      return roleData.map(roleInfo => ({
+        id: roleInfo.id,
+        tenant_id: tenantId || '',
+        name: roleInfo.name,
+        description: roleInfo.description || '',
+        is_system_role: false, // Default to false, update if needed
+        permissions: [], // Will be populated separately if needed
+        metadata: {},
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      }));
+    } catch (error) {
+      console.error('Error getting user roles:', error);
+      return [];
+    }
   }
   
   /**
@@ -44,7 +62,24 @@ export class BasicRBACService {
    * Get effective permissions for user with dependency resolution
    */
   async getUserPermissions(userId: string, tenantId?: string): Promise<Permission[]> {
-    return rbacService.getUserPermissions(userId, tenantId);
+    try {
+      const permissionData = await rbacService.getUserPermissions(userId, tenantId);
+      
+      // Transform the returned data to match Permission interface
+      return permissionData.map(permInfo => ({
+        id: permInfo.id || '',
+        tenant_id: tenantId || '',
+        name: permInfo.permission_name || `${permInfo.action}:${permInfo.resource}`,
+        resource: permInfo.resource,
+        action: permInfo.action as any,
+        description: '',
+        metadata: {},
+        created_at: new Date().toISOString()
+      }));
+    } catch (error) {
+      console.error('Error getting user permissions:', error);
+      return [];
+    }
   }
   
   /**
@@ -57,7 +92,7 @@ export class BasicRBACService {
     targetUserId?: string
   ): Promise<boolean> {
     return EntityBoundaryValidator.validateEntityBoundary(
-      { userId, entityId, operation, targetUserId },
+      { userId, entityId, operation, metadata: { targetUserId } },
       (uid, permission) => this.checkPermission(uid, permission.split(':')[0], permission.split(':')[1])
     );
   }
@@ -90,13 +125,7 @@ export class BasicRBACService {
     resourceId: string,
     entityId: string
   ): Promise<boolean> {
-    return EntityBoundaryValidator.validateResourceAccess(
-      userId,
-      resourceType,
-      resourceId,
-      entityId,
-      (uid, permission) => this.checkPermission(uid, permission.split(':')[0], permission.split(':')[1])
-    );
+    return this.validateEntityBoundary(userId, entityId, `access_${resourceType}`, resourceId);
   }
 }
 

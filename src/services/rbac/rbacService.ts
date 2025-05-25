@@ -93,7 +93,8 @@ export class RBACService {
         return [];
       }
 
-      return data?.map(item => item.roles) || [];
+      // Flatten and return the roles data
+      return data?.map(item => item.roles).filter(Boolean) || [];
     } catch (error) {
       console.error('Error getting user roles:', error);
       return [];
