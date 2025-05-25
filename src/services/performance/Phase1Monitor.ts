@@ -6,6 +6,8 @@ export interface Phase1Metrics {
   database: {
     averageQueryTime: number;
     totalQueries: number;
+    slowQueries: number;
+    connectionPoolStatus: 'healthy' | 'warning' | 'critical';
   };
   permissions: {
     averageCheckTime: number;
@@ -21,11 +23,24 @@ export interface Phase1Metrics {
     eventsLogged: number;
     averageLogTime: number;
   };
+  dependencies: {
+    resolutionCount: number;
+    averageResolutionTime: number;
+  };
+  cache: {
+    warmupStatus: 'idle' | 'warming' | 'complete' | 'error';
+    hitRate: number;
+  };
+  alerts: {
+    activeAlerts: number;
+    totalAlerts: number;
+  };
 }
 
 export interface HealthStatus {
   status: 'healthy' | 'warning' | 'critical';
   issues: string[];
+  score: number;
 }
 
 export class Phase1Monitor {
@@ -48,6 +63,8 @@ export class Phase1Monitor {
       database: {
         averageQueryTime: 25,
         totalQueries: 0,
+        slowQueries: 0,
+        connectionPoolStatus: 'healthy',
       },
       permissions: {
         averageCheckTime: 10,
@@ -63,6 +80,18 @@ export class Phase1Monitor {
         eventsLogged: 0,
         averageLogTime: 3,
       },
+      dependencies: {
+        resolutionCount: 0,
+        averageResolutionTime: 12,
+      },
+      cache: {
+        warmupStatus: 'idle',
+        hitRate: 85,
+      },
+      alerts: {
+        activeAlerts: 0,
+        totalAlerts: 0,
+      },
     };
   }
 
@@ -70,6 +99,10 @@ export class Phase1Monitor {
     this.metrics.database.totalQueries++;
     this.metrics.database.averageQueryTime = 
       (this.metrics.database.averageQueryTime + duration) / 2;
+    
+    if (duration > 100) {
+      this.metrics.database.slowQueries++;
+    }
   }
 
   recordPermissionCheck(duration: number, cacheHit: boolean): void {
@@ -95,31 +128,55 @@ export class Phase1Monitor {
       (this.metrics.audit.averageLogTime + duration) / 2;
   }
 
+  recordDependencyResolution(resolutionSteps: number): void {
+    this.metrics.dependencies.resolutionCount++;
+    this.metrics.dependencies.averageResolutionTime = 
+      (this.metrics.dependencies.averageResolutionTime + resolutionSteps * 2) / 2;
+  }
+
+  recordCacheWarmup(status: 'idle' | 'warming' | 'complete' | 'error', hitRate?: number): void {
+    this.metrics.cache.warmupStatus = status;
+    if (hitRate !== undefined) {
+      this.metrics.cache.hitRate = hitRate;
+    }
+  }
+
   getMetrics(): Phase1Metrics {
     return { ...this.metrics };
   }
 
   getHealthStatus(): HealthStatus {
     const issues: string[] = [];
+    let score = 100;
     
     if (this.metrics.database.averageQueryTime > 50) {
       issues.push('Database queries exceeding target');
+      score -= 15;
     }
     
     if (this.metrics.permissions.cacheHitRate < 85) {
       issues.push('Permission cache hit rate below target');
+      score -= 10;
     }
     
     if (this.metrics.multiTenant.isolationViolations > 0) {
       issues.push('Tenant isolation violations detected');
+      score -= 30;
+    }
+
+    if (this.metrics.cache.warmupStatus === 'error') {
+      issues.push('Cache warming errors detected');
+      score -= 15;
     }
 
     let status: 'healthy' | 'warning' | 'critical' = 'healthy';
-    if (issues.length > 0) {
-      status = issues.length > 2 ? 'critical' : 'warning';
+    if (score < 70) {
+      status = 'critical';
+    } else if (score < 85) {
+      status = 'warning';
     }
 
-    return { status, issues };
+    return { status, issues, score };
   }
 }
 

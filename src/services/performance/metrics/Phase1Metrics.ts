@@ -4,9 +4,12 @@
 
 export interface Phase1Metrics {
   database: DatabaseMetrics;
-  rbac: RBACMetrics;
+  permissions: RBACMetrics;
   multiTenant: MultiTenantMetrics;
   audit: AuditMetrics;
+  dependencies: DependencyMetrics;
+  cache: CacheMetrics;
+  alerts: AlertMetrics;
 }
 
 export interface DatabaseMetrics {
@@ -14,6 +17,7 @@ export interface DatabaseMetrics {
   queryCount: number;
   averageQueryTime: number;
   slowQueries: number;
+  connectionPoolStatus: 'healthy' | 'warning' | 'critical';
 }
 
 export interface RBACMetrics {
@@ -32,6 +36,21 @@ export interface AuditMetrics {
   eventsLogged: number;
   averageLogTime: number;
   batchOperations: number;
+}
+
+export interface DependencyMetrics {
+  resolutionCount: number;
+  averageResolutionTime: number;
+}
+
+export interface CacheMetrics {
+  warmupStatus: 'idle' | 'warming' | 'complete' | 'error';
+  hitRate: number;
+}
+
+export interface AlertMetrics {
+  activeAlerts: number;
+  totalAlerts: number;
 }
 
 export interface HealthStatus {
@@ -75,12 +94,12 @@ export class MetricsCalculator {
     }
 
     // RBAC health checks
-    if (metrics.rbac.averageCheckTime > 15) {
+    if (metrics.permissions.averageCheckTime > 15) {
       issues.push('Permission checks exceed target (15ms)');
       score -= 20;
     }
 
-    if (metrics.rbac.cacheHitRate < 85) {
+    if (metrics.permissions.cacheHitRate < 85) {
       issues.push('Permission cache hit rate below target (85%)');
       score -= 10;
     }

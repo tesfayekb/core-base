@@ -26,7 +26,7 @@ export function useMigrations() {
       setConnectionStatus('connected');
       console.log('🏗️ Starting database migrations with Supabase...');
       
-      await databaseService.initialize();
+      await databaseService.initialize('migrations');
       
       setIsComplete(true);
       console.log('✅ Database migrations completed successfully with Supabase');

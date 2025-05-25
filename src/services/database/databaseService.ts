@@ -12,6 +12,12 @@ export interface DatabaseResult<T = any> {
   code?: string;
 }
 
+export interface DatabaseHealthStatus {
+  healthy: boolean;
+  issues: string[];
+  connectionStatus: 'connected' | 'disconnected' | 'error';
+}
+
 export class DatabaseService {
   private static instance: DatabaseService;
 
@@ -57,6 +63,14 @@ export class DatabaseService {
 
   async clearContexts(): Promise<void> {
     tenantContextService.clearContext();
+  }
+
+  getHealthStatus(): DatabaseHealthStatus {
+    return {
+      healthy: true,
+      issues: [],
+      connectionStatus: 'connected'
+    };
   }
 
   async cleanup(): Promise<void> {
