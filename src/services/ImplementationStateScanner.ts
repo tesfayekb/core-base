@@ -1,16 +1,24 @@
 
 // Implementation State Scanner
-// Simplified version of the secure scanner for basic functionality
+// Real implementation scanner using document parsing and codebase analysis
 
 import { ImplementationState, PhaseState, ValidationStatus } from '@/types/ImplementationState';
+import { documentParser } from './DocumentParser';
+import { codebaseAnalyzer } from './CodebaseAnalyzer';
 
 class ImplementationStateScannerService {
   async scanImplementationState(): Promise<ImplementationState> {
-    console.log('🔍 Scanning implementation state...');
+    console.log('🔍 Scanning real implementation state...');
     
     try {
-      // Create mock data based on current codebase analysis
-      const phases = this.generatePhaseAnalysis();
+      // Parse documentation to get phase structure
+      const phaseDocuments = await documentParser.parseImplementationDocs();
+      
+      // Analyze codebase to detect implemented features
+      const codebaseAnalysis = await codebaseAnalyzer.analyzeCodebase();
+      
+      // Generate phase states based on real data
+      const phases = this.generateRealPhaseAnalysis(phaseDocuments, codebaseAnalysis);
       const overall = this.calculateOverallProgress(phases);
       
       return {
@@ -18,7 +26,7 @@ class ImplementationStateScannerService {
         overallCompletion: overall.completion,
         currentPhase: overall.currentPhase,
         blockers: overall.blockers,
-        recommendations: this.generateRecommendations(phases),
+        recommendations: this.generateRealRecommendations(phases, codebaseAnalysis),
         lastScanned: new Date().toISOString()
       };
     } catch (error) {
@@ -27,57 +35,52 @@ class ImplementationStateScannerService {
     }
   }
 
-  private generatePhaseAnalysis(): PhaseState[] {
+  private generateRealPhaseAnalysis(phaseDocuments: any[], codebaseAnalysis: any): PhaseState[] {
     const now = new Date().toISOString();
+    const analysisFeatures = codebaseAnalysis.features;
     
-    // Analyze current implementation based on existing components
-    const hasAuth = true; // We have auth components
-    const hasRBAC = true; // We have RBAC components
-    const hasUI = true; // We have UI components
-    const hasAIContext = true; // We have AI context system
-    
-    return [
-      {
-        phase: 1,
-        name: 'Foundation',
-        completed: true,
-        completionPercentage: 100,
-        completedFeatures: ['Authentication System', 'RBAC Foundation', 'Database Setup', 'Security Infrastructure'],
-        pendingFeatures: [],
-        validationStatus: { passed: true, warnings: [], errors: [], score: 100 },
-        lastUpdated: now
-      },
-      {
-        phase: 2,
-        name: 'Core Features',
-        completed: false,
-        completionPercentage: 75,
-        completedFeatures: ['User Management', 'Advanced RBAC', 'UI Components'],
-        pendingFeatures: ['Enhanced Multi-tenant'],
-        validationStatus: { passed: true, warnings: ['Multi-tenant features need enhancement'], errors: [], score: 75 },
-        lastUpdated: now
-      },
-      {
-        phase: 3,
-        name: 'Advanced Features',
-        completed: false,
-        completionPercentage: 60,
-        completedFeatures: ['AI Context System', 'Security Monitoring'],
-        pendingFeatures: ['Audit Dashboard', 'Performance Optimization'],
-        validationStatus: { passed: false, warnings: ['Audit dashboard incomplete'], errors: [], score: 60 },
-        lastUpdated: now
-      },
-      {
-        phase: 4,
-        name: 'Production',
-        completed: false,
-        completionPercentage: 20,
-        completedFeatures: ['Basic UI Polish'],
-        pendingFeatures: ['Mobile Strategy', 'Production Deployment', 'Advanced UI Polish'],
-        validationStatus: { passed: false, warnings: ['Production features not ready'], errors: [], score: 20 },
-        lastUpdated: now
+    return phaseDocuments.map((doc, index) => {
+      // Find corresponding feature in codebase analysis
+      const feature = analysisFeatures.find((f: any) => 
+        f.name.toLowerCase().includes(doc.name.toLowerCase()) ||
+        doc.name.toLowerCase().includes(f.name.toLowerCase())
+      );
+      
+      const completionPercentage = feature ? feature.confidence : 0;
+      const isCompleted = completionPercentage >= 75;
+      
+      const completedFeatures = isCompleted ? [doc.name] : [];
+      const pendingFeatures = isCompleted ? [] : [doc.name];
+      
+      // Add task details
+      if (feature && feature.evidence) {
+        if (isCompleted) {
+          completedFeatures.push(...feature.evidence.slice(0, 3));
+        } else {
+          pendingFeatures.push(...doc.tasks.slice(0, 2).map((t: any) => t.name));
+        }
       }
-    ];
+      
+      const validationStatus: ValidationStatus = {
+        passed: isCompleted,
+        warnings: completionPercentage > 50 && completionPercentage < 75 ? 
+          [`${doc.name} partially implemented (${completionPercentage}%)`] : [],
+        errors: completionPercentage < 25 ? 
+          [`${doc.name} not started`] : [],
+        score: completionPercentage
+      };
+      
+      return {
+        phase: index + 1,
+        name: `Phase 1.${index + 1}: ${doc.name}`,
+        completed: isCompleted,
+        completionPercentage,
+        completedFeatures,
+        pendingFeatures,
+        validationStatus,
+        lastUpdated: now
+      };
+    });
   }
 
   private calculateOverallProgress(phases: PhaseState[]): {
@@ -85,32 +88,63 @@ class ImplementationStateScannerService {
     currentPhase: number;
     blockers: string[];
   } {
-    const totalCompletion = phases.reduce((sum, phase) => sum + phase.completionPercentage, 0);
-    const completion = Math.round(totalCompletion / phases.length);
-    
-    const currentPhase = phases.findIndex(p => !p.completed) + 1 || 4;
+    let totalCompletion = 0;
+    let currentPhase = 1;
     const blockers: string[] = [];
-    
-    phases.forEach(phase => {
+
+    phases.forEach((phase, index) => {
+      totalCompletion += phase.completionPercentage;
+      
+      if (phase.completed && currentPhase === index + 1) {
+        currentPhase = index + 2;
+      }
+      
       if (phase.validationStatus.errors.length > 0) {
         blockers.push(...phase.validationStatus.errors);
       }
     });
 
-    return { completion, currentPhase, blockers };
+    const completion = Math.round(totalCompletion / phases.length);
+
+    return { 
+      completion, 
+      currentPhase: Math.min(currentPhase, phases.length), 
+      blockers 
+    };
   }
 
-  private generateRecommendations(phases: PhaseState[]): string[] {
+  private generateRealRecommendations(phases: PhaseState[], codebaseAnalysis: any): string[] {
     const recommendations: string[] = [];
-    
+
+    // Find the first incomplete phase
     const incompletePhase = phases.find(p => !p.completed);
-    if (incompletePhase && incompletePhase.pendingFeatures.length > 0) {
-      recommendations.push(`Complete ${incompletePhase.pendingFeatures[0]} to progress Phase ${incompletePhase.phase}`);
+    if (incompletePhase) {
+      recommendations.push(`Focus on completing ${incompletePhase.name}`);
+      
+      if (incompletePhase.pendingFeatures.length > 0) {
+        recommendations.push(`Next task: ${incompletePhase.pendingFeatures[0]}`);
+      }
     }
+
+    // Add recommendations based on codebase analysis
+    const lowConfidenceFeatures = codebaseAnalysis.features.filter((f: any) => 
+      f.confidence < 50 && f.confidence > 0
+    );
     
-    recommendations.push('Continue implementing pending features in order');
-    recommendations.push('Monitor system performance and security');
-    
+    if (lowConfidenceFeatures.length > 0) {
+      recommendations.push(`Improve implementation of: ${lowConfidenceFeatures[0].name}`);
+    }
+
+    // Add phase-specific recommendations
+    const completedPhases = phases.filter(p => p.completed).length;
+    if (completedPhases < 3) {
+      recommendations.push('Focus on completing foundation phases before advanced features');
+    }
+
+    // Add general recommendations
+    recommendations.push('Follow the authoritative implementation path in src/docs/ai-development/');
+    recommendations.push('Validate each phase before proceeding to the next');
+
     return recommendations;
   }
 
@@ -119,8 +153,8 @@ class ImplementationStateScannerService {
       phases: [],
       overallCompletion: 0,
       currentPhase: 1,
-      blockers: ['Scanner initialization failed'],
-      recommendations: ['Check system configuration'],
+      blockers: ['Real-time scanning failed'],
+      recommendations: ['Check documentation parsing and codebase analysis'],
       lastScanned: new Date().toISOString()
     };
   }
