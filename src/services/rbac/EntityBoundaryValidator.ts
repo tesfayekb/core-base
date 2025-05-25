@@ -6,7 +6,15 @@ export interface EntityBoundaryContext {
   userId: string;
   entityId: string;
   operation: string;
+  resourceId?: string;
   metadata?: Record<string, any>;
+}
+
+export interface PermissionGrantContext {
+  grantor: { userId: string; entityId: string };
+  grantee: { userId: string; entityId: string };
+  permission: string;
+  resourceId?: string;
 }
 
 export class EntityBoundaryValidator {
@@ -51,6 +59,37 @@ export class EntityBoundaryValidator {
       console.error('Entity boundary validation failed:', error);
       return false;
     }
+  }
+
+  static async canGrantPermission(
+    context: PermissionGrantContext,
+    hasPermissionFn: (userId: string, permission: string) => Promise<boolean>
+  ): Promise<{ valid: boolean; reason?: string }> {
+    const { grantor, grantee, permission, resourceId } = context;
+    
+    // 1. Check if grantor has the permission they're trying to grant
+    if (!await hasPermissionFn(grantor.userId, permission)) {
+      return { valid: false, reason: 'Grantor does not have the permission being granted' };
+    }
+    
+    // 2. Check if grantor has permission to manage roles
+    if (!await hasPermissionFn(grantor.userId, 'manage:roles')) {
+      return { valid: false, reason: 'Grantor does not have role management permissions' };
+    }
+    
+    // 3. Check entity boundary constraints
+    if (grantor.entityId !== grantee.entityId) {
+      if (!await hasPermissionFn(grantor.userId, 'cross_entity_management')) {
+        return { valid: false, reason: 'Cross-entity permission grant not allowed' };
+      }
+    }
+    
+    // 4. Check resource-specific constraints
+    if (resourceId && !await hasPermissionFn(grantor.userId, `manage:${permission.split(':')[0]}`)) {
+      return { valid: false, reason: 'Grantor cannot manage specific resource permissions' };
+    }
+    
+    return { valid: true };
   }
 
   static clearCache(userId?: string): void {

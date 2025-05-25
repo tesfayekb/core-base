@@ -6,8 +6,14 @@ import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { useAuth } from '@/contexts/AuthContext';
 import { rbacService } from '@/services/rbac/rbacService';
-import { Permission } from '@/types/rbac';
 import { Grid, Check, X } from 'lucide-react';
+
+interface Permission {
+  id: string;
+  action: string;
+  resource: string;
+  description?: string;
+}
 
 interface PermissionMatrixData {
   resource: string;

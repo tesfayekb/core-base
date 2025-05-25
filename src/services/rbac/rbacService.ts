@@ -1,4 +1,3 @@
-
 import { enhancedPermissionResolver } from './EnhancedPermissionResolver';
 import { entityBoundaryService } from './EntityBoundaryService';
 import { supabase } from '../database/connection';
@@ -69,6 +68,57 @@ export class RBACService {
     } catch (error) {
       console.error('Permission check failed:', error);
       return false;
+    }
+  }
+
+  /**
+   * Get user roles with entity context
+   */
+  async getUserRoles(userId: string, entityId?: string) {
+    try {
+      const { data, error } = await supabase
+        .from('user_roles')
+        .select(`
+          roles (
+            id,
+            name,
+            description
+          )
+        `)
+        .eq('user_id', userId)
+        .eq('entity_id', entityId || '');
+
+      if (error) {
+        console.error('Failed to get user roles:', error);
+        return [];
+      }
+
+      return data?.map(item => item.roles) || [];
+    } catch (error) {
+      console.error('Error getting user roles:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get user permissions with entity context
+   */
+  async getUserPermissions(userId: string, entityId?: string) {
+    try {
+      const { data, error } = await supabase.rpc('get_user_permissions', {
+        p_user_id: userId,
+        p_entity_id: entityId || null
+      });
+
+      if (error) {
+        console.error('Failed to get user permissions:', error);
+        return [];
+      }
+
+      return data || [];
+    } catch (error) {
+      console.error('Error getting user permissions:', error);
+      return [];
     }
   }
 
@@ -247,6 +297,13 @@ export class RBACService {
    */
   async getUserEntities(userId: string) {
     return await entityBoundaryService.getUserEntityBoundaries(userId);
+  }
+
+  /**
+   * Clear cache for user
+   */
+  clearCache(userId?: string): void {
+    enhancedPermissionResolver.invalidateUserCache(userId || '');
   }
 
   /**

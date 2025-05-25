@@ -53,7 +53,6 @@ export class EntityBoundaryService {
         userId,
         entityId: effectiveEntityId,
         operation,
-        targetUserId: resourceId, // For user operations
         resourceId
       };
 
@@ -190,7 +189,7 @@ export class EntityBoundaryService {
           .from('user_tenants')
           .select('tenant_id')
           .eq('user_id', userId)
-          .eq('is_active', true)
+          .eq('is_primary', true)
           .single();
 
         return tenantData?.tenant_id || null;
@@ -264,8 +263,8 @@ export class EntityBoundaryService {
 
       return data.map(item => ({
         entityId: item.entity_id,
-        entityType: item.entities.type as 'tenant' | 'organization' | 'department',
-        parentEntityId: item.entities.parent_id
+        entityType: (item.entities as any)?.type as 'tenant' | 'organization' | 'department' || 'tenant',
+        parentEntityId: (item.entities as any)?.parent_id
       }));
     } catch (error) {
       console.error('Failed to get user entity boundaries:', error);

@@ -1,4 +1,3 @@
-
 import { RBACService } from '../rbacService';
 import { BasicRBACService } from '../basicRbacService';
 import { PermissionDependencyResolver } from '../permissionDependencies';
@@ -167,7 +166,7 @@ describe('EntityBoundaryValidator', () => {
         userId: 'user1',
         entityId: 'tenant1',
         operation: 'manage_users',
-        targetUserId: 'user2'
+        resourceId: 'user2'
       },
       mockPermissionCheck
     );
