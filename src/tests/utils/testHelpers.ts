@@ -89,13 +89,15 @@ export class TestHelpers {
     ];
   }
 
-  // Enhanced helper methods for comprehensive testing
+  // Fixed helper method for loading state detection
   static async waitForLoadingState(timeout = 5000) {
     return waitFor(() => {
-      const loadingElement = screen.queryByText(/creating account/i) || 
-                           screen.queryByText(/loading/i) ||
-                           screen.querySelector('[data-testid="loading"]');
-      return loadingElement;
+      // Try multiple ways to find loading indicators
+      const loadingByText = screen.queryByText(/creating account/i) || 
+                           screen.queryByText(/loading/i);
+      const loadingByTestId = screen.queryByTestId('loading');
+      
+      return loadingByText || loadingByTestId;
     }, { timeout });
   }
 
