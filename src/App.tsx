@@ -1,58 +1,42 @@
 
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { AuthProvider } from "./components/auth/AuthProvider";
-import { ProtectedRoute } from "./components/auth/ProtectedRoute";
-import { AuthPage } from "./components/auth/AuthPage";
-import { MainLayout } from "./components/layout/MainLayout";
-import { useSecurityHeaders } from "./hooks/useSecurityHeaders";
-import Analytics from "./pages/Analytics";
-import Users from "./pages/Users";
-import Settings from "./pages/Settings";
-import NotFound from "./pages/NotFound";
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { Toaster } from '@/components/ui/sonner';
+import { TooltipProvider } from '@/components/ui/tooltip';
+import { ThemeProvider } from 'next-themes';
+import Navigation from '@/components/Navigation';
+import Dashboard from '@/pages/Dashboard';
+import Users from '@/pages/Users';
+import Settings from '@/pages/Settings';
+import { AuthProvider } from '@/contexts/AuthContext';
 
 const queryClient = new QueryClient();
 
-function AppContent() {
-  // Apply security headers
-  useSecurityHeaders();
-
+function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
+      <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+        <TooltipProvider>
           <AuthProvider>
-            <Routes>
-              {/* Public authentication route */}
-              <Route path="/auth" element={<AuthPage />} />
-              
-              {/* Protected routes */}
-              <Route path="/" element={
-                <ProtectedRoute>
-                  <MainLayout />
-                </ProtectedRoute>
-              }>
-                <Route index element={<Navigate to="/analytics" replace />} />
-                <Route path="analytics" element={<Analytics />} />
-                <Route path="users" element={<Users />} />
-                <Route path="settings" element={<Settings />} />
-              </Route>
-              
-              {/* Catch all route */}
-              <Route path="*" element={<NotFound />} />
-            </Routes>
+            <Router>
+              <div className="min-h-screen bg-background">
+                <Navigation />
+                <main className="container mx-auto px-4 py-8">
+                  <Routes>
+                    <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                    <Route path="/dashboard" element={<Dashboard />} />
+                    <Route path="/users" element={<Users />} />
+                    <Route path="/settings" element={<Settings />} />
+                  </Routes>
+                </main>
+              </div>
+            </Router>
           </AuthProvider>
-        </BrowserRouter>
-      </TooltipProvider>
+          <Toaster />
+        </TooltipProvider>
+      </ThemeProvider>
     </QueryClientProvider>
   );
 }
-
-const App = () => <AppContent />;
 
 export default App;
