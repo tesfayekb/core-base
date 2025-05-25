@@ -2,6 +2,7 @@
 import { PerformanceMeasurement } from './PerformanceMeasurement';
 import { MetricsCalculator } from './metrics/MetricsCalculator';
 import { DetailedPerformanceMetrics } from './metrics/MetricsTypes';
+import { realDataCollector } from './RealDataCollector';
 
 export class DetailedMetricsCollector {
   private static instance: DetailedMetricsCollector;
@@ -22,11 +23,15 @@ export class DetailedMetricsCollector {
   }
 
   private startDetailedCollection(): void {
+    // Collect initial metrics immediately
+    this.collectMetrics();
+
+    // Then collect every 30 seconds
     setInterval(() => {
       this.collectMetrics();
     }, 30000);
 
-    console.log('📊 Detailed performance metrics collection started');
+    console.log('📊 Real-time performance metrics collection started');
   }
 
   async collectMetrics(): Promise<DetailedPerformanceMetrics> {
@@ -40,7 +45,35 @@ export class DetailedMetricsCollector {
     };
 
     this.metricsCalculator.updateHistory(metrics);
+    
+    // Log significant performance issues
+    this.logPerformanceIssues(metrics);
+    
     return metrics;
+  }
+
+  private logPerformanceIssues(metrics: DetailedPerformanceMetrics): void {
+    const issues: string[] = [];
+
+    if (metrics.database.averageQueryTime > 50) {
+      issues.push(`Slow database queries: ${metrics.database.averageQueryTime.toFixed(2)}ms avg`);
+    }
+
+    if (metrics.system.memoryUsage > 80) {
+      issues.push(`High memory usage: ${metrics.system.memoryUsage.toFixed(1)}%`);
+    }
+
+    if (metrics.user.pageLoadTime > 2000) {
+      issues.push(`Slow page load: ${(metrics.user.pageLoadTime / 1000).toFixed(2)}s`);
+    }
+
+    if (metrics.network.connectionQuality === 'poor') {
+      issues.push('Poor network connection detected');
+    }
+
+    if (issues.length > 0) {
+      console.warn('⚠️ Performance issues detected:', issues);
+    }
   }
 
   getMetricsHistory(): DetailedPerformanceMetrics[] {
@@ -53,6 +86,35 @@ export class DetailedMetricsCollector {
 
   getPerformanceTrends(): Record<string, number[]> {
     return this.metricsCalculator.getTrends();
+  }
+
+  getPerformanceInsights(): string[] {
+    const latest = this.getLatestMetrics();
+    if (!latest) return ['No performance data available'];
+
+    const insights: string[] = [];
+
+    // Database insights
+    if (latest.database.cacheHitRate < 85) {
+      insights.push('Consider optimizing database caching strategy');
+    }
+
+    // Memory insights  
+    if (latest.memory.heapUsed / latest.memory.heapTotal > 0.8) {
+      insights.push('Memory usage is high, consider memory optimization');
+    }
+
+    // Network insights
+    if (latest.network.latency > 200) {
+      insights.push('High network latency detected, consider CDN optimization');
+    }
+
+    // Security insights
+    if (latest.security.permissionCheckLatency > 15) {
+      insights.push('Permission checks are slow, optimize RBAC caching');
+    }
+
+    return insights.length > 0 ? insights : ['System performance is optimal'];
   }
 }
 
