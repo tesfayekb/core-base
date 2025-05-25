@@ -14,16 +14,16 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <Router>
-        <MainLayout>
-          <Routes>
-            <Route path="/" element={<ImplementationDashboard />} />
-            <Route path="/dashboard" element={<ImplementationDashboard />} />
-            <Route path="/implementation" element={<ImplementationDashboard />} />
-            <Route path="/validation" element={<ValidationDashboard />} />
-            <Route path="/users" element={<div className="p-6"><h1 className="text-2xl font-bold">Users Management</h1><p className="text-muted-foreground">Users management functionality coming soon.</p></div>} />
-            <Route path="/settings" element={<div className="p-6"><h1 className="text-2xl font-bold">Settings</h1><p className="text-muted-foreground">Settings functionality coming soon.</p></div>} />
-          </Routes>
-        </MainLayout>
+        <Routes>
+          <Route path="/" element={<MainLayout />}>
+            <Route index element={<ImplementationDashboard />} />
+            <Route path="dashboard" element={<ImplementationDashboard />} />
+            <Route path="implementation" element={<ImplementationDashboard />} />
+            <Route path="validation" element={<ValidationDashboard />} />
+            <Route path="users" element={<div className="p-6"><h1 className="text-2xl font-bold">Users Management</h1><p className="text-muted-foreground">Users management functionality coming soon.</p></div>} />
+            <Route path="settings" element={<div className="p-6"><h1 className="text-2xl font-bold">Settings</h1><p className="text-muted-foreground">Settings functionality coming soon.</p></div>} />
+          </Route>
+        </Routes>
         <Toaster />
       </Router>
     </QueryClientProvider>
