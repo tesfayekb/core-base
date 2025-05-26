@@ -2,7 +2,6 @@
 import { renderHook, act } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useUserManagement } from '../useUserManagement';
-import React from 'react';
 
 const createWrapper = () => {
   const queryClient = new QueryClient({
