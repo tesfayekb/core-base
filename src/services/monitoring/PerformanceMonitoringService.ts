@@ -1,3 +1,4 @@
+
 // Performance Monitoring Service
 // Version: 1.0.0 - System Performance Tracking
 
@@ -167,8 +168,8 @@ export class PerformanceMonitoringService {
     const systemMetrics = this.getSystemMetrics();
     const activeAlerts = this.getActiveAlerts();
     
-    // Simple trend analysis
-    const trends = ['permission_check_time', 'database_response_time', 'cache_hit_rate'].map(metricName => {
+    // Simple trend analysis with proper typing
+    const trends: { metric: string; trend: 'up' | 'down' | 'stable' }[] = ['permission_check_time', 'database_response_time', 'cache_hit_rate'].map(metricName => {
       const recent = this.getMetrics(metricName, new Date(Date.now() - 10 * 60 * 1000));
       if (recent.length < 2) return { metric: metricName, trend: 'stable' as const };
       
@@ -176,9 +177,11 @@ export class PerformanceMonitoringService {
       const last = recent[recent.length - 1].value;
       const change = ((last - first) / first) * 100;
       
+      const trend: 'up' | 'down' | 'stable' = Math.abs(change) < 5 ? 'stable' : change > 0 ? 'up' : 'down';
+      
       return {
         metric: metricName,
-        trend: Math.abs(change) < 5 ? 'stable' : change > 0 ? 'up' : 'down'
+        trend
       };
     });
 
