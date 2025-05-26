@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -43,11 +42,12 @@ export function UserDirectory() {
     enabled: !!tenantId
   });
 
+  // Extract users array from the paginated result
   const users = usersResult?.data || [];
 
   const filteredUsers = users.filter(user =>
     user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    `${user.first_name} ${user.last_name}`.toLowerCase().includes(searchTerm.toLowerCase())
+    `${user.first_name || ''} ${user.last_name || ''}`.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const handleEditUser = (user: UserWithRoles) => {
@@ -175,13 +175,13 @@ export function UserDirectory() {
                           <div className="flex items-center space-x-2 mt-2">
                             <Shield className="h-3 w-3 text-muted-foreground" />
                             <div className="flex flex-wrap gap-1">
-                              {user.roles.map((role) => (
+                              {user.roles.map((userRole) => (
                                 <Badge 
-                                  key={role.id} 
+                                  key={userRole.id} 
                                   variant="outline" 
                                   className="text-xs"
                                 >
-                                  {role.name}
+                                  {userRole.role.name}
                                 </Badge>
                               ))}
                             </div>
