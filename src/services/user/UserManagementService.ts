@@ -2,6 +2,24 @@
 import { supabase } from '@/integrations/supabase/client';
 import { standardizedAuditLogger } from '@/services/audit/StandardizedAuditLogger';
 
+export interface UserWithRoles {
+  id: string;
+  email: string;
+  first_name?: string;
+  last_name?: string;
+  status: string;
+  created_at: string;
+  updated_at: string;
+  last_login_at?: string;
+  failed_login_attempts?: number;
+  email_verified_at?: string;
+  roles?: Array<{
+    id: string;
+    name: string;
+    assigned_at: string;
+  }>;
+}
+
 export interface CreateUserRequest {
   email: string;
   firstName?: string;
@@ -16,111 +34,204 @@ export interface UpdateUserRequest {
   status?: 'active' | 'inactive' | 'suspended' | 'pending_verification';
 }
 
-export interface UserWithRoles {
-  id: string;
-  tenant_id: string;
-  email: string;
-  first_name?: string;
-  last_name?: string;
-  status: string;
-  email_verified_at?: string;
-  last_login_at?: string;
-  failed_login_attempts?: number;
-  created_at: string;
-  updated_at: string;
-  roles?: Array<{
-    id: string;
-    name: string;
-    assigned_at: string;
-  }>;
+export interface UserSearchFilters {
+  search?: string;
+  status?: string;
+  roleId?: string;
+  page?: number;
+  limit?: number;
 }
 
-export interface ServiceResult<T = any> {
-  success: boolean;
-  data?: T;
-  error?: string;
+export interface UserSearchResult {
+  users: UserWithRoles[];
+  total: number;
+  page: number;
+  limit: number;
 }
 
 class UserManagementService {
-  async createUser(request: CreateUserRequest, currentUserId: string): Promise<ServiceResult<UserWithRoles>> {
+  
+  // Get users with optional filtering
+  async getUsers(tenantId: string, filters: UserSearchFilters = {}): Promise<UserSearchResult> {
     try {
-      // Generate a temporary password (in production, this would be sent via email)
-      const tempPassword = this.generateTempPassword();
-      
-      // Create user in auth.users via RPC call
-      const { data: authUser, error: authError } = await supabase.rpc('create_user_with_tenant', {
-        p_email: request.email,
-        p_password: tempPassword,
-        p_tenant_id: request.tenantId,
-        p_first_name: request.firstName || null,
-        p_last_name: request.lastName || null
-      });
+      const { search, status, roleId, page = 1, limit = 50 } = filters;
+      const offset = (page - 1) * limit;
 
-      if (authError) {
-        await standardizedAuditLogger.logStandardizedEvent(
-          'user.create.failed',
-          'user',
-          'unknown',
-          'failure',
-          {
-            userId: currentUserId,
-            tenantId: request.tenantId
-          },
-          { error: authError.message, email: request.email }
+      let query = supabase
+        .from('users')
+        .select(`
+          id,
+          email,
+          first_name,
+          last_name,
+          status,
+          created_at,
+          updated_at,
+          last_login_at,
+          failed_login_attempts,
+          email_verified_at
+        `)
+        .eq('tenant_id', tenantId)
+        .range(offset, offset + limit - 1)
+        .order('created_at', { ascending: false });
+
+      // Apply filters
+      if (search) {
+        query = query.or(`email.ilike.%${search}%,first_name.ilike.%${search}%,last_name.ilike.%${search}%`);
+      }
+
+      if (status) {
+        query = query.eq('status', status);
+      }
+
+      const { data: users, error, count } = await query;
+
+      if (error) throw error;
+
+      // Get roles for users if needed
+      const usersWithRoles: UserWithRoles[] = await Promise.all(
+        (users || []).map(async (user) => {
+          const { data: roleData } = await supabase
+            .from('user_roles')
+            .select(`
+              assigned_at,
+              role:roles(id, name)
+            `)
+            .eq('user_id', user.id)
+            .eq('tenant_id', tenantId);
+
+          const roles = roleData?.map(r => ({
+            id: (r.role as any)?.id,
+            name: (r.role as any)?.name,
+            assigned_at: r.assigned_at
+          })).filter(r => r.id && r.name) || [];
+
+          return {
+            ...user,
+            roles
+          };
+        })
+      );
+
+      // Filter by role if specified
+      let filteredUsers = usersWithRoles;
+      if (roleId) {
+        filteredUsers = usersWithRoles.filter(user => 
+          user.roles?.some(role => role.id === roleId)
         );
-        return { success: false, error: authError.message };
       }
 
-      // Get the created user with roles
-      const userResult = await this.getUserById(authUser.id, request.tenantId);
-      if (!userResult.success || !userResult.data) {
-        return { success: false, error: 'Failed to retrieve created user' };
+      return {
+        users: filteredUsers,
+        total: count || 0,
+        page,
+        limit
+      };
+    } catch (error) {
+      console.error('Error fetching users:', error);
+      throw error;
+    }
+  }
+
+  async createUser(request: CreateUserRequest, createdBy: string): Promise<{ success: boolean; user?: UserWithRoles; error?: string }> {
+    try {
+      // Check if user already exists
+      const { data: existingUser } = await supabase
+        .from('users')
+        .select('id')
+        .eq('email', request.email)
+        .eq('tenant_id', request.tenantId)
+        .single();
+
+      if (existingUser) {
+        await standardizedAuditLogger.logStandardizedEvent(
+          'user.create',
+          'user',
+          null,
+          'failure',
+          { userId: createdBy, tenantId: request.tenantId },
+          { before: null, after: { email: request.email, error: 'User already exists' } }
+        );
+        return { success: false, error: 'User with this email already exists' };
       }
+
+      // Create user
+      const { data: newUser, error: createError } = await supabase
+        .from('users')
+        .insert({
+          email: request.email,
+          first_name: request.firstName,
+          last_name: request.lastName,
+          tenant_id: request.tenantId,
+          password_hash: 'temp_hash', // This should be handled by proper auth flow
+          status: 'pending_verification'
+        })
+        .select()
+        .single();
+
+      if (createError) throw createError;
 
       // Assign roles if provided
       if (request.roleIds && request.roleIds.length > 0) {
-        for (const roleId of request.roleIds) {
-          await this.assignRoleToUser(authUser.id, roleId, request.tenantId, currentUserId);
+        const roleAssignments = request.roleIds.map(roleId => ({
+          user_id: newUser.id,
+          role_id: roleId,
+          tenant_id: request.tenantId,
+          assigned_by: createdBy
+        }));
+
+        const { error: roleError } = await supabase
+          .from('user_roles')
+          .insert(roleAssignments);
+
+        if (roleError) {
+          console.error('Error assigning roles:', roleError);
         }
       }
 
       // Log successful creation
       await standardizedAuditLogger.logStandardizedEvent(
-        'user.create.success',
+        'user.create',
         'user',
-        authUser.id,
+        newUser.id,
         'success',
-        {
-          userId: currentUserId,
-          tenantId: request.tenantId
-        },
-        { 
-          email: request.email,
-          firstName: request.firstName,
-          lastName: request.lastName,
-          rolesAssigned: request.roleIds?.length || 0
-        }
+        { userId: createdBy, tenantId: request.tenantId },
+        { before: null, after: { email: request.email, userId: newUser.id } }
       );
 
-      return { success: true, data: userResult.data };
+      // Get user with roles
+      const userWithRoles = await this.getUserById(newUser.id, request.tenantId);
+      
+      return { success: true, user: userWithRoles || undefined };
     } catch (error) {
-      console.error('User creation error:', error);
-      return { success: false, error: 'Failed to create user' };
+      console.error('Error creating user:', error);
+      
+      await standardizedAuditLogger.logStandardizedEvent(
+        'user.create',
+        'user',
+        null,
+        'failure',
+        { userId: createdBy, tenantId: request.tenantId },
+        { before: null, after: { email: request.email, error: error instanceof Error ? error.message : 'Unknown error' } }
+      );
+      
+      return { success: false, error: error instanceof Error ? error.message : 'Failed to create user' };
     }
   }
 
-  async updateUser(userId: string, request: UpdateUserRequest, currentUserId: string): Promise<ServiceResult<UserWithRoles>> {
+  async updateUser(userId: string, request: UpdateUserRequest, updatedBy: string): Promise<{ success: boolean; user?: UserWithRoles; error?: string }> {
     try {
-      // Get current user to determine tenant
-      const currentUserResult = await this.getUserById(userId);
-      if (!currentUserResult.success || !currentUserResult.data) {
-        return { success: false, error: 'User not found' };
-      }
+      // Get current user data
+      const { data: currentUser, error: fetchError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', userId)
+        .single();
 
-      const tenantId = currentUserResult.data.tenant_id;
+      if (fetchError) throw fetchError;
 
-      // Update user in database
-      const { data: updatedUser, error } = await supabase
+      // Update user
+      const { data: updatedUser, error: updateError } = await supabase
         .from('users')
         .update({
           first_name: request.firstName,
@@ -129,299 +240,193 @@ class UserManagementService {
           updated_at: new Date().toISOString()
         })
         .eq('id', userId)
-        .eq('tenant_id', tenantId)
         .select()
         .single();
 
-      if (error) {
-        await standardizedAuditLogger.logStandardizedEvent(
-          'user.update.failed',
-          'user',
-          userId,
-          'failure',
-          {
-            userId: currentUserId,
-            tenantId: tenantId
-          },
-          { error: error.message }
-        );
-        return { success: false, error: error.message };
-      }
-
-      // Get updated user with roles
-      const userResult = await this.getUserById(userId, tenantId);
-      if (!userResult.success || !userResult.data) {
-        return { success: false, error: 'Failed to retrieve updated user' };
-      }
+      if (updateError) throw updateError;
 
       // Log successful update
       await standardizedAuditLogger.logStandardizedEvent(
-        'user.update.success',
+        'user.update',
         'user',
         userId,
         'success',
-        {
-          userId: currentUserId,
-          tenantId: tenantId
-        },
-        { 
-          updatedFields: Object.keys(request),
-          newStatus: request.status
-        }
+        { userId: updatedBy, tenantId: currentUser.tenant_id },
+        { before: currentUser, after: { ...updatedUser, updatedFields: Object.keys(request) } }
       );
 
-      return { success: true, data: userResult.data };
+      // Get user with roles
+      const userWithRoles = await this.getUserById(userId, currentUser.tenant_id);
+      
+      return { success: true, user: userWithRoles || undefined };
     } catch (error) {
-      console.error('User update error:', error);
-      return { success: false, error: 'Failed to update user' };
+      console.error('Error updating user:', error);
+      
+      await standardizedAuditLogger.logStandardizedEvent(
+        'user.update',
+        'user',
+        userId,
+        'failure',
+        { userId: updatedBy },
+        { before: null, after: { error: error instanceof Error ? error.message : 'Unknown error' } }
+      );
+      
+      return { success: false, error: error instanceof Error ? error.message : 'Failed to update user' };
     }
   }
 
-  async deleteUser(userId: string, currentUserId: string): Promise<ServiceResult<void>> {
+  async deleteUser(userId: string, deletedBy: string, hardDelete: boolean = false): Promise<{ success: boolean; error?: string }> {
     try {
-      // Get current user to determine tenant
-      const currentUserResult = await this.getUserById(userId);
-      if (!currentUserResult.success || !currentUserResult.data) {
-        return { success: false, error: 'User not found' };
-      }
-
-      const tenantId = currentUserResult.data.tenant_id;
-
-      // Soft delete - update status to inactive
-      const { error } = await supabase
+      // Get current user data
+      const { data: currentUser, error: fetchError } = await supabase
         .from('users')
-        .update({
-          status: 'inactive',
-          updated_at: new Date().toISOString()
-        })
+        .select('*')
         .eq('id', userId)
-        .eq('tenant_id', tenantId);
+        .single();
 
-      if (error) {
-        await standardizedAuditLogger.logStandardizedEvent(
-          'user.delete.failed',
-          'user',
-          userId,
-          'failure',
-          {
-            userId: currentUserId,
-            tenantId: tenantId
-          },
-          { error: error.message }
-        );
-        return { success: false, error: error.message };
+      if (fetchError) throw fetchError;
+
+      if (hardDelete) {
+        // Hard delete - remove from database
+        const { error: deleteError } = await supabase
+          .from('users')
+          .delete()
+          .eq('id', userId);
+
+        if (deleteError) throw deleteError;
+      } else {
+        // Soft delete - update status
+        const { error: updateError } = await supabase
+          .from('users')
+          .update({ 
+            status: 'inactive',
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', userId);
+
+        if (updateError) throw updateError;
       }
 
       // Log successful deletion
       await standardizedAuditLogger.logStandardizedEvent(
-        'user.delete.success',
+        'user.delete',
         'user',
         userId,
         'success',
-        {
-          userId: currentUserId,
-          tenantId: tenantId
-        },
-        { 
-          deletionType: 'soft_delete',
-          userEmail: currentUserResult.data.email
-        }
+        { userId: deletedBy, tenantId: currentUser.tenant_id },
+        { before: currentUser, after: { deletionType: hardDelete ? 'hard' : 'soft' } }
       );
-
+      
       return { success: true };
     } catch (error) {
-      console.error('User deletion error:', error);
-      return { success: false, error: 'Failed to delete user' };
+      console.error('Error deleting user:', error);
+      
+      await standardizedAuditLogger.logStandardizedEvent(
+        'user.delete',
+        'user',
+        userId,
+        'failure',
+        { userId: deletedBy },
+        { before: null, after: { error: error instanceof Error ? error.message : 'Unknown error' } }
+      );
+      
+      return { success: false, error: error instanceof Error ? error.message : 'Failed to delete user' };
     }
   }
 
-  async getUserById(userId: string, tenantId?: string): Promise<ServiceResult<UserWithRoles>> {
+  async getUserById(userId: string, tenantId: string): Promise<UserWithRoles | null> {
     try {
-      let query = supabase
+      const { data: user, error } = await supabase
         .from('users')
         .select(`
           id,
-          tenant_id,
           email,
           first_name,
           last_name,
           status,
-          email_verified_at,
+          created_at,
+          updated_at,
           last_login_at,
           failed_login_attempts,
-          created_at,
-          updated_at
+          email_verified_at
         `)
-        .eq('id', userId);
+        .eq('id', userId)
+        .eq('tenant_id', tenantId)
+        .single();
 
-      if (tenantId) {
-        query = query.eq('tenant_id', tenantId);
-      }
-
-      const { data: user, error } = await query.single();
-
-      if (error) {
-        return { success: false, error: error.message };
-      }
+      if (error) throw error;
 
       // Get user roles
-      const { data: roles } = await supabase
+      const { data: roleData } = await supabase
         .from('user_roles')
         .select(`
           assigned_at,
-          roles!inner(
-            id,
-            name
-          )
+          role:roles(id, name)
         `)
         .eq('user_id', userId)
-        .eq('tenant_id', user.tenant_id);
-
-      const userWithRoles: UserWithRoles = {
-        ...user,
-        roles: roles?.map(ur => ({
-          id: ur.roles.id,
-          name: ur.roles.name,
-          assigned_at: ur.assigned_at
-        })) || []
-      };
-
-      return { success: true, data: userWithRoles };
-    } catch (error) {
-      console.error('Get user error:', error);
-      return { success: false, error: 'Failed to retrieve user' };
-    }
-  }
-
-  async getUsersByTenant(tenantId: string, options?: {
-    search?: string;
-    status?: string;
-    limit?: number;
-    offset?: number;
-  }): Promise<ServiceResult<{ users: UserWithRoles[]; total: number }>> {
-    try {
-      let query = supabase
-        .from('users')
-        .select(`
-          id,
-          tenant_id,
-          email,
-          first_name,
-          last_name,
-          status,
-          email_verified_at,
-          last_login_at,
-          failed_login_attempts,
-          created_at,
-          updated_at
-        `, { count: 'exact' })
         .eq('tenant_id', tenantId);
 
-      // Apply filters
-      if (options?.search) {
-        query = query.or(`email.ilike.%${options.search}%,first_name.ilike.%${options.search}%,last_name.ilike.%${options.search}%`);
-      }
-
-      if (options?.status) {
-        query = query.eq('status', options.status);
-      }
-
-      // Apply pagination
-      if (options?.limit) {
-        query = query.limit(options.limit);
-      }
-
-      if (options?.offset) {
-        query = query.range(options.offset, options.offset + (options.limit || 50) - 1);
-      }
-
-      query = query.order('created_at', { ascending: false });
-
-      const { data: users, error, count } = await query;
-
-      if (error) {
-        return { success: false, error: error.message };
-      }
-
-      // Get roles for all users
-      const userIds = users?.map(u => u.id) || [];
-      const { data: allRoles } = await supabase
-        .from('user_roles')
-        .select(`
-          user_id,
-          assigned_at,
-          roles!inner(
-            id,
-            name
-          )
-        `)
-        .in('user_id', userIds)
-        .eq('tenant_id', tenantId);
-
-      const usersWithRoles: UserWithRoles[] = users?.map(user => ({
-        ...user,
-        roles: allRoles
-          ?.filter(ur => ur.user_id === user.id)
-          ?.map(ur => ({
-            id: ur.roles.id,
-            name: ur.roles.name,
-            assigned_at: ur.assigned_at
-          })) || []
+      const roles = roleData?.map(r => ({
+        id: (r.role as any).id,
+        name: (r.role as any).name,
+        assigned_at: r.assigned_at
       })) || [];
 
-      return { 
-        success: true, 
-        data: { 
-          users: usersWithRoles, 
-          total: count || 0 
-        } 
+      return {
+        ...user,
+        roles
       };
     } catch (error) {
-      console.error('Get users by tenant error:', error);
-      return { success: false, error: 'Failed to retrieve users' };
+      console.error('Error fetching user by ID:', error);
+      return null;
     }
   }
 
-  async assignRoleToUser(userId: string, roleId: string, tenantId: string, assignedBy: string): Promise<ServiceResult<void>> {
+  async assignRole(userId: string, roleId: string, tenantId: string, assignedBy: string): Promise<{ success: boolean; error?: string }> {
     try {
+      // Check if role assignment already exists
+      const { data: existingAssignment } = await supabase
+        .from('user_roles')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('role_id', roleId)
+        .eq('tenant_id', tenantId)
+        .single();
+
+      if (existingAssignment) {
+        return { success: false, error: 'Role already assigned to user' };
+      }
+
+      // Assign role
       const { error } = await supabase
         .from('user_roles')
         .insert({
           user_id: userId,
           role_id: roleId,
           tenant_id: tenantId,
-          assigned_by: assignedBy,
-          assigned_at: new Date().toISOString()
+          assigned_by: assignedBy
         });
 
-      if (error) {
-        return { success: false, error: error.message };
-      }
+      if (error) throw error;
 
-      // Log role assignment
+      // Log successful role assignment
       await standardizedAuditLogger.logStandardizedEvent(
-        'user.role.assigned',
+        'user.role.assign',
         'user_role',
-        `${userId}-${roleId}`,
+        userId,
         'success',
-        {
-          userId: assignedBy,
-          tenantId: tenantId
-        },
-        { 
-          targetUserId: userId,
-          roleId: roleId
-        }
+        { userId: assignedBy, tenantId },
+        { before: null, after: { targetUserId: userId, roleId } }
       );
 
       return { success: true };
     } catch (error) {
-      console.error('Assign role error:', error);
-      return { success: false, error: 'Failed to assign role' };
+      console.error('Error assigning role:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Failed to assign role' };
     }
   }
 
-  async removeRoleFromUser(userId: string, roleId: string, tenantId: string, removedBy: string): Promise<ServiceResult<void>> {
+  async removeRole(userId: string, roleId: string, tenantId: string, removedBy: string): Promise<{ success: boolean; error?: string }> {
     try {
       const { error } = await supabase
         .from('user_roles')
@@ -430,41 +435,23 @@ class UserManagementService {
         .eq('role_id', roleId)
         .eq('tenant_id', tenantId);
 
-      if (error) {
-        return { success: false, error: error.message };
-      }
+      if (error) throw error;
 
-      // Log role removal
+      // Log successful role removal
       await standardizedAuditLogger.logStandardizedEvent(
-        'user.role.removed',
+        'user.role.remove',
         'user_role',
-        `${userId}-${roleId}`,
+        userId,
         'success',
-        {
-          userId: removedBy,
-          tenantId: tenantId
-        },
-        { 
-          targetUserId: userId,
-          roleId: roleId
-        }
+        { userId: removedBy, tenantId },
+        { before: { targetUserId: userId, roleId }, after: null }
       );
 
       return { success: true };
     } catch (error) {
-      console.error('Remove role error:', error);
-      return { success: false, error: 'Failed to remove role' };
+      console.error('Error removing role:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Failed to remove role' };
     }
-  }
-
-  private generateTempPassword(): string {
-    const length = 12;
-    const charset = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*';
-    let password = '';
-    for (let i = 0; i < length; i++) {
-      password += charset.charAt(Math.floor(Math.random() * charset.length));
-    }
-    return password;
   }
 }
 

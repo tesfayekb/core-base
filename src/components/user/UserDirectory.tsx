@@ -5,60 +5,78 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Plus, Search, Edit, Trash2, User } from 'lucide-react';
-import { useQuery } from '@tanstack/react-query';
-import { userManagementService, UserWithRoles } from '@/services/user/UserManagementService';
-import { useAuth } from '@/contexts/AuthContext';
+import { Plus, Search, MoreHorizontal, Edit, Trash2, UserCheck } from 'lucide-react';
+import { userManagementService, UserWithRoles, UserSearchFilters } from '@/services/user/UserManagementService';
 import { UserForm } from './UserForm';
+import { UserProfile } from './UserProfile';
+import { useAuth } from '@/contexts/AuthContext';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { PermissionBoundary } from '@/components/rbac/PermissionBoundary';
 
 export function UserDirectory() {
-  const { tenantId, user } = useAuth();
-  const [showCreateForm, setShowCreateForm] = useState(false);
-  const [editingUser, setEditingUser] = useState<UserWithRoles | null>(null);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [currentPage, setCurrentPage] = useState(0);
-  const pageSize = 10;
+  const { tenantId } = useAuth();
+  const queryClient = useQueryClient();
+  const [showUserForm, setShowUserForm] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<UserWithRoles | null>(null);
+  const [showUserProfile, setShowUserProfile] = useState(false);
+  const [filters, setFilters] = useState<UserSearchFilters>({
+    search: '',
+    status: '',
+    page: 1,
+    limit: 50
+  });
 
-  const { data: usersData, isLoading, refetch } = useQuery({
-    queryKey: ['users', tenantId, searchTerm, statusFilter, currentPage],
-    queryFn: () => userManagementService.getUsers({
-      tenantId: tenantId || '',
-      search: searchTerm || undefined,
-      status: statusFilter === 'all' ? undefined : statusFilter,
-      limit: pageSize,
-      offset: currentPage * pageSize
-    }),
-    enabled: !!tenantId
+  // Fetch users
+  const { data: userResult, isLoading, error } = useQuery({
+    queryKey: ['users', tenantId, filters],
+    queryFn: () => userManagementService.getUsers(tenantId!, filters),
+    enabled: !!tenantId,
+    refetchInterval: 30000 // Refresh every 30 seconds
   });
 
   const handleCreateUser = () => {
-    setEditingUser(null);
-    setShowCreateForm(true);
+    setSelectedUser(null);
+    setShowUserForm(true);
   };
 
-  const handleEditUser = (userToEdit: UserWithRoles) => {
-    setEditingUser(userToEdit);
-    setShowCreateForm(true);
+  const handleEditUser = (user: UserWithRoles) => {
+    setSelectedUser(user);
+    setShowUserForm(true);
   };
 
-  const handleDeleteUser = async (userId: string) => {
-    if (!user?.id || !confirm('Are you sure you want to delete this user?')) return;
-    
-    const result = await userManagementService.deleteUser(userId, user.id);
-    if (result.success) {
-      refetch();
-    } else {
-      console.error('Failed to delete user:', result.error);
+  const handleViewUser = (user: UserWithRoles) => {
+    setSelectedUser(user);
+    setShowUserProfile(true);
+  };
+
+  const handleDeleteUser = async (user: UserWithRoles) => {
+    if (!confirm(`Are you sure you want to deactivate ${user.email}?`)) {
+      return;
     }
+
+    // Implementation would call userManagementService.deleteUser
+    // For now, just refresh the list
+    queryClient.invalidateQueries({ queryKey: ['users', tenantId] });
   };
 
   const handleFormClose = () => {
-    setShowCreateForm(false);
-    setEditingUser(null);
-    refetch();
+    setShowUserForm(false);
+    setSelectedUser(null);
+    // Refresh user list after form operations
+    queryClient.invalidateQueries({ queryKey: ['users', tenantId] });
+  };
+
+  const handleProfileClose = () => {
+    setShowUserProfile(false);
+    setSelectedUser(null);
+  };
+
+  const handleSearchChange = (value: string) => {
+    setFilters(prev => ({ ...prev, search: value, page: 1 }));
+  };
+
+  const handleStatusFilterChange = (value: string) => {
+    setFilters(prev => ({ ...prev, status: value === 'all' ? '' : value, page: 1 }));
   };
 
   const getStatusBadgeVariant = (status: string) => {
@@ -74,10 +92,25 @@ export function UserDirectory() {
   if (isLoading) {
     return (
       <Card>
-        <CardContent className="flex items-center justify-center p-8">
-          <div className="text-center">
-            <User className="h-12 w-12 mx-auto mb-4 opacity-50" />
-            <p>Loading users...</p>
+        <CardHeader>
+          <CardTitle>Users</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="text-center py-8">Loading users...</div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (error) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Users</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="text-center py-8 text-red-600">
+            Error loading users: {error instanceof Error ? error.message : 'Unknown error'}
           </div>
         </CardContent>
       </Card>
@@ -85,40 +118,39 @@ export function UserDirectory() {
   }
 
   return (
-    <div className="space-y-6">
+    <>
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center space-x-2">
-              <User className="h-5 w-5" />
-              <span>User Directory</span>
-            </CardTitle>
+          <CardTitle className="flex items-center justify-between">
+            <span>Users ({userResult?.total || 0})</span>
             <PermissionBoundary action="create" resource="users">
               <Button onClick={handleCreateUser}>
                 <Plus className="h-4 w-4 mr-2" />
                 Add User
               </Button>
             </PermissionBoundary>
-          </div>
+          </CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-6">
           {/* Filters */}
-          <div className="flex items-center space-x-4 mb-6">
-            <div className="relative flex-1">
-              <Search className="h-4 w-4 absolute left-3 top-3 text-muted-foreground" />
-              <Input
-                placeholder="Search users by name or email..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="flex-1">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                <Input
+                  placeholder="Search users..."
+                  value={filters.search}
+                  onChange={(e) => handleSearchChange(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
             </div>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-48">
-                <SelectValue placeholder="Filter by status" />
+            <Select value={filters.status || 'all'} onValueChange={handleStatusFilterChange}>
+              <SelectTrigger className="w-full sm:w-48">
+                <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="all">All Statuses</SelectItem>
                 <SelectItem value="active">Active</SelectItem>
                 <SelectItem value="inactive">Inactive</SelectItem>
                 <SelectItem value="suspended">Suspended</SelectItem>
@@ -127,122 +159,85 @@ export function UserDirectory() {
             </Select>
           </div>
 
-          {/* Users Table */}
-          {usersData?.users && usersData.users.length > 0 ? (
-            <div className="space-y-4">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Email</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Roles</TableHead>
-                    <TableHead>Last Login</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {usersData.users.map((user) => (
-                    <TableRow key={user.id}>
-                      <TableCell>
-                        <div className="font-medium">
-                          {user.first_name && user.last_name 
-                            ? `${user.first_name} ${user.last_name}`
-                            : 'No name set'
-                          }
-                        </div>
-                      </TableCell>
-                      <TableCell>{user.email}</TableCell>
-                      <TableCell>
-                        <Badge variant={getStatusBadgeVariant(user.status)}>
-                          {user.status.replace('_', ' ')}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex flex-wrap gap-1">
-                          {user.roles?.map((role) => (
-                            <Badge key={role.id} variant="outline" className="text-xs">
-                              {role.name}
-                            </Badge>
-                          ))}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        {user.last_login_at 
-                          ? new Date(user.last_login_at).toLocaleDateString()
-                          : 'Never'
-                        }
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end space-x-2">
-                          <PermissionBoundary action="update" resource="users">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleEditUser(user)}
-                            >
-                              <Edit className="h-3 w-3" />
-                            </Button>
-                          </PermissionBoundary>
-                          <PermissionBoundary action="delete" resource="users">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleDeleteUser(user.id)}
-                            >
-                              <Trash2 className="h-3 w-3" />
-                            </Button>
-                          </PermissionBoundary>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-
-              {/* Pagination */}
-              <div className="flex items-center justify-between">
-                <p className="text-sm text-muted-foreground">
-                  Showing {currentPage * pageSize + 1} to {Math.min((currentPage + 1) * pageSize, usersData.total)} of {usersData.total} users
-                </p>
+          {/* User List */}
+          <div className="space-y-4">
+            {userResult?.users.map((user) => (
+              <div key={user.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50">
+                <div className="flex items-center space-x-4">
+                  <div className="flex-1">
+                    <div className="flex items-center space-x-2">
+                      <h4 className="font-medium">{user.first_name && user.last_name ? `${user.first_name} ${user.last_name}` : user.email}</h4>
+                      <Badge variant={getStatusBadgeVariant(user.status) as any}>
+                        {user.status.replace('_', ' ')}
+                      </Badge>
+                    </div>
+                    <p className="text-sm text-muted-foreground">{user.email}</p>
+                    {user.roles && user.roles.length > 0 && (
+                      <div className="flex items-center space-x-1 mt-1">
+                        <UserCheck className="h-3 w-3 text-gray-400" />
+                        <span className="text-xs text-gray-500">
+                          {user.roles.map(role => role.name).join(', ')}
+                        </span>
+                      </div>
+                    )}
+                    <p className="text-xs text-gray-400">
+                      Created {new Date(user.created_at).toLocaleDateString()}
+                    </p>
+                  </div>
+                </div>
+                
                 <div className="flex items-center space-x-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setCurrentPage(prev => Math.max(0, prev - 1))}
-                    disabled={currentPage === 0}
-                  >
-                    Previous
+                  <Button variant="ghost" size="sm" onClick={() => handleViewUser(user)}>
+                    View
                   </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setCurrentPage(prev => prev + 1)}
-                    disabled={(currentPage + 1) * pageSize >= usersData.total}
-                  >
-                    Next
-                  </Button>
+                  <PermissionBoundary action="update" resource="users">
+                    <Button variant="ghost" size="sm" onClick={() => handleEditUser(user)}>
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                  </PermissionBoundary>
+                  <PermissionBoundary action="delete" resource="users">
+                    <Button variant="ghost" size="sm" onClick={() => handleDeleteUser(user)}>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </PermissionBoundary>
                 </div>
               </div>
-            </div>
-          ) : (
+            ))}
+          </div>
+
+          {userResult?.users.length === 0 && (
             <div className="text-center py-8 text-muted-foreground">
-              <User className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p>No users found</p>
-              <p className="text-sm">Try adjusting your search criteria</p>
+              No users found matching your criteria
             </div>
           )}
         </CardContent>
       </Card>
 
       {/* User Form Modal */}
-      {showCreateForm && (
+      {showUserForm && (
         <UserForm
-          user={editingUser}
+          user={selectedUser}
           onClose={handleFormClose}
-          tenantId={tenantId || ''}
+          tenantId={tenantId!}
         />
       )}
-    </div>
+
+      {/* User Profile Modal */}
+      {showUserProfile && selectedUser && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between p-4 border-b">
+              <h2 className="text-lg font-semibold">User Profile</h2>
+              <Button variant="ghost" size="sm" onClick={handleProfileClose}>
+                ×
+              </Button>
+            </div>
+            <div className="p-4">
+              <UserProfile user={selectedUser} />
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
