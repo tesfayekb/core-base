@@ -82,11 +82,20 @@ export function UserProfile({ user }: UserProfileProps) {
                 <div key={role.id} className="flex items-center justify-between p-3 border rounded-lg">
                   <div>
                     <div className="font-medium">{role.name}</div>
-                    <div className="text-sm text-muted-foreground">
-                      Assigned on {new Date(role.assigned_at).toLocaleDateString()}
-                    </div>
+                    {role.assigned_at && (
+                      <div className="text-sm text-muted-foreground">
+                        Assigned on {new Date(role.assigned_at).toLocaleDateString()}
+                      </div>
+                    )}
+                    {role.description && (
+                      <div className="text-sm text-muted-foreground">
+                        {role.description}
+                      </div>
+                    )}
                   </div>
-                  <Badge variant="outline">Role</Badge>
+                  <Badge variant={role.is_system_role ? "secondary" : "outline"}>
+                    {role.is_system_role ? "System Role" : "Custom Role"}
+                  </Badge>
                 </div>
               ))}
             </div>
