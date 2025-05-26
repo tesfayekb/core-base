@@ -36,8 +36,11 @@ const mockAuthContext = {
   user: { id: 'user-1', email: 'test@example.com' },
   tenantId: 'tenant-1',
   login: jest.fn(),
+  signIn: jest.fn(),
+  signOut: jest.fn(),
   logout: jest.fn(),
-  isLoading: false
+  isLoading: false,
+  loading: false
 };
 
 const renderWithContext = (component: React.ReactElement) => {
