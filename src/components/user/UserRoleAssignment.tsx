@@ -3,286 +3,226 @@ import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { X, Save, UserCog, Plus, Trash2 } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { UserWithRoles, userManagementService } from '@/services/user/UserManagementService';
-import { useAuth } from '@/contexts/AuthContext';
-import { useToast } from '@/hooks/use-toast';
+import { X, Shield, UserPlus, AlertCircle, CheckCircle } from 'lucide-react';
+import { userManagementService, UserWithRoles } from '@/services/user/UserManagementService';
 import { PermissionPreview } from './PermissionPreview';
+import { toast } from 'sonner';
 
 interface UserRoleAssignmentProps {
   user: UserWithRoles;
   onClose: () => void;
 }
 
-interface Role {
-  id: string;
-  name: string;
-  description?: string;
-  is_system_role: boolean;
-}
-
 export function UserRoleAssignment({ user, onClose }: UserRoleAssignmentProps) {
-  const { user: currentUser } = useAuth();
-  const { toast } = useToast();
+  const [selectedRoleId, setSelectedRoleId] = useState('');
   const queryClient = useQueryClient();
-  const [selectedRoles, setSelectedRoles] = useState<string[]>(
-    user.roles?.map(r => r.id) || []
-  );
 
-  // Fetch available roles
-  const { data: allRoles = [] } = useQuery({
-    queryKey: ['roles', user.tenant_id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('roles')
-        .select('id, name, description, is_system_role')
-        .eq('tenant_id', user.tenant_id)
-        .order('name');
-      
-      if (error) throw error;
-      return data as Role[];
-    },
-    enabled: !!user.tenant_id
-  });
-
-  // Fetch current user roles for comparison
-  const { data: currentRoles = [] } = useQuery({
+  // Get current user roles
+  const { data: userRoles = [], isLoading: loadingRoles, refetch: refetchRoles } = useQuery({
     queryKey: ['userRoles', user.id, user.tenant_id],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('user_roles')
-        .select(`
-          role_id,
-          assigned_at,
-          roles!inner(
-            id,
-            name,
-            is_system_role
-          )
-        `)
-        .eq('user_id', user.id)
-        .eq('tenant_id', user.tenant_id);
-      
-      if (error) throw error;
-      return data || [];
-    },
-    enabled: !!user.id && !!user.tenant_id
+      const result = await userManagementService.getUserRoles(user.id, user.tenant_id);
+      if (!result.success) {
+        throw new Error(result.error);
+      }
+      return result.data || [];
+    }
   });
 
-  // Role assignment mutation
+  // Get available roles
+  const { data: availableRoles = [], isLoading: loadingAvailableRoles } = useQuery({
+    queryKey: ['availableRoles', user.tenant_id],
+    queryFn: async () => {
+      const result = await userManagementService.getAvailableRoles(user.tenant_id);
+      if (!result.success) {
+        throw new Error(result.error);
+      }
+      return result.data || [];
+    }
+  });
+
+  // Assign role mutation
   const assignRoleMutation = useMutation({
     mutationFn: async (roleId: string) => {
-      if (!currentUser?.id) throw new Error('No current user');
-      
-      return userManagementService.assignRole(
-        user.id,
-        roleId,
-        user.tenant_id,
-        currentUser.id
-      );
+      const result = await userManagementService.assignRole(user.id, roleId, user.tenant_id);
+      if (!result.success) {
+        throw new Error(result.error);
+      }
+      return result;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['userRoles', user.id] });
+      toast.success('Role assigned successfully');
+      refetchRoles();
+      setSelectedRoleId('');
+      // Invalidate related queries
       queryClient.invalidateQueries({ queryKey: ['users'] });
-      toast({
-        title: 'Success',
-        description: 'Role assigned successfully'
-      });
     },
     onError: (error) => {
-      toast({
-        title: 'Error',
-        description: error instanceof Error ? error.message : 'Failed to assign role',
-        variant: 'destructive'
-      });
+      toast.error(`Failed to assign role: ${error.message}`);
     }
   });
 
-  // Role removal mutation
+  // Remove role mutation
   const removeRoleMutation = useMutation({
     mutationFn: async (roleId: string) => {
-      if (!currentUser?.id) throw new Error('No current user');
-      
-      return userManagementService.removeRole(
-        user.id,
-        roleId,
-        user.tenant_id,
-        currentUser.id
-      );
+      const result = await userManagementService.removeRole(user.id, roleId, user.tenant_id);
+      if (!result.success) {
+        throw new Error(result.error);
+      }
+      return result;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['userRoles', user.id] });
+      toast.success('Role removed successfully');
+      refetchRoles();
+      // Invalidate related queries
       queryClient.invalidateQueries({ queryKey: ['users'] });
-      toast({
-        title: 'Success',
-        description: 'Role removed successfully'
-      });
     },
     onError: (error) => {
-      toast({
-        title: 'Error',
-        description: error instanceof Error ? error.message : 'Failed to remove role',
-        variant: 'destructive'
-      });
+      toast.error(`Failed to remove role: ${error.message}`);
     }
   });
 
-  const handleRoleToggle = (roleId: string) => {
-    setSelectedRoles(prev => 
-      prev.includes(roleId)
-        ? prev.filter(id => id !== roleId)
-        : [...prev, roleId]
-    );
-  };
-
-  const handleSaveChanges = async () => {
-    if (!currentUser?.id) return;
-
-    const currentRoleIds = currentRoles.map(r => r.role_id);
-    const rolesToAdd = selectedRoles.filter(id => !currentRoleIds.includes(id));
-    const rolesToRemove = currentRoleIds.filter(id => !selectedRoles.includes(id));
-
-    try {
-      // Add new roles
-      for (const roleId of rolesToAdd) {
-        await assignRoleMutation.mutateAsync(roleId);
-      }
-
-      // Remove unselected roles
-      for (const roleId of rolesToRemove) {
-        await removeRoleMutation.mutateAsync(roleId);
-      }
-
-      onClose();
-    } catch (error) {
-      console.error('Error saving role changes:', error);
+  const handleAssignRole = () => {
+    if (selectedRoleId) {
+      assignRoleMutation.mutate(selectedRoleId);
     }
   };
 
-  const systemRoles = allRoles.filter(role => role.is_system_role);
-  const customRoles = allRoles.filter(role => !role.is_system_role);
+  const handleRemoveRole = (roleId: string) => {
+    removeRoleMutation.mutate(roleId);
+  };
+
+  const assignedRoleIds = userRoles.map(role => role.id);
+  const unassignedRoles = availableRoles.filter(role => !assignedRoleIds.includes(role.id));
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden">
-        <div className="flex">
-          {/* Left Panel - Role Assignment */}
-          <div className="flex-1 p-6 border-r">
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h2 className="text-xl font-semibold flex items-center space-x-2">
-                  <UserCog className="h-5 w-5" />
-                  <span>Manage User Roles</span>
-                </h2>
-                <p className="text-sm text-muted-foreground mt-1">
-                  {user.first_name && user.last_name 
-                    ? `${user.first_name} ${user.last_name} (${user.email})`
-                    : user.email
-                  }
-                </p>
-              </div>
-              <Button variant="ghost" size="sm" onClick={onClose}>
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-
-            <div className="space-y-6">
-              {/* System Roles */}
-              {systemRoles.length > 0 && (
-                <div>
-                  <h3 className="font-medium mb-3 flex items-center space-x-2">
-                    <div className="w-2 h-2 bg-blue-500 rounded-full" />
-                    <span>System Roles</span>
-                  </h3>
-                  <div className="space-y-2">
-                    {systemRoles.map((role) => (
-                      <label key={role.id} className="flex items-center space-x-3 p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
-                        <input
-                          type="checkbox"
-                          checked={selectedRoles.includes(role.id)}
-                          onChange={() => handleRoleToggle(role.id)}
-                          className="rounded"
-                        />
-                        <div className="flex-1">
-                          <div className="flex items-center space-x-2">
-                            <span className="font-medium">{role.name}</span>
-                            <Badge variant="outline" className="text-xs">System</Badge>
-                          </div>
-                          {role.description && (
-                            <p className="text-sm text-muted-foreground mt-1">{role.description}</p>
-                          )}
-                        </div>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Custom Roles */}
-              {customRoles.length > 0 && (
-                <div>
-                  <h3 className="font-medium mb-3 flex items-center space-x-2">
-                    <div className="w-2 h-2 bg-green-500 rounded-full" />
-                    <span>Custom Roles</span>
-                  </h3>
-                  <div className="space-y-2">
-                    {customRoles.map((role) => (
-                      <label key={role.id} className="flex items-center space-x-3 p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
-                        <input
-                          type="checkbox"
-                          checked={selectedRoles.includes(role.id)}
-                          onChange={() => handleRoleToggle(role.id)}
-                          className="rounded"
-                        />
-                        <div className="flex-1">
-                          <div className="flex items-center space-x-2">
-                            <span className="font-medium">{role.name}</span>
-                            <Badge variant="secondary" className="text-xs">Custom</Badge>
-                          </div>
-                          {role.description && (
-                            <p className="text-sm text-muted-foreground mt-1">{role.description}</p>
-                          )}
-                        </div>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* No Roles */}
-              {allRoles.length === 0 && (
-                <div className="text-center py-8 text-muted-foreground">
-                  <UserCog className="h-12 w-12 mx-auto mb-4 opacity-30" />
-                  <h3 className="font-medium mb-2">No Roles Available</h3>
-                  <p className="text-sm">Create roles first to assign them to users.</p>
-                </div>
-              )}
-            </div>
-
-            {/* Actions */}
-            <div className="flex items-center justify-end space-x-3 pt-6 mt-6 border-t">
-              <Button variant="outline" onClick={onClose}>
-                Cancel
-              </Button>
-              <Button 
-                onClick={handleSaveChanges}
-                disabled={assignRoleMutation.isPending || removeRoleMutation.isPending}
-              >
-                <Save className="h-4 w-4 mr-2" />
-                {assignRoleMutation.isPending || removeRoleMutation.isPending ? 'Saving...' : 'Save Changes'}
-              </Button>
-            </div>
+      <div className="bg-white rounded-lg max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between p-6 border-b">
+          <div>
+            <h2 className="text-xl font-semibold">Manage Roles</h2>
+            <p className="text-sm text-muted-foreground">
+              {user.first_name && user.last_name 
+                ? `${user.first_name} ${user.last_name}` 
+                : user.email}
+            </p>
           </div>
+          <Button variant="ghost" size="sm" onClick={onClose}>
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
 
-          {/* Right Panel - Permission Preview */}
-          <div className="w-96 bg-gray-50">
+        <div className="p-6 space-y-6">
+          {/* Assign New Role */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <UserPlus className="h-5 w-5" />
+                <span>Assign New Role</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center space-x-4">
+                <div className="flex-1">
+                  <Select value={selectedRoleId} onValueChange={setSelectedRoleId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a role to assign" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {unassignedRoles.map((role) => (
+                        <SelectItem key={role.id} value={role.id}>
+                          <div className="flex items-center space-x-2">
+                            <span>{role.name}</span>
+                            {role.is_system_role && (
+                              <Badge variant="outline" className="text-xs">
+                                System
+                              </Badge>
+                            )}
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button 
+                  onClick={handleAssignRole}
+                  disabled={!selectedRoleId || assignRoleMutation.isPending}
+                >
+                  {assignRoleMutation.isPending ? 'Assigning...' : 'Assign Role'}
+                </Button>
+              </div>
+              
+              {unassignedRoles.length === 0 && (
+                <div className="text-center py-4 text-muted-foreground">
+                  <CheckCircle className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                  <p>All available roles have been assigned to this user</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Current Roles */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <Shield className="h-5 w-5" />
+                <span>Current Roles</span>
+                <Badge variant="outline">
+                  {userRoles.length}
+                </Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {loadingRoles ? (
+                <div className="text-center py-4">Loading roles...</div>
+              ) : userRoles.length === 0 ? (
+                <div className="text-center py-6 text-muted-foreground">
+                  <AlertCircle className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                  <h3 className="font-medium mb-2">No Roles Assigned</h3>
+                  <p className="text-sm">This user has no roles assigned.</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {userRoles.map((role) => (
+                    <div key={role.id} className="flex items-center justify-between p-3 border rounded-lg">
+                      <div className="flex items-center space-x-3">
+                        <Badge variant={role.is_system_role ? "default" : "secondary"}>
+                          {role.name}
+                        </Badge>
+                        <div className="text-sm">
+                          <div className="text-muted-foreground">
+                            Assigned: {new Date(role.assigned_at).toLocaleDateString()}
+                          </div>
+                          {role.is_system_role && (
+                            <div className="text-xs text-blue-600">System Role</div>
+                          )}
+                        </div>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleRemoveRole(role.id)}
+                        disabled={removeRoleMutation.isPending}
+                        className="text-red-600 hover:text-red-700"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Permission Preview */}
+          {userRoles.length > 0 && (
             <PermissionPreview 
-              roleIds={selectedRoles}
+              roleIds={userRoles.map(role => role.id)}
               tenantId={user.tenant_id}
             />
-          </div>
+          )}
         </div>
       </div>
     </div>
