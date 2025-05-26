@@ -6,449 +6,423 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
-import { useToast } from "@/components/ui/use-toast";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Plus, Edit, Trash2, Shield, Users, Settings } from "lucide-react";
+import { tenantRoleTemplateService, TenantRoleTemplate, TenantPermissionSet } from '@/services/rbac/tenantCustomization/TenantRoleTemplateService';
 import { useAuth } from '@/contexts/AuthContext';
-import { 
-  tenantRoleTemplateService, 
-  type TenantRoleTemplate, 
-  type TenantPermissionSet,
-  type TenantRBACConfiguration as TenantRBACConfigType
-} from '@/services/rbac/tenantCustomization/TenantRoleTemplateService';
-import { Plus, Trash2, Edit2, Settings, Shield } from 'lucide-react';
+import { toast } from "sonner";
 
 export function TenantRBACConfiguration() {
   const { tenantId } = useAuth();
-  const { toast } = useToast();
-  const [config, setConfig] = useState<TenantRBACConfigType | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [roleTemplates, setRoleTemplates] = useState<TenantRoleTemplate[]>([]);
+  const [permissionSets, setPermissionSets] = useState<TenantPermissionSet[]>([]);
   const [isCreatingTemplate, setIsCreatingTemplate] = useState(false);
   const [isCreatingPermissionSet, setIsCreatingPermissionSet] = useState(false);
-
-  // Form states
-  const [templateForm, setTemplateForm] = useState({
+  
+  const [newTemplate, setNewTemplate] = useState({
     name: '',
     description: '',
-    permissions: '',
+    permissions: [] as string[],
     isDefault: false
   });
 
-  const [permissionSetForm, setPermissionSetForm] = useState({
+  const [newPermissionSet, setNewPermissionSet] = useState({
     name: '',
     description: '',
-    permissions: '',
-    applicableRoles: '',
+    permissions: [] as string[],
+    applicableRoles: [] as string[],
     isActive: true
   });
 
   useEffect(() => {
-    loadConfiguration();
+    if (tenantId) {
+      loadTenantConfiguration();
+    }
   }, [tenantId]);
 
-  const loadConfiguration = async () => {
+  const loadTenantConfiguration = async () => {
     if (!tenantId) return;
     
     try {
-      setLoading(true);
-      const tenantConfig = await tenantRoleTemplateService.getTenantRBACConfiguration(tenantId);
-      setConfig(tenantConfig);
+      const config = await tenantRoleTemplateService.getTenantRBACConfiguration(tenantId);
+      setRoleTemplates(config.roleTemplates);
+      setPermissionSets(config.customPermissionSets);
     } catch (error) {
       console.error('Failed to load tenant configuration:', error);
-      toast({
-        title: "Error",
-        description: "Failed to load tenant RBAC configuration",
-        variant: "destructive"
-      });
-    } finally {
-      setLoading(false);
+      toast.error('Failed to load tenant configuration');
     }
   };
 
-  const handleCreateTemplate = async () => {
-    if (!tenantId || !templateForm.name.trim()) return;
+  const handleCreateRoleTemplate = async () => {
+    if (!tenantId || !newTemplate.name.trim()) return;
 
     try {
       const template = await tenantRoleTemplateService.createRoleTemplate(tenantId, {
+        ...newTemplate,
         tenantId,
-        name: templateForm.name,
-        description: templateForm.description,
-        permissions: templateForm.permissions.split(',').map(p => p.trim()).filter(Boolean),
-        isDefault: templateForm.isDefault,
         metadata: {}
       });
-
-      setConfig(prev => prev ? {
-        ...prev,
-        roleTemplates: [...prev.roleTemplates, template]
-      } : null);
-
-      setTemplateForm({ name: '', description: '', permissions: '', isDefault: false });
-      setIsCreatingTemplate(false);
       
-      toast({
-        title: "Success",
-        description: "Role template created successfully"
-      });
+      setRoleTemplates(prev => [...prev, template]);
+      setNewTemplate({ name: '', description: '', permissions: [], isDefault: false });
+      setIsCreatingTemplate(false);
+      toast.success('Role template created successfully');
     } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to create role template",
-        variant: "destructive"
-      });
+      console.error('Failed to create role template:', error);
+      toast.error('Failed to create role template');
     }
   };
 
   const handleCreatePermissionSet = async () => {
-    if (!tenantId || !permissionSetForm.name.trim()) return;
+    if (!tenantId || !newPermissionSet.name.trim()) return;
 
     try {
       const permissionSet = await tenantRoleTemplateService.createCustomPermissionSet(tenantId, {
+        ...newPermissionSet,
         tenantId,
-        name: permissionSetForm.name,
-        description: permissionSetForm.description,
-        permissions: permissionSetForm.permissions.split(',').map(p => p.trim()).filter(Boolean),
-        applicableRoles: permissionSetForm.applicableRoles.split(',').map(r => r.trim()).filter(Boolean),
-        isActive: permissionSetForm.isActive,
         metadata: {}
       });
-
-      setConfig(prev => prev ? {
-        ...prev,
-        customPermissionSets: [...prev.customPermissionSets, permissionSet]
-      } : null);
-
-      setPermissionSetForm({ name: '', description: '', permissions: '', applicableRoles: '', isActive: true });
-      setIsCreatingPermissionSet(false);
       
-      toast({
-        title: "Success",
-        description: "Permission set created successfully"
+      setPermissionSets(prev => [...prev, permissionSet]);
+      setNewPermissionSet({ 
+        name: '', 
+        description: '', 
+        permissions: [], 
+        applicableRoles: [], 
+        isActive: true 
       });
+      setIsCreatingPermissionSet(false);
+      toast.success('Permission set created successfully');
     } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to create permission set",
-        variant: "destructive"
-      });
+      console.error('Failed to create permission set:', error);
+      toast.error('Failed to create permission set');
     }
   };
 
-  if (loading) {
-    return (
-      <div className="space-y-6">
-        <div className="h-8 bg-gray-200 rounded animate-pulse" />
-        <div className="h-64 bg-gray-200 rounded animate-pulse" />
-      </div>
-    );
-  }
+  const addPermissionToTemplate = (permission: string) => {
+    if (!newTemplate.permissions.includes(permission)) {
+      setNewTemplate(prev => ({
+        ...prev,
+        permissions: [...prev.permissions, permission]
+      }));
+    }
+  };
 
-  if (!config) {
+  const removePermissionFromTemplate = (permission: string) => {
+    setNewTemplate(prev => ({
+      ...prev,
+      permissions: prev.permissions.filter(p => p !== permission)
+    }));
+  };
+
+  const availablePermissions = [
+    'read:users', 'write:users', 'delete:users',
+    'read:documents', 'write:documents', 'delete:documents',
+    'read:reports', 'write:reports', 'delete:reports',
+    'manage:settings', 'manage:billing', 'manage:integrations'
+  ];
+
+  if (!tenantId) {
     return (
-      <div className="text-center py-8">
-        <p className="text-muted-foreground">Failed to load tenant configuration</p>
-        <Button onClick={loadConfiguration} className="mt-4">Retry</Button>
-      </div>
+      <Card>
+        <CardContent className="p-6">
+          <p className="text-center text-muted-foreground">
+            Please select a tenant to configure RBAC settings.
+          </p>
+        </CardContent>
+      </Card>
     );
   }
 
   return (
     <div className="space-y-6">
-      {/* Role Templates Section */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Shield className="h-5 w-5" />
+      <Tabs defaultValue="templates" className="space-y-6">
+        <TabsList>
+          <TabsTrigger value="templates" className="flex items-center gap-2">
+            <Shield className="h-4 w-4" />
             Role Templates
-          </CardTitle>
-          <CardDescription>
-            Manage tenant-specific role templates with custom permission sets
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex justify-between items-center">
-            <p className="text-sm text-muted-foreground">
-              {config.roleTemplates.length} templates configured
-            </p>
-            <Button 
-              onClick={() => setIsCreatingTemplate(!isCreatingTemplate)}
-              size="sm"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Add Template
-            </Button>
-          </div>
+          </TabsTrigger>
+          <TabsTrigger value="permissions" className="flex items-center gap-2">
+            <Users className="h-4 w-4" />
+            Permission Sets
+          </TabsTrigger>
+          <TabsTrigger value="settings" className="flex items-center gap-2">
+            <Settings className="h-4 w-4" />
+            Configuration
+          </TabsTrigger>
+        </TabsList>
 
-          {isCreatingTemplate && (
-            <Card className="border-dashed">
-              <CardContent className="pt-6 space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="templateName">Template Name</Label>
-                    <Input
-                      id="templateName"
-                      value={templateForm.name}
-                      onChange={(e) => setTemplateForm(prev => ({ ...prev, name: e.target.value }))}
-                      placeholder="e.g., Project Manager"
-                    />
-                  </div>
-                  <div className="flex items-center space-x-2 pt-6">
-                    <Switch
-                      id="isDefault"
-                      checked={templateForm.isDefault}
-                      onCheckedChange={(checked) => setTemplateForm(prev => ({ ...prev, isDefault: checked }))}
-                    />
-                    <Label htmlFor="isDefault">Default Template</Label>
-                  </div>
-                </div>
-                
+        <TabsContent value="templates">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
                 <div>
-                  <Label htmlFor="templateDescription">Description</Label>
-                  <Textarea
-                    id="templateDescription"
-                    value={templateForm.description}
-                    onChange={(e) => setTemplateForm(prev => ({ ...prev, description: e.target.value }))}
-                    placeholder="Template description"
-                  />
+                  <CardTitle>Role Templates</CardTitle>
+                  <CardDescription>
+                    Manage tenant-specific role templates and their permissions
+                  </CardDescription>
                 </div>
-                
-                <div>
-                  <Label htmlFor="templatePermissions">Permissions (comma-separated)</Label>
-                  <Input
-                    id="templatePermissions"
-                    value={templateForm.permissions}
-                    onChange={(e) => setTemplateForm(prev => ({ ...prev, permissions: e.target.value }))}
-                    placeholder="users:read, projects:write, reports:read"
-                  />
-                </div>
-                
-                <div className="flex gap-2">
-                  <Button onClick={handleCreateTemplate} size="sm">
-                    Create Template
-                  </Button>
-                  <Button 
-                    onClick={() => setIsCreatingTemplate(false)} 
-                    variant="outline" 
-                    size="sm"
-                  >
-                    Cancel
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          <div className="space-y-2">
-            {config.roleTemplates.map((template) => (
-              <div key={template.id} className="flex items-center justify-between p-3 border rounded-lg">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2">
-                    <h4 className="font-medium">{template.name}</h4>
-                    {template.isDefault && <Badge variant="secondary">Default</Badge>}
-                  </div>
-                  <p className="text-sm text-muted-foreground">{template.description}</p>
-                  <div className="flex flex-wrap gap-1 mt-2">
-                    {template.permissions.slice(0, 3).map((permission) => (
-                      <Badge key={permission} variant="outline" className="text-xs">
-                        {permission}
-                      </Badge>
-                    ))}
-                    {template.permissions.length > 3 && (
-                      <Badge variant="outline" className="text-xs">
-                        +{template.permissions.length - 3} more
-                      </Badge>
-                    )}
-                  </div>
-                </div>
-                <Button variant="ghost" size="sm">
-                  <Edit2 className="h-4 w-4" />
+                <Button 
+                  onClick={() => setIsCreatingTemplate(true)}
+                  className="flex items-center gap-2"
+                >
+                  <Plus className="h-4 w-4" />
+                  Create Template
                 </Button>
               </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+            </CardHeader>
+            <CardContent>
+              {isCreatingTemplate && (
+                <Card className="mb-4">
+                  <CardHeader>
+                    <CardTitle className="text-lg">Create Role Template</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="template-name">Template Name</Label>
+                        <Input
+                          id="template-name"
+                          value={newTemplate.name}
+                          onChange={(e) => setNewTemplate(prev => ({ ...prev, name: e.target.value }))}
+                          placeholder="e.g., Content Editor"
+                        />
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Switch
+                          id="is-default"
+                          checked={newTemplate.isDefault}
+                          onCheckedChange={(checked) => setNewTemplate(prev => ({ ...prev, isDefault: checked }))}
+                        />
+                        <Label htmlFor="is-default">Default Template</Label>
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <Label htmlFor="template-description">Description</Label>
+                      <Textarea
+                        id="template-description"
+                        value={newTemplate.description}
+                        onChange={(e) => setNewTemplate(prev => ({ ...prev, description: e.target.value }))}
+                        placeholder="Describe the role template..."
+                      />
+                    </div>
 
-      {/* Custom Permission Sets Section */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Settings className="h-5 w-5" />
-            Custom Permission Sets
-          </CardTitle>
-          <CardDescription>
-            Define custom permission combinations for specific use cases
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex justify-between items-center">
-            <p className="text-sm text-muted-foreground">
-              {config.customPermissionSets.length} permission sets configured
-            </p>
-            <Button 
-              onClick={() => setIsCreatingPermissionSet(!isCreatingPermissionSet)}
-              size="sm"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Add Permission Set
-            </Button>
-          </div>
+                    <div>
+                      <Label>Permissions</Label>
+                      <div className="grid grid-cols-3 gap-2 mt-2">
+                        {availablePermissions.map(permission => (
+                          <Button
+                            key={permission}
+                            variant={newTemplate.permissions.includes(permission) ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => {
+                              if (newTemplate.permissions.includes(permission)) {
+                                removePermissionFromTemplate(permission);
+                              } else {
+                                addPermissionToTemplate(permission);
+                              }
+                            }}
+                          >
+                            {permission}
+                          </Button>
+                        ))}
+                      </div>
+                      <div className="flex flex-wrap gap-1 mt-2">
+                        {newTemplate.permissions.map(permission => (
+                          <Badge key={permission} variant="secondary" className="text-xs">
+                            {permission}
+                            <button
+                              onClick={() => removePermissionFromTemplate(permission)}
+                              className="ml-1 text-red-500 hover:text-red-700"
+                            >
+                              ×
+                            </button>
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
 
-          {isCreatingPermissionSet && (
-            <Card className="border-dashed">
-              <CardContent className="pt-6 space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="permSetName">Permission Set Name</Label>
-                    <Input
-                      id="permSetName"
-                      value={permissionSetForm.name}
-                      onChange={(e) => setPermissionSetForm(prev => ({ ...prev, name: e.target.value }))}
-                      placeholder="e.g., Advanced Analytics"
-                    />
-                  </div>
-                  <div className="flex items-center space-x-2 pt-6">
-                    <Switch
-                      id="isActive"
-                      checked={permissionSetForm.isActive}
-                      onCheckedChange={(checked) => setPermissionSetForm(prev => ({ ...prev, isActive: checked }))}
-                    />
-                    <Label htmlFor="isActive">Active</Label>
-                  </div>
-                </div>
-                
-                <div>
-                  <Label htmlFor="permSetDescription">Description</Label>
-                  <Textarea
-                    id="permSetDescription"
-                    value={permissionSetForm.description}
-                    onChange={(e) => setPermissionSetForm(prev => ({ ...prev, description: e.target.value }))}
-                    placeholder="Permission set description"
-                  />
-                </div>
-                
-                <div>
-                  <Label htmlFor="permSetPermissions">Permissions (comma-separated)</Label>
-                  <Input
-                    id="permSetPermissions"
-                    value={permissionSetForm.permissions}
-                    onChange={(e) => setPermissionSetForm(prev => ({ ...prev, permissions: e.target.value }))}
-                    placeholder="analytics:read, reports:export, data:analyze"
-                  />
-                </div>
-                
-                <div>
-                  <Label htmlFor="applicableRoles">Applicable Roles (comma-separated)</Label>
-                  <Input
-                    id="applicableRoles"
-                    value={permissionSetForm.applicableRoles}
-                    onChange={(e) => setPermissionSetForm(prev => ({ ...prev, applicableRoles: e.target.value }))}
-                    placeholder="manager, analyst, admin"
-                  />
-                </div>
-                
-                <div className="flex gap-2">
-                  <Button onClick={handleCreatePermissionSet} size="sm">
-                    Create Permission Set
-                  </Button>
-                  <Button 
-                    onClick={() => setIsCreatingPermissionSet(false)} 
-                    variant="outline" 
-                    size="sm"
-                  >
-                    Cancel
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          )}
+                    <div className="flex gap-2">
+                      <Button onClick={handleCreateRoleTemplate}>Create Template</Button>
+                      <Button variant="outline" onClick={() => setIsCreatingTemplate(false)}>
+                        Cancel
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
 
-          <div className="space-y-2">
-            {config.customPermissionSets.map((permSet) => (
-              <div key={permSet.id} className="flex items-center justify-between p-3 border rounded-lg">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2">
-                    <h4 className="font-medium">{permSet.name}</h4>
-                    <Badge variant={permSet.isActive ? "default" : "secondary"}>
-                      {permSet.isActive ? "Active" : "Inactive"}
-                    </Badge>
+              <div className="grid gap-4">
+                {roleTemplates.map(template => (
+                  <Card key={template.id}>
+                    <CardContent className="p-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h3 className="font-semibold">{template.name}</h3>
+                            {template.isDefault && (
+                              <Badge variant="secondary">Default</Badge>
+                            )}
+                          </div>
+                          <p className="text-sm text-muted-foreground">{template.description}</p>
+                          <div className="flex flex-wrap gap-1 mt-2">
+                            {template.permissions.map(permission => (
+                              <Badge key={permission} variant="outline" className="text-xs">
+                                {permission}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button variant="outline" size="sm">
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button variant="outline" size="sm">
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+
+                {roleTemplates.length === 0 && !isCreatingTemplate && (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Shield className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <p>No role templates configured</p>
+                    <p className="text-sm">Create your first role template to get started</p>
                   </div>
-                  <p className="text-sm text-muted-foreground">{permSet.description}</p>
-                  <div className="flex flex-wrap gap-1 mt-2">
-                    {permSet.permissions.slice(0, 3).map((permission) => (
-                      <Badge key={permission} variant="outline" className="text-xs">
-                        {permission}
-                      </Badge>
-                    ))}
-                    {permSet.permissions.length > 3 && (
-                      <Badge variant="outline" className="text-xs">
-                        +{permSet.permissions.length - 3} more
-                      </Badge>
-                    )}
-                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="permissions">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Custom Permission Sets</CardTitle>
+                  <CardDescription>
+                    Define custom permission sets for specific use cases
+                  </CardDescription>
                 </div>
-                <Button variant="ghost" size="sm">
-                  <Edit2 className="h-4 w-4" />
+                <Button 
+                  onClick={() => setIsCreatingPermissionSet(true)}
+                  className="flex items-center gap-2"
+                >
+                  <Plus className="h-4 w-4" />
+                  Create Permission Set
                 </Button>
               </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+            </CardHeader>
+            <CardContent>
+              {isCreatingPermissionSet && (
+                <Card className="mb-4">
+                  <CardHeader>
+                    <CardTitle className="text-lg">Create Permission Set</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="permset-name">Permission Set Name</Label>
+                        <Input
+                          id="permset-name"
+                          value={newPermissionSet.name}
+                          onChange={(e) => setNewPermissionSet(prev => ({ ...prev, name: e.target.value }))}
+                          placeholder="e.g., Document Management"
+                        />
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Switch
+                          id="permset-active"
+                          checked={newPermissionSet.isActive}
+                          onCheckedChange={(checked) => setNewPermissionSet(prev => ({ ...prev, isActive: checked }))}
+                        />
+                        <Label htmlFor="permset-active">Active</Label>
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <Label htmlFor="permset-description">Description</Label>
+                      <Textarea
+                        id="permset-description"
+                        value={newPermissionSet.description}
+                        onChange={(e) => setNewPermissionSet(prev => ({ ...prev, description: e.target.value }))}
+                        placeholder="Describe the permission set..."
+                      />
+                    </div>
 
-      {/* Customization Settings */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Customization Settings</CardTitle>
-          <CardDescription>
-            Configure tenant-specific RBAC behavior and restrictions
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 gap-6">
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <Label>Allow Custom Roles</Label>
-                  <p className="text-sm text-muted-foreground">
-                    Users can create custom roles
-                  </p>
-                </div>
-                <Switch checked={config.customizationSettings.allowCustomRoles} />
+                    <div className="flex gap-2">
+                      <Button onClick={handleCreatePermissionSet}>Create Permission Set</Button>
+                      <Button variant="outline" onClick={() => setIsCreatingPermissionSet(false)}>
+                        Cancel
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              <div className="grid gap-4">
+                {permissionSets.map(permSet => (
+                  <Card key={permSet.id}>
+                    <CardContent className="p-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h3 className="font-semibold">{permSet.name}</h3>
+                            <Badge variant={permSet.isActive ? "default" : "secondary"}>
+                              {permSet.isActive ? "Active" : "Inactive"}
+                            </Badge>
+                          </div>
+                          <p className="text-sm text-muted-foreground">{permSet.description}</p>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button variant="outline" size="sm">
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button variant="outline" size="sm">
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+
+                {permissionSets.length === 0 && !isCreatingPermissionSet && (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <p>No permission sets configured</p>
+                    <p className="text-sm">Create custom permission sets for specific workflows</p>
+                  </div>
+                )}
               </div>
-              
-              <div className="flex items-center justify-between">
-                <div>
-                  <Label>Allow Permission Modification</Label>
-                  <p className="text-sm text-muted-foreground">
-                    Users can modify permissions
-                  </p>
-                </div>
-                <Switch checked={config.customizationSettings.allowPermissionModification} />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="settings">
+          <Card>
+            <CardHeader>
+              <CardTitle>RBAC Configuration Settings</CardTitle>
+              <CardDescription>
+                Configure tenant-specific RBAC behavior and constraints
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="text-center py-8 text-muted-foreground">
+                <Settings className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p>RBAC configuration settings coming soon...</p>
+                <p className="text-sm">This will include role assignment rules, permission constraints, and approval workflows.</p>
               </div>
-            </div>
-            
-            <div className="space-y-4">
-              <div>
-                <Label>Max Roles Per User</Label>
-                <p className="text-sm text-muted-foreground">
-                  Current limit: {config.customizationSettings.maxRolesPerUser}
-                </p>
-              </div>
-              
-              <div className="flex items-center justify-between">
-                <div>
-                  <Label>Require Approval for Role Changes</Label>
-                  <p className="text-sm text-muted-foreground">
-                    Role changes need approval
-                  </p>
-                </div>
-                <Switch checked={config.customizationSettings.requireApprovalForRoleChanges} />
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

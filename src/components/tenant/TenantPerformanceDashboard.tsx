@@ -1,506 +1,452 @@
 
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
 import { 
-  LineChart, 
-  Line, 
-  AreaChart, 
-  Area, 
-  BarChart, 
-  Bar, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell
-} from 'recharts';
-import { 
-  Activity, 
-  Clock, 
   Database, 
-  TrendingUp, 
-  AlertTriangle, 
-  CheckCircle,
-  Users,
-  Zap,
-  BarChart3
-} from 'lucide-react';
+  Clock, 
+  Users, 
+  Zap, 
+  Activity, 
+  BarChart3, 
+  AlertTriangle,
+  TrendingUp,
+  Server,
+  Memory
+} from "lucide-react";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
+import { useAuth } from '@/contexts/AuthContext';
 
-interface TenantMetrics {
-  tenantId: string;
+interface PerformanceMetrics {
   cacheHitRate: number;
   avgResponseTime: number;
+  activeConnections: number;
   memoryUsage: number;
-  activeUsers: number;
-  requestCount: number;
+  queryCount: number;
   errorRate: number;
 }
 
-interface PerformanceData {
-  timestamp: string;
+interface ChartDataPoint {
+  time: string;
   responseTime: number;
   cacheHitRate: number;
-  memoryUsage: number;
-  activeUsers: number;
+  connections: number;
 }
 
 interface ResourceUsage {
-  category: string;
-  usage: number;
-  limit: number;
-  percentage: number;
-}
-
-interface AlertData {
-  id: string;
-  type: 'warning' | 'error' | 'info';
-  message: string;
-  timestamp: string;
+  cpu: number;
+  memory: number;
+  storage: number;
+  bandwidth: number;
 }
 
 export function TenantPerformanceDashboard() {
-  const [selectedTenant, setSelectedTenant] = useState<string>('tenant-1');
-  const [timeRange, setTimeRange] = useState<string>('24h');
-  const [metrics, setMetrics] = useState<TenantMetrics | null>(null);
-  const [performanceData, setPerformanceData] = useState<PerformanceData[]>([]);
-  const [resourceUsage, setResourceUsage] = useState<ResourceUsage[]>([]);
-  const [alerts, setAlerts] = useState<AlertData[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { tenantId } = useAuth();
+  const [metrics, setMetrics] = useState<PerformanceMetrics>({
+    cacheHitRate: 94.2,
+    avgResponseTime: 12.5,
+    activeConnections: 28,
+    memoryUsage: 68.5,
+    queryCount: 1247,
+    errorRate: 0.3
+  });
+
+  const [resourceUsage, setResourceUsage] = useState<ResourceUsage>({
+    cpu: 35.2,
+    memory: 62.8,
+    storage: 45.1,
+    bandwidth: 28.7
+  });
+
+  const [chartData, setChartData] = useState<ChartDataPoint[]>([]);
 
   useEffect(() => {
-    loadTenantMetrics();
-    loadPerformanceData();
-    loadResourceUsage();
-    loadAlerts();
-  }, [selectedTenant, timeRange]);
-
-  const loadTenantMetrics = async () => {
-    try {
-      // Simulate API call
-      const mockMetrics: TenantMetrics = {
-        tenantId: selectedTenant,
-        cacheHitRate: 94.5,
-        avgResponseTime: 12.3,
-        memoryUsage: 67.8,
-        activeUsers: 142,
-        requestCount: 15847,
-        errorRate: 0.12
-      };
-      setMetrics(mockMetrics);
-    } catch (error) {
-      console.error('Failed to load tenant metrics:', error);
-    }
-  };
-
-  const loadPerformanceData = async () => {
-    try {
-      // Generate mock time series data
+    // Simulate real-time data updates
+    const generateChartData = () => {
+      const data: ChartDataPoint[] = [];
       const now = new Date();
-      const data: PerformanceData[] = Array.from({ length: 24 }, (_, i) => {
-        const timestamp = new Date(now.getTime() - (23 - i) * 60 * 60 * 1000);
-        return {
-          timestamp: timestamp.toISOString().slice(11, 16),
-          responseTime: Math.random() * 20 + 5,
-          cacheHitRate: Math.random() * 10 + 90,
-          memoryUsage: Math.random() * 20 + 60,
-          activeUsers: Math.floor(Math.random() * 50 + 100)
-        };
-      });
-      setPerformanceData(data);
-    } catch (error) {
-      console.error('Failed to load performance data:', error);
+      
+      for (let i = 23; i >= 0; i--) {
+        const time = new Date(now.getTime() - i * 60 * 60 * 1000);
+        data.push({
+          time: time.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+          responseTime: 8 + Math.random() * 15,
+          cacheHitRate: 85 + Math.random() * 15,
+          connections: 15 + Math.random() * 25
+        });
+      }
+      return data;
+    };
+
+    setChartData(generateChartData());
+
+    const interval = setInterval(() => {
+      // Update metrics with some variation
+      setMetrics(prev => ({
+        cacheHitRate: Math.max(85, Math.min(100, prev.cacheHitRate + (Math.random() - 0.5) * 2)),
+        avgResponseTime: Math.max(5, Math.min(30, prev.avgResponseTime + (Math.random() - 0.5) * 3)),
+        activeConnections: Math.max(10, Math.min(50, prev.activeConnections + Math.floor((Math.random() - 0.5) * 6))),
+        memoryUsage: Math.max(30, Math.min(90, prev.memoryUsage + (Math.random() - 0.5) * 4)),
+        queryCount: prev.queryCount + Math.floor(Math.random() * 10),
+        errorRate: Math.max(0, Math.min(5, prev.errorRate + (Math.random() - 0.5) * 0.2))
+      }));
+
+      setResourceUsage(prev => ({
+        cpu: Math.max(10, Math.min(80, prev.cpu + (Math.random() - 0.5) * 5)),
+        memory: Math.max(20, Math.min(90, prev.memory + (Math.random() - 0.5) * 3)),
+        storage: Math.max(20, Math.min(95, prev.storage + (Math.random() - 0.5) * 1)),
+        bandwidth: Math.max(5, Math.min(70, prev.bandwidth + (Math.random() - 0.5) * 8))
+      }));
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  const getStatusColor = (value: number, thresholds: { warning: number; critical: number }, inverse = false) => {
+    if (inverse) {
+      if (value >= thresholds.critical) return 'text-red-600';
+      if (value >= thresholds.warning) return 'text-yellow-600';
+      return 'text-green-600';
+    } else {
+      if (value <= thresholds.critical) return 'text-red-600';
+      if (value <= thresholds.warning) return 'text-yellow-600';
+      return 'text-green-600';
     }
   };
 
-  const loadResourceUsage = async () => {
-    try {
-      const mockResourceUsage: ResourceUsage[] = [
-        { category: 'Memory', usage: 6.8, limit: 10, percentage: 68 },
-        { category: 'CPU', usage: 3.2, limit: 8, percentage: 40 },
-        { category: 'Storage', usage: 45.6, limit: 100, percentage: 46 },
-        { category: 'Bandwidth', usage: 12.3, limit: 50, percentage: 25 },
-        { category: 'API Calls', usage: 15847, limit: 50000, percentage: 32 }
-      ];
-      setResourceUsage(mockResourceUsage);
-    } catch (error) {
-      console.error('Failed to load resource usage:', error);
-    }
+  const getProgressColor = (value: number, thresholds: { warning: number; critical: number }) => {
+    if (value >= thresholds.critical) return 'bg-red-500';
+    if (value >= thresholds.warning) return 'bg-yellow-500';
+    return 'bg-green-500';
   };
 
-  const loadAlerts = async () => {
-    try {
-      const mockAlerts: AlertData[] = [
-        {
-          id: '1',
-          type: 'warning',
-          message: 'Cache hit rate below 95% threshold',
-          timestamp: '10:30 AM'
-        },
-        {
-          id: '2',
-          type: 'info',
-          message: 'Performance optimization completed',
-          timestamp: '09:15 AM'
-        }
-      ];
-      setAlerts(mockAlerts);
-    } catch (error) {
-      console.error('Failed to load alerts:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const getStatusColor = (value: number, threshold: number) => {
-    if (value >= threshold) return 'text-green-600';
-    if (value >= threshold * 0.8) return 'text-yellow-600';
-    return 'text-red-600';
-  };
-
-  const getAlertIcon = (type: string) => {
-    switch (type) {
-      case 'error':
-        return <AlertTriangle className="h-4 w-4 text-red-500" />;
-      case 'warning':
-        return <AlertTriangle className="h-4 w-4 text-yellow-500" />;
-      default:
-        return <CheckCircle className="h-4 w-4 text-blue-500" />;
-    }
-  };
-
-  if (loading) {
+  if (!tenantId) {
     return (
-      <div className="space-y-6">
-        <div className="animate-pulse">
-          <div className="h-8 bg-gray-200 rounded w-1/4 mb-4"></div>
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="h-32 bg-gray-200 rounded"></div>
-            ))}
-          </div>
-        </div>
-      </div>
+      <Card>
+        <CardContent className="p-6">
+          <p className="text-center text-muted-foreground">
+            Please select a tenant to view performance metrics.
+          </p>
+        </CardContent>
+      </Card>
     );
   }
 
-  const pieData = resourceUsage.map((item, index) => ({
-    name: item.category,
-    value: item.percentage,
-    color: [
-      '#8884d8',
-      '#82ca9d', 
-      '#ffc658',
-      '#ff7300',
-      '#00ff00'
-    ][index % 5]
-  }));
-
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h2 className="text-2xl font-bold tracking-tight">Tenant Performance Dashboard</h2>
-          <p className="text-muted-foreground">
-            Monitor performance metrics and resource usage for tenant: {selectedTenant}
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <select 
-            value={timeRange} 
-            onChange={(e) => setTimeRange(e.target.value)}
-            className="border rounded px-3 py-1"
-          >
-            <option value="1h">Last Hour</option>
-            <option value="24h">Last 24 Hours</option>
-            <option value="7d">Last 7 Days</option>
-            <option value="30d">Last 30 Days</option>
-          </select>
-          <Button onClick={() => window.location.reload()} size="sm">
-            Refresh
-          </Button>
-        </div>
-      </div>
-
-      {alerts.length > 0 && (
-        <div className="space-y-2">
-          {alerts.map((alert) => (
-            <Alert key={alert.id}>
-              <div className="flex items-center gap-2">
-                {getAlertIcon(alert.type)}
-                <AlertDescription>
-                  {alert.message} - {alert.timestamp}
-                </AlertDescription>
-              </div>
-            </Alert>
-          ))}
-        </div>
-      )}
-
-      {metrics && (
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Cache Hit Rate</CardTitle>
-              <Activity className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className={`text-2xl font-bold ${getStatusColor(metrics.cacheHitRate, 95)}`}>
-                {metrics.cacheHitRate.toFixed(1)}%
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Target: 95%+
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Avg Response Time</CardTitle>
-              <Clock className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className={`text-2xl font-bold ${getStatusColor(50 - metrics.avgResponseTime, 35)}`}>
-                {metrics.avgResponseTime.toFixed(1)}ms
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Target: &lt;15ms
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Memory Usage</CardTitle>
-              <Database className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className={`text-2xl font-bold ${getStatusColor(100 - metrics.memoryUsage, 20)}`}>
-                {metrics.memoryUsage.toFixed(1)}%
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Target: &lt;80%
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Active Users</CardTitle>
-              <Users className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-blue-600">
-                {metrics.activeUsers.toLocaleString()}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Real-time count
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
-      <Tabs defaultValue="performance" className="space-y-6">
+      <Tabs defaultValue="overview" className="space-y-6">
         <TabsList>
-          <TabsTrigger value="performance" className="flex items-center gap-2">
-            <TrendingUp className="h-4 w-4" />
-            Performance Trends
+          <TabsTrigger value="overview" className="flex items-center gap-2">
+            <Activity className="h-4 w-4" />
+            Overview
+          </TabsTrigger>
+          <TabsTrigger value="cache" className="flex items-center gap-2">
+            <Database className="h-4 w-4" />
+            Cache Performance
           </TabsTrigger>
           <TabsTrigger value="resources" className="flex items-center gap-2">
-            <BarChart3 className="h-4 w-4" />
+            <Server className="h-4 w-4" />
             Resource Usage
           </TabsTrigger>
-          <TabsTrigger value="optimization" className="flex items-center gap-2">
-            <Zap className="h-4 w-4" />
-            Optimization
+          <TabsTrigger value="analytics" className="flex items-center gap-2">
+            <BarChart3 className="h-4 w-4" />
+            Analytics
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="performance">
-          <div className="grid gap-6 lg:grid-cols-2">
+        <TabsContent value="overview">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             <Card>
-              <CardHeader>
-                <CardTitle>Response Time Trend</CardTitle>
-                <CardDescription>
-                  Average response times over the selected period
-                </CardDescription>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Cache Hit Rate</CardTitle>
+                <Zap className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  <LineChart data={performanceData}>
+                <div className={`text-2xl font-bold ${getStatusColor(metrics.cacheHitRate, { warning: 90, critical: 85 })}`}>
+                  {metrics.cacheHitRate.toFixed(1)}%
+                </div>
+                <Progress value={metrics.cacheHitRate} className="mt-2" />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Target: ≥95%
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Avg Response Time</CardTitle>
+                <Clock className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className={`text-2xl font-bold ${getStatusColor(metrics.avgResponseTime, { warning: 20, critical: 30 }, true)}`}>
+                  {metrics.avgResponseTime.toFixed(1)}ms
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Target: ≤15ms
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Active Connections</CardTitle>
+                <Users className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  {metrics.activeConnections}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Concurrent database connections
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Error Rate</CardTitle>
+                <AlertTriangle className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className={`text-2xl font-bold ${getStatusColor(metrics.errorRate, { warning: 1, critical: 2 }, true)}`}>
+                  {metrics.errorRate.toFixed(1)}%
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Target: ≤0.5%
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Performance Trends</CardTitle>
+              <CardDescription>
+                Real-time performance metrics over the last 24 hours
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="h-80">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={chartData}>
                     <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="timestamp" />
-                    <YAxis />
-                    <Tooltip 
-                      formatter={(value: number) => [`${value.toFixed(1)}ms`, 'Response Time']}
-                    />
+                    <XAxis dataKey="time" />
+                    <YAxis yAxisId="left" />
+                    <YAxis yAxisId="right" orientation="right" />
+                    <Tooltip />
                     <Line 
+                      yAxisId="left"
                       type="monotone" 
                       dataKey="responseTime" 
                       stroke="#8884d8" 
                       strokeWidth={2}
+                      name="Response Time (ms)"
+                    />
+                    <Line 
+                      yAxisId="right"
+                      type="monotone" 
+                      dataKey="cacheHitRate" 
+                      stroke="#82ca9d" 
+                      strokeWidth={2}
+                      name="Cache Hit Rate (%)"
                     />
                   </LineChart>
                 </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="cache">
+          <div className="grid gap-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Cache Performance Details</CardTitle>
+                <CardDescription>
+                  Detailed cache performance metrics and optimization suggestions
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Hit Rate</Label>
+                    <div className="text-2xl font-bold text-green-600">
+                      {metrics.cacheHitRate.toFixed(1)}%
+                    </div>
+                    <Progress value={metrics.cacheHitRate} className="h-2" />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Total Queries</Label>
+                    <div className="text-2xl font-bold">
+                      {metrics.queryCount.toLocaleString()}
+                    </div>
+                    <p className="text-xs text-muted-foreground">Last 24 hours</p>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Memory Usage</Label>
+                    <div className="text-2xl font-bold">
+                      {metrics.memoryUsage.toFixed(1)}%
+                    </div>
+                    <Progress value={metrics.memoryUsage} className="h-2" />
+                  </div>
+                </div>
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader>
-                <CardTitle>Cache Performance</CardTitle>
-                <CardDescription>
-                  Cache hit rate percentage over time
-                </CardDescription>
+                <CardTitle>Cache Optimization Recommendations</CardTitle>
               </CardHeader>
               <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  <AreaChart data={performanceData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="timestamp" />
-                    <YAxis domain={[85, 100]} />
-                    <Tooltip 
-                      formatter={(value: number) => [`${value.toFixed(1)}%`, 'Hit Rate']}
-                    />
-                    <Area 
-                      type="monotone" 
-                      dataKey="cacheHitRate" 
-                      stroke="#82ca9d" 
-                      fill="#82ca9d" 
-                      fillOpacity={0.3}
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
+                <div className="space-y-4">
+                  <div className="flex items-start gap-3">
+                    <TrendingUp className="h-5 w-5 text-green-600 mt-0.5" />
+                    <div>
+                      <p className="font-medium">Cache hit rate is performing well</p>
+                      <p className="text-sm text-muted-foreground">
+                        Current rate of {metrics.cacheHitRate.toFixed(1)}% exceeds the 90% threshold
+                      </p>
+                    </div>
+                  </div>
+                  
+                  {metrics.avgResponseTime > 15 && (
+                    <div className="flex items-start gap-3">
+                      <AlertTriangle className="h-5 w-5 text-yellow-600 mt-0.5" />
+                      <div>
+                        <p className="font-medium">Response time could be improved</p>
+                        <p className="text-sm text-muted-foreground">
+                          Consider optimizing frequently accessed queries or increasing cache size
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </CardContent>
             </Card>
           </div>
         </TabsContent>
 
         <TabsContent value="resources">
-          <div className="grid gap-6 lg:grid-cols-2">
-            <Card>
-              <CardHeader>
-                <CardTitle>Resource Usage Overview</CardTitle>
-                <CardDescription>
-                  Current resource consumption across categories
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {resourceUsage.map((resource) => (
-                    <div key={resource.category} className="space-y-2">
-                      <div className="flex justify-between">
-                        <span className="text-sm font-medium">{resource.category}</span>
-                        <span className="text-sm text-muted-foreground">
-                          {resource.category === 'API Calls' 
-                            ? `${resource.usage.toLocaleString()} / ${resource.limit.toLocaleString()}`
-                            : `${resource.usage} / ${resource.limit} GB`
-                          }
-                        </span>
-                      </div>
-                      <Progress value={resource.percentage} className="h-2" />
-                      <div className="text-xs text-muted-foreground">
-                        {resource.percentage}% utilized
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+          <div className="grid gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">CPU Usage</CardTitle>
+                  <Activity className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    {resourceUsage.cpu.toFixed(1)}%
+                  </div>
+                  <Progress 
+                    value={resourceUsage.cpu} 
+                    className="mt-2"
+                  />
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Memory Usage</CardTitle>
+                  <Memory className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    {resourceUsage.memory.toFixed(1)}%
+                  </div>
+                  <Progress 
+                    value={resourceUsage.memory} 
+                    className="mt-2"
+                  />
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Storage Usage</CardTitle>
+                  <Database className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    {resourceUsage.storage.toFixed(1)}%
+                  </div>
+                  <Progress 
+                    value={resourceUsage.storage} 
+                    className="mt-2"
+                  />
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Bandwidth Usage</CardTitle>
+                  <Server className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    {resourceUsage.bandwidth.toFixed(1)}%
+                  </div>
+                  <Progress 
+                    value={resourceUsage.bandwidth} 
+                    className="mt-2"
+                  />
+                </CardContent>
+              </Card>
+            </div>
 
             <Card>
               <CardHeader>
-                <CardTitle>Resource Distribution</CardTitle>
+                <CardTitle>Resource Usage Over Time</CardTitle>
                 <CardDescription>
-                  Percentage breakdown of resource usage
+                  Track resource consumption patterns to optimize performance
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  <PieChart>
-                    <Pie
-                      data={pieData}
-                      cx="50%"
-                      cy="50%"
-                      outerRadius={80}
-                      dataKey="value"
-                      label={({ name, value }) => `${name}: ${value}%`}
-                    >
-                      {pieData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip formatter={(value: number) => `${value}%`} />
-                  </PieChart>
-                </ResponsiveContainer>
+                <div className="h-80">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={chartData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="time" />
+                      <YAxis />
+                      <Tooltip />
+                      <Bar dataKey="connections" fill="#8884d8" name="Connections" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
               </CardContent>
             </Card>
           </div>
         </TabsContent>
 
-        <TabsContent value="optimization">
-          <div className="grid gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Performance Optimization Recommendations</CardTitle>
-                <CardDescription>
-                  AI-powered suggestions to improve tenant performance
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="border rounded-lg p-4">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Badge variant="secondary">Cache Optimization</Badge>
-                      <span className="text-sm text-green-600">High Impact</span>
-                    </div>
-                    <p className="text-sm text-muted-foreground">
-                      Consider implementing cache warming for frequently accessed permissions. 
-                      Current hit rate of 94.5% could be improved to 98%+ with optimized warming strategies.
-                    </p>
-                    <Button size="sm" className="mt-2">Apply Optimization</Button>
-                  </div>
-
-                  <div className="border rounded-lg p-4">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Badge variant="secondary">Memory Management</Badge>
-                      <span className="text-sm text-yellow-600">Medium Impact</span>
-                    </div>
-                    <p className="text-sm text-muted-foreground">
-                      Memory usage is at 67.8%. Consider implementing LRU eviction policies 
-                      and optimizing permission object structures to reduce memory footprint.
-                    </p>
-                    <Button size="sm" variant="outline" className="mt-2">
-                      Schedule Optimization
-                    </Button>
-                  </div>
-
-                  <div className="border rounded-lg p-4">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Badge variant="secondary">Query Optimization</Badge>
-                      <span className="text-sm text-blue-600">Low Impact</span>
-                    </div>
-                    <p className="text-sm text-muted-foreground">
-                      Database query patterns show room for improvement. Consider adding 
-                      composite indexes for tenant-specific permission lookups.
-                    </p>
-                    <Button size="sm" variant="outline" className="mt-2">
-                      Review Queries
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+        <TabsContent value="analytics">
+          <Card>
+            <CardHeader>
+              <CardTitle>Performance Analytics</CardTitle>
+              <CardDescription>
+                Advanced analytics and insights for performance optimization
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="text-center py-8 text-muted-foreground">
+                <BarChart3 className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p>Advanced analytics coming soon...</p>
+                <p className="text-sm">
+                  This will include detailed performance reports, trend analysis, and optimization recommendations.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
     </div>
   );
+}
+
+function Label({ children, className }: { children: React.ReactNode; className?: string }) {
+  return <label className={className}>{children}</label>;
 }
