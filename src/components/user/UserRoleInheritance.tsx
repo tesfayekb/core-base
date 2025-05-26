@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -10,8 +9,8 @@ interface UserRoleInheritanceProps {
 }
 
 export function UserRoleInheritance({ user }: UserRoleInheritanceProps) {
-  const systemRoles = user.roles?.filter(role => role.is_system_role) || [];
-  const customRoles = user.roles?.filter(role => !role.is_system_role) || [];
+  const systemRoles = user.roles?.filter(role => role.is_system_role === true) || [];
+  const customRoles = user.roles?.filter(role => role.is_system_role === false) || [];
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
