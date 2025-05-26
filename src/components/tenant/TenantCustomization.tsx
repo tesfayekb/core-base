@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Palette, Save, Plus, X } from 'lucide-react';
-import { tenantCustomizationService, TenantCustomization } from '@/services/tenant/TenantCustomizationService';
+import { tenantCustomizationService, type TenantCustomization } from '@/services/tenant/TenantCustomizationService';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
 

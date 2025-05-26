@@ -95,7 +95,7 @@ export class EnhancedTenantManagementService {
         );
       }
 
-      // Set up default workflows
+      // Set up default workflows - Fix: Use correct number of arguments
       await tenantWorkflowService.createWorkflow(
         tenant.id,
         'user_onboarding',
@@ -104,13 +104,7 @@ export class EnhancedTenantManagementService {
           send_welcome_email: true,
           assign_default_role: 'user',
           require_email_verification: true
-        },
-        ['user_created'],
-        [
-          { step: 'send_welcome_email', order: 1 },
-          { step: 'assign_default_role', order: 2 },
-          { step: 'send_verification_email', order: 3 }
-        ]
+        }
       );
 
       // Create initial backup
