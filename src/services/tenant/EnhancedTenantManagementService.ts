@@ -16,8 +16,8 @@ export interface EnhancedTenantConfig {
   quotas: any[];
   usage: any[];
   workflows: any[];
-  created_at: Date;
-  updated_at: Date;
+  created_at: string;
+  updated_at: string;
 }
 
 export class EnhancedTenantManagementService {
@@ -49,7 +49,9 @@ export class EnhancedTenantManagementService {
         customizations: this.groupCustomizations(customizations),
         quotas,
         usage,
-        workflows
+        workflows,
+        created_at: tenant.createdAt.toISOString(),
+        updated_at: tenant.updatedAt.toISOString()
       };
     } catch (error) {
       console.error('Failed to get enhanced tenant:', error);
@@ -76,7 +78,7 @@ export class EnhancedTenantManagementService {
   ): Promise<EnhancedTenantConfig> {
     try {
       // Create base tenant
-      const tenant = await tenantManagementService.createTenant(name, slug, domain, initialConfig);
+      const tenant = await tenantManagementService.createTenant(name, slug, initialConfig, domain);
       
       // Set up default quotas
       const defaultQuotas = [

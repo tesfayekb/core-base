@@ -1,5 +1,4 @@
-
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '../database/connection';
 
 export interface ConfigurationBackup {
   id: string;
