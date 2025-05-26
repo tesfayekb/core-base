@@ -1,353 +1,428 @@
 
-import React, { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import React, { useState, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
+import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { 
-  BarChart3, 
-  Users, 
-  Activity, 
-  Shield, 
-  TrendingUp, 
-  Clock,
-  AlertTriangle,
-  Calendar,
-  Eye
-} from 'lucide-react';
-import { userAnalyticsService } from '@/services/analytics/UserAnalyticsService';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell } from 'recharts';
+import { Users, Activity, Shield, TrendingUp, AlertTriangle, Clock, BarChart3, Calendar } from 'lucide-react';
+import { userAnalyticsService, TenantAnalytics, UserActivityMetric, UsagePattern, SecurityEvent, AnalyticsTimeRange } from '@/services/analytics/UserAnalyticsService';
+import { useAuth } from '@/contexts/AuthContext';
 
-interface UserAnalyticsDashboardProps {
-  tenantId: string;
-  userId?: string;
-}
+export function UserAnalyticsDashboard() {
+  const { tenantId } = useAuth();
+  const [analytics, setAnalytics] = useState<TenantAnalytics | null>(null);
+  const [activityMetrics, setActivityMetrics] = useState<UserActivityMetric[]>([]);
+  const [usagePatterns, setUsagePatterns] = useState<UsagePattern[]>([]);
+  const [securityEvents, setSecurityEvents] = useState<SecurityEvent[]>([]);
+  const [timeRange, setTimeRange] = useState<AnalyticsTimeRange>('30d');
+  const [loading, setLoading] = useState(true);
 
-export function UserAnalyticsDashboard({ tenantId, userId }: UserAnalyticsDashboardProps) {
-  const [timeRange, setTimeRange] = useState('30');
-  const [selectedMetric, setSelectedMetric] = useState('overview');
+  useEffect(() => {
+    loadAnalytics();
+  }, [tenantId, timeRange]);
 
-  // Fetch tenant analytics
-  const { data: tenantAnalytics, isLoading: tenantLoading } = useQuery({
-    queryKey: ['tenant-analytics', tenantId],
-    queryFn: () => userAnalyticsService.getTenantAnalytics(tenantId),
-    enabled: !!tenantId
-  });
+  const loadAnalytics = async () => {
+    if (!tenantId) return;
 
-  // Fetch user metrics if userId is provided
-  const { data: userMetrics, isLoading: userLoading } = useQuery({
-    queryKey: ['user-metrics', userId, tenantId],
-    queryFn: () => userId ? userAnalyticsService.getUserActivityMetrics(userId, tenantId) : null,
-    enabled: !!userId && !!tenantId
-  });
+    try {
+      setLoading(true);
+      const [analyticsData, activityData, patternsData, securityData] = await Promise.all([
+        userAnalyticsService.getTenantAnalytics(tenantId, timeRange),
+        userAnalyticsService.getUserActivityMetrics(tenantId, timeRange),
+        userAnalyticsService.getUsagePatterns(tenantId, timeRange),
+        userAnalyticsService.getSecurityEventCorrelation(tenantId, timeRange)
+      ]);
 
-  // Fetch usage patterns
-  const { data: usagePatterns, isLoading: patternsLoading } = useQuery({
-    queryKey: ['usage-patterns', tenantId, timeRange],
-    queryFn: () => userAnalyticsService.getUsagePatterns(tenantId, parseInt(timeRange)),
-    enabled: !!tenantId
-  });
-
-  // Fetch security correlations
-  const { data: securityCorrelations, isLoading: securityLoading } = useQuery({
-    queryKey: ['security-correlations', tenantId],
-    queryFn: () => userAnalyticsService.getSecurityEventCorrelation(tenantId),
-    enabled: !!tenantId
-  });
-
-  const formatDuration = (minutes: number) => {
-    if (minutes < 60) return `${minutes}m`;
-    return `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
+      setAnalytics(analyticsData);
+      setActivityMetrics(activityData);
+      setUsagePatterns(patternsData);
+      setSecurityEvents(securityData);
+    } catch (error) {
+      console.error('Failed to load analytics:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const getRiskBadgeVariant = (score: number) => {
-    if (score >= 70) return 'destructive';
-    if (score >= 40) return 'outline';
-    return 'secondary';
+  const handleTimeRangeChange = (value: string) => {
+    if (['7d', '30d', '90d', '1y'].includes(value)) {
+      setTimeRange(value as AnalyticsTimeRange);
+    }
   };
 
-  const getRiskLabel = (score: number) => {
-    if (score >= 70) return 'High Risk';
-    if (score >= 40) return 'Medium Risk';
-    return 'Low Risk';
-  };
+  if (loading) {
+    return <div className="p-6">Loading analytics...</div>;
+  }
+
+  if (!analytics) {
+    return <div className="p-6">Failed to load analytics</div>;
+  }
+
+  const colors = ['#8884d8', '#82ca9d', '#ffc658', '#ff7c7c', '#8dd1e1'];
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-2">
-          <BarChart3 className="h-5 w-5" />
-          <h2 className="text-2xl font-bold">Analytics Dashboard</h2>
+      <div className="flex justify-between items-center">
+        <div>
+          <h2 className="text-3xl font-bold tracking-tight">User Analytics</h2>
+          <p className="text-muted-foreground">Comprehensive user activity and system insights</p>
         </div>
-        <div className="flex items-center space-x-2">
-          <Select value={timeRange} onValueChange={setTimeRange}>
-            <SelectTrigger className="w-40">
-              <SelectValue />
+        <div className="flex items-center space-x-4">
+          <Select value={timeRange} onValueChange={handleTimeRangeChange}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Select time range" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="7">Last 7 days</SelectItem>
-              <SelectItem value="30">Last 30 days</SelectItem>
-              <SelectItem value="90">Last 90 days</SelectItem>
+              <SelectItem value="7d">Last 7 days</SelectItem>
+              <SelectItem value="30d">Last 30 days</SelectItem>
+              <SelectItem value="90d">Last 90 days</SelectItem>
+              <SelectItem value="1y">Last year</SelectItem>
             </SelectContent>
           </Select>
+          <Button onClick={loadAnalytics} variant="outline">
+            Refresh
+          </Button>
         </div>
       </div>
 
-      <Tabs value={selectedMetric} onValueChange={setSelectedMetric}>
-        <TabsList className="grid w-full grid-cols-4">
+      <Tabs defaultValue="overview" className="space-y-4">
+        <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="users">User Activity</TabsTrigger>
+          <TabsTrigger value="activity">User Activity</TabsTrigger>
           <TabsTrigger value="patterns">Usage Patterns</TabsTrigger>
           <TabsTrigger value="security">Security Events</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="overview" className="space-y-6">
-          {/* Tenant Overview */}
-          {tenantAnalytics && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <Card>
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground">Active Users</p>
-                      <p className="text-2xl font-bold">{tenantAnalytics.activeUsers}</p>
-                    </div>
-                    <Users className="h-8 w-8 text-muted-foreground" />
-                  </div>
-                </CardContent>
-              </Card>
+        <TabsContent value="overview" className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Total Users</CardTitle>
+                <Users className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{analytics.totalUsers}</div>
+                <p className="text-xs text-muted-foreground">
+                  +{analytics.userGrowthRate}% from last period
+                </p>
+              </CardContent>
+            </Card>
 
-              <Card>
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground">Total Sessions</p>
-                      <p className="text-2xl font-bold">{tenantAnalytics.totalSessions}</p>
-                    </div>
-                    <Activity className="h-8 w-8 text-muted-foreground" />
-                  </div>
-                </CardContent>
-              </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Active Users</CardTitle>
+                <Activity className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{analytics.activeUsers}</div>
+                <p className="text-xs text-muted-foreground">
+                  {analytics.averageUserEngagement}% engagement rate
+                </p>
+              </CardContent>
+            </Card>
 
-              <Card>
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground">Avg Engagement</p>
-                      <p className="text-2xl font-bold">{tenantAnalytics.averageUserEngagement.toFixed(1)}</p>
-                    </div>
-                    <TrendingUp className="h-8 w-8 text-muted-foreground" />
-                  </div>
-                </CardContent>
-              </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Security Alerts</CardTitle>
+                <AlertTriangle className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{analytics.securityAlerts}</div>
+                <p className="text-xs text-muted-foreground">
+                  Requiring attention
+                </p>
+              </CardContent>
+            </Card>
 
-              <Card>
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground">Security Alerts</p>
-                      <p className="text-2xl font-bold">{tenantAnalytics.securityAlerts}</p>
-                    </div>
-                    <Shield className="h-8 w-8 text-muted-foreground" />
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          )}
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Avg Session</CardTitle>
+                <Clock className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  {Math.round(analytics.averageSessionDuration / 60)}m
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {analytics.topFeatures.length} features active
+                </p>
+              </CardContent>
+            </Card>
+          </div>
 
-          {/* Top Features */}
-          {tenantAnalytics && (
+          <div className="grid gap-4 md:grid-cols-2">
             <Card>
               <CardHeader>
                 <CardTitle>Top Features</CardTitle>
+                <CardDescription>Most used features by your users</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-2">
-                  {tenantAnalytics.topFeatures.map((feature, index) => (
-                    <div key={feature} className="flex items-center justify-between p-2 border rounded">
-                      <div className="flex items-center space-x-2">
-                        <span className="text-sm font-medium">#{index + 1}</span>
-                        <span className="text-sm">{feature}</span>
-                      </div>
-                      <Eye className="h-4 w-4 text-muted-foreground" />
+                <div className="space-y-3">
+                  {analytics.topFeatures.map((feature, index) => (
+                    <div key={feature.name} className="flex items-center justify-between">
+                      <div className="font-medium">{feature.name}</div>
+                      <div className="text-sm text-muted-foreground">{feature.usage} uses</div>
                     </div>
                   ))}
                 </div>
               </CardContent>
             </Card>
-          )}
-        </TabsContent>
 
-        <TabsContent value="users" className="space-y-6">
-          {/* User-specific metrics */}
-          {userId && userMetrics && (
             <Card>
               <CardHeader>
-                <CardTitle>User Activity Metrics</CardTitle>
+                <CardTitle>System Performance</CardTitle>
+                <CardDescription>Response time and uptime metrics</CardDescription>
               </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  <div className="p-4 border rounded-lg">
-                    <div className="flex items-center space-x-2 mb-2">
-                      <Activity className="h-4 w-4" />
-                      <span className="text-sm font-medium">Sessions</span>
-                    </div>
-                    <p className="text-2xl font-bold">{userMetrics.totalSessions}</p>
-                  </div>
-
-                  <div className="p-4 border rounded-lg">
-                    <div className="flex items-center space-x-2 mb-2">
-                      <Clock className="h-4 w-4" />
-                      <span className="text-sm font-medium">Avg Session</span>
-                    </div>
-                    <p className="text-2xl font-bold">{formatDuration(userMetrics.averageSessionDuration)}</p>
-                  </div>
-
-                  <div className="p-4 border rounded-lg">
-                    <div className="flex items-center space-x-2 mb-2">
-                      <TrendingUp className="h-4 w-4" />
-                      <span className="text-sm font-medium">Actions</span>
-                    </div>
-                    <p className="text-2xl font-bold">{userMetrics.actionsPerformed}</p>
-                  </div>
-
-                  <div className="p-4 border rounded-lg">
-                    <div className="flex items-center space-x-2 mb-2">
-                      <Calendar className="h-4 w-4" />
-                      <span className="text-sm font-medium">Login Frequency</span>
-                    </div>
-                    <p className="text-2xl font-bold">{userMetrics.loginFrequency}/week</p>
-                  </div>
-
-                  <div className="p-4 border rounded-lg">
-                    <div className="flex items-center space-x-2 mb-2">
-                      <Shield className="h-4 w-4" />
-                      <span className="text-sm font-medium">Security Events</span>
-                    </div>
-                    <p className="text-2xl font-bold">{userMetrics.securityEvents}</p>
-                  </div>
-
-                  <div className="p-4 border rounded-lg">
-                    <div className="flex items-center space-x-2 mb-2">
-                      <Clock className="h-4 w-4" />
-                      <span className="text-sm font-medium">Last Activity</span>
-                    </div>
-                    <p className="text-sm">{userMetrics.lastActivity.toLocaleDateString()}</p>
-                  </div>
+              <CardContent className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm">Response Time</span>
+                  <span className="font-medium">{analytics.performanceMetrics.avgResponseTime}ms</span>
                 </div>
-
-                {userMetrics.mostUsedFeatures.length > 0 && (
-                  <div className="mt-6">
-                    <h4 className="text-sm font-medium mb-2">Most Used Features</h4>
-                    <div className="flex flex-wrap gap-2">
-                      {userMetrics.mostUsedFeatures.map((feature, index) => (
-                        <Badge key={feature} variant="outline">
-                          #{index + 1} {feature}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                )}
+                <div className="flex justify-between items-center">
+                  <span className="text-sm">Uptime</span>
+                  <span className="font-medium">{analytics.performanceMetrics.uptime}%</span>
+                </div>
+                <Progress value={analytics.performanceMetrics.uptime} className="h-2" />
               </CardContent>
             </Card>
-          )}
+          </div>
         </TabsContent>
 
-        <TabsContent value="patterns" className="space-y-6">
-          {/* Usage Patterns */}
+        <TabsContent value="activity" className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium">Total Sessions</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  {activityMetrics.reduce((sum, metric) => sum + metric.totalSessions, 0)}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium">Avg Session Duration</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  {Math.round(activityMetrics.reduce((sum, metric) => sum + metric.averageSessionDuration, 0) / activityMetrics.length / 60)}m
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium">Actions Performed</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  {activityMetrics.reduce((sum, metric) => sum + metric.actionsPerformed, 0)}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium">Login Frequency</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  {activityMetrics.reduce((sum, metric) => sum + metric.loginFrequency, 0)}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium">Security Events</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  {activityMetrics.reduce((sum, metric) => sum + metric.securityEvents, 0)}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium">Last Activity</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-sm font-medium">
+                  {activityMetrics.length > 0 ? new Date(activityMetrics[0].lastActivity).toLocaleDateString() : 'N/A'}
+                </div>
+                <div className="text-xs text-muted-foreground mt-1">
+                  {activityMetrics.length > 0 && activityMetrics[0].mostUsedFeatures.length > 0 
+                    ? `Top: ${activityMetrics[0].mostUsedFeatures[0].name}`
+                    : 'No features tracked'
+                  }
+                </div>
+                {activityMetrics.length > 0 && activityMetrics[0].mostUsedFeatures.map((feature, index) => (
+                  <div key={index} className="text-xs text-muted-foreground">
+                    {feature.name}: {feature.usage}
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          </div>
+
           <Card>
             <CardHeader>
-              <CardTitle>Usage Patterns</CardTitle>
+              <CardTitle>User Activity Over Time</CardTitle>
+              <CardDescription>Daily active users and session metrics</CardDescription>
             </CardHeader>
             <CardContent>
-              {patternsLoading ? (
-                <p className="text-center text-muted-foreground">Loading usage patterns...</p>
-              ) : usagePatterns && usagePatterns.length > 0 ? (
-                <div className="space-y-4">
-                  {usagePatterns.slice(0, 10).map((pattern) => (
-                    <div key={pattern.feature} className="border rounded-lg p-4">
-                      <div className="flex items-center justify-between mb-2">
-                        <h4 className="font-medium">{pattern.feature}</h4>
-                        <Badge variant="outline">{pattern.usageCount} uses</Badge>
-                      </div>
-                      <div className="grid grid-cols-2 gap-4 text-sm text-muted-foreground">
-                        <div>
-                          <span>Last used: {pattern.lastUsed.toLocaleDateString()}</span>
-                        </div>
-                        <div>
-                          <span>Peak hours: {pattern.peakUsageHours.join(', ')}</span>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-center text-muted-foreground">No usage patterns found</p>
-              )}
+              <ResponsiveContainer width="100%" height={350}>
+                <LineChart data={activityMetrics}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis 
+                    dataKey="date" 
+                    tickFormatter={(value) => new Date(value).toLocaleDateString()} 
+                  />
+                  <YAxis />
+                  <Tooltip 
+                    labelFormatter={(value) => new Date(value).toLocaleDateString()} 
+                  />
+                  <Line 
+                    type="monotone" 
+                    dataKey="activeUsers" 
+                    stroke="#8884d8" 
+                    strokeWidth={2}
+                    name="Active Users"
+                  />
+                  <Line 
+                    type="monotone" 
+                    dataKey="newUsers" 
+                    stroke="#82ca9d" 
+                    strokeWidth={2}
+                    name="New Users"
+                  />
+                </LineChart>
+              </ResponsiveContainer>
             </CardContent>
           </Card>
         </TabsContent>
 
-        <TabsContent value="security" className="space-y-6">
-          {/* Security Event Correlation */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Security Event Correlation</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {securityLoading ? (
-                <p className="text-center text-muted-foreground">Loading security analysis...</p>
-              ) : securityCorrelations && securityCorrelations.length > 0 ? (
+        <TabsContent value="patterns" className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-2">
+            <Card>
+              <CardHeader>
+                <CardTitle>Feature Usage Patterns</CardTitle>
+                <CardDescription>Most popular features and usage statistics</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={usagePatterns}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="feature" />
+                    <YAxis />
+                    <Tooltip />
+                    <Bar dataKey="usageCount" fill="#8884d8" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Feature Growth Rates</CardTitle>
+                <CardDescription>Growth trends for different features</CardDescription>
+              </CardHeader>
+              <CardContent>
                 <div className="space-y-4">
-                  {securityCorrelations.slice(0, 10).map((correlation) => (
-                    <div key={correlation.userId} className="border rounded-lg p-4">
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center space-x-2">
-                          <AlertTriangle className="h-4 w-4" />
-                          <span className="font-medium">User: {correlation.userId.slice(0, 8)}...</span>
-                        </div>
-                        <Badge variant={getRiskBadgeVariant(correlation.riskScore)}>
-                          {getRiskLabel(correlation.riskScore)} ({correlation.riskScore})
-                        </Badge>
-                      </div>
-                      <div className="grid grid-cols-2 gap-4 text-sm">
-                        <div>
-                          <span className="text-muted-foreground">Event Type: </span>
-                          <span>{correlation.eventType}</span>
-                        </div>
-                        <div>
-                          <span className="text-muted-foreground">Frequency: </span>
-                          <span>{correlation.frequency} events</span>
-                        </div>
-                        <div>
-                          <span className="text-muted-foreground">Peak Hour: </span>
-                          <span>{correlation.timePattern.hourOfDay}:00</span>
-                        </div>
-                        <div>
-                          <span className="text-muted-foreground">Peak Day: </span>
-                          <span>{['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][correlation.timePattern.dayOfWeek]}</span>
+                  {usagePatterns.map((pattern, index) => (
+                    <div key={pattern.feature} className="flex items-center justify-between">
+                      <div>
+                        <div className="font-medium">{pattern.feature}</div>
+                        <div className="text-sm text-muted-foreground">
+                          {pattern.uniqueUsers} unique users
                         </div>
                       </div>
-                      {correlation.relatedEvents.length > 0 && (
-                        <div className="mt-2">
-                          <span className="text-sm text-muted-foreground">Related Events: </span>
-                          <div className="flex flex-wrap gap-1 mt-1">
-                            {correlation.relatedEvents.slice(0, 5).map((event) => (
-                              <Badge key={event} variant="outline" className="text-xs">
-                                {event}
-                              </Badge>
-                            ))}
-                          </div>
+                      <div className="text-right">
+                        <div className="font-medium text-green-600">
+                          +{pattern.growthRate}%
                         </div>
-                      )}
+                        <div className="text-sm text-muted-foreground">
+                          {pattern.usageCount} uses
+                        </div>
+                      </div>
                     </div>
                   ))}
                 </div>
-              ) : (
-                <p className="text-center text-muted-foreground">No security correlations found</p>
-              )}
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="security" className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-3">
+            {securityEvents.map((event, index) => (
+              <Card key={event.id}>
+                <CardHeader className="pb-2">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-sm font-medium">{event.eventType}</CardTitle>
+                    <Badge variant={event.severity === 'high' ? 'destructive' : 'secondary'}>
+                      {event.severity}
+                    </Badge>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  <div className="text-sm">
+                    <span className="font-medium">Frequency:</span> {event.frequency}
+                  </div>
+                  <div className="text-sm">
+                    <span className="font-medium">Pattern:</span> {event.timePattern}
+                  </div>
+                  <div className="text-sm">
+                    <span className="font-medium">Risk Score:</span> {event.riskScore}/100
+                  </div>
+                  <Progress value={event.riskScore} className="h-2" />
+                  <div className="text-xs text-muted-foreground">
+                    {event.correlatedEvents.length} related events
+                  </div>
+                  {event.correlatedEvents.map((relatedId, relatedIndex) => (
+                    <div key={relatedIndex} className="text-xs text-blue-600">
+                      Related: {relatedId}
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Security Event Timeline</CardTitle>
+              <CardDescription>Recent security events and their correlation</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {securityEvents.map((event) => (
+                  <div key={event.id} className="border-l-4 border-red-500 pl-4 py-2">
+                    <div className="flex items-center justify-between">
+                      <div className="font-medium">{event.type}</div>
+                      <div className="text-sm text-muted-foreground">
+                        {new Date(event.timestamp).toLocaleString()}
+                      </div>
+                    </div>
+                    <div className="text-sm text-muted-foreground mt-1">
+                      {event.description}
+                    </div>
+                    <div className="flex items-center space-x-4 mt-2">
+                      <Badge variant="outline">Risk: {event.riskScore}</Badge>
+                      <Badge variant="outline">{event.severity}</Badge>
+                      {event.userId && (
+                        <Badge variant="outline">User: {event.userId}</Badge>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
             </CardContent>
           </Card>
         </TabsContent>

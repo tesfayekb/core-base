@@ -1,5 +1,5 @@
 
-import { databaseConnection } from '@/services/database/connection';
+import { supabase } from '@/integrations/supabase/client';
 
 export type AnalyticsTimeRange = '7d' | '30d' | '90d' | '1y';
 
@@ -10,6 +10,16 @@ export interface TenantAnalytics {
   userGrowthRate: number;
   averageSessionDuration: number;
   totalSessions: number;
+  performanceMetrics: {
+    avgResponseTime: number;
+    uptime: number;
+  };
+  securityAlerts: number;
+  averageUserEngagement: number;
+  topFeatures: Array<{
+    name: string;
+    usage: number;
+  }>;
 }
 
 export interface UserActivityMetric {
@@ -18,6 +28,14 @@ export interface UserActivityMetric {
   newUsers: number;
   totalSessions: number;
   averageSessionDuration: number;
+  actionsPerformed: number;
+  loginFrequency: number;
+  securityEvents: number;
+  lastActivity: string;
+  mostUsedFeatures: Array<{
+    name: string;
+    usage: number;
+  }>;
 }
 
 export interface UsagePattern {
@@ -32,6 +50,7 @@ export interface UsagePattern {
 export interface SecurityEvent {
   id: string;
   type: string;
+  eventType: string;
   severity: 'low' | 'medium' | 'high' | 'critical';
   description: string;
   userId?: string;
@@ -40,6 +59,8 @@ export interface SecurityEvent {
   userAgent?: string;
   correlatedEvents: string[];
   riskScore: number;
+  frequency: number;
+  timePattern: string;
 }
 
 export class UserAnalyticsService {
@@ -63,7 +84,18 @@ export class UserAnalyticsService {
       newUsers: 12,
       userGrowthRate: 8.5,
       averageSessionDuration: 1200, // 20 minutes in seconds
-      totalSessions: 1250
+      totalSessions: 1250,
+      performanceMetrics: {
+        avgResponseTime: 245,
+        uptime: 99.8
+      },
+      securityAlerts: 3,
+      averageUserEngagement: 78,
+      topFeatures: [
+        { name: 'User Management', usage: 450 },
+        { name: 'Role Assignment', usage: 320 },
+        { name: 'Permission Review', usage: 180 }
+      ]
     };
   }
 
@@ -84,7 +116,15 @@ export class UserAnalyticsService {
         activeUsers: Math.floor(Math.random() * 50) + 50,
         newUsers: Math.floor(Math.random() * 10) + 1,
         totalSessions: Math.floor(Math.random() * 200) + 100,
-        averageSessionDuration: Math.floor(Math.random() * 600) + 900 // 15-25 minutes
+        averageSessionDuration: Math.floor(Math.random() * 600) + 900, // 15-25 minutes
+        actionsPerformed: Math.floor(Math.random() * 500) + 200,
+        loginFrequency: Math.floor(Math.random() * 20) + 10,
+        securityEvents: Math.floor(Math.random() * 5),
+        lastActivity: new Date().toISOString(),
+        mostUsedFeatures: [
+          { name: 'Dashboard', usage: Math.floor(Math.random() * 100) + 50 },
+          { name: 'Reports', usage: Math.floor(Math.random() * 80) + 30 }
+        ]
       });
     }
     
@@ -127,6 +167,7 @@ export class UserAnalyticsService {
       {
         id: 'sec-001',
         type: 'Failed Login Attempt',
+        eventType: 'authentication',
         severity: 'medium',
         description: 'Multiple failed login attempts detected',
         userId: 'user-123',
@@ -134,18 +175,23 @@ export class UserAnalyticsService {
         ipAddress: '192.168.1.100',
         userAgent: 'Mozilla/5.0...',
         correlatedEvents: ['sec-002', 'sec-003'],
-        riskScore: 65
+        riskScore: 65,
+        frequency: 5,
+        timePattern: 'business_hours'
       },
       {
         id: 'sec-002',
         type: 'Permission Escalation',
+        eventType: 'authorization',
         severity: 'high',
         description: 'User attempted to access restricted resource',
         userId: 'user-456',
         timestamp: new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString(),
         ipAddress: '10.0.0.50',
         correlatedEvents: ['sec-001'],
-        riskScore: 85
+        riskScore: 85,
+        frequency: 2,
+        timePattern: 'after_hours'
       }
     ];
   }
