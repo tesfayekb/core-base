@@ -91,13 +91,18 @@ describe('Audit System Integration Tests', () => {
 
       // Wait for dashboard to load
       await waitFor(() => {
-        expect(screen.getByText('Audit Dashboard')).toBeInTheDocument();
+        const dashboardTitle = screen.queryByText('Audit Dashboard');
+        expect(dashboardTitle).not.toBeNull();
       });
 
       // Verify metrics grid is displayed
-      expect(screen.getByText('Total Events')).toBeInTheDocument();
-      expect(screen.getByText('Security Events')).toBeInTheDocument();
-      expect(screen.getByText('Failure Rate')).toBeInTheDocument();
+      const totalEventsElement = screen.queryByText('Total Events');
+      const securityEventsElement = screen.queryByText('Security Events');
+      const failureRateElement = screen.queryByText('Failure Rate');
+      
+      expect(totalEventsElement).not.toBeNull();
+      expect(securityEventsElement).not.toBeNull();
+      expect(failureRateElement).not.toBeNull();
     });
 
     it('should handle audit event subscriptions', async () => {
@@ -129,8 +134,10 @@ describe('Audit System Integration Tests', () => {
       renderWithProviders(React.createElement(AuditDashboard));
 
       await waitFor(() => {
-        expect(screen.getByText('5')).toBeInTheDocument(); // Total events
-        expect(screen.getByText('2')).toBeInTheDocument(); // Security events
+        const totalEventsValue = screen.queryByText('5');
+        const securityEventsValue = screen.queryByText('2');
+        expect(totalEventsValue).not.toBeNull();
+        expect(securityEventsValue).not.toBeNull();
       });
     });
 
