@@ -1,14 +1,14 @@
 
 // Phase 2.3 Enhanced Audit Logging - Validation Tests
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, jest } from '@jest/globals';
 import '@testing-library/jest-dom';
 import { standardizedAuditLogger } from '../../services/audit/StandardizedAuditLogger';
 import { realTimeAuditMonitor } from '../../services/audit/RealTimeAuditMonitor';
 
 describe('Phase 2.3: Enhanced Audit Logging Validation', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    jest.clearAllMocks();
   });
 
   describe('Standardized Audit Logger', () => {
@@ -82,14 +82,14 @@ describe('Phase 2.3: Enhanced Audit Logging Validation', () => {
       };
 
       // Mock supabase response
-      vi.doMock('../../integrations/supabase/client', () => ({
+      jest.doMock('../../integrations/supabase/client', () => ({
         supabase: {
-          from: vi.fn(() => ({
-            select: vi.fn(() => ({
-              eq: vi.fn(() => ({
-                gte: vi.fn(() => ({
-                  lte: vi.fn(() => ({
-                    order: vi.fn(() => Promise.resolve({
+          from: jest.fn(() => ({
+            select: jest.fn(() => ({
+              eq: jest.fn(() => ({
+                gte: jest.fn(() => ({
+                  lte: jest.fn(() => ({
+                    order: jest.fn(() => Promise.resolve({
                       data: [
                         {
                           event_type: 'authentication',
@@ -140,7 +140,7 @@ describe('Phase 2.3: Enhanced Audit Logging Validation', () => {
     });
 
     it('should handle real-time event subscriptions', () => {
-      const mockCallback = vi.fn();
+      const mockCallback = jest.fn();
       
       const unsubscribe = realTimeAuditMonitor.subscribeToAuditEvents(mockCallback);
       
