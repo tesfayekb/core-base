@@ -4,6 +4,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PermissionBoundary } from "@/components/rbac/PermissionBoundary";
 import { RoleManagement } from "@/components/rbac/RoleManagement";
 import { PermissionMatrix } from "@/components/rbac/PermissionMatrix";
+import { UserDirectory } from "@/components/user/UserDirectory";
 import { Users as UsersIcon, Shield, Grid } from "lucide-react";
 
 export default function Users() {
@@ -31,19 +32,20 @@ export default function Users() {
         </TabsList>
 
         <TabsContent value="users">
-          <Card>
-            <CardHeader>
-              <CardTitle>User Directory</CardTitle>
-              <CardDescription>View and manage user accounts</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="text-center py-8 text-muted-foreground">
-                <UsersIcon className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p>User management interface coming soon...</p>
-                <p className="text-sm">This will include user creation, editing, and account management.</p>
-              </div>
-            </CardContent>
-          </Card>
+          <PermissionBoundary 
+            action="read" 
+            resource="users"
+            fallback={
+              <Card>
+                <CardHeader>
+                  <CardTitle>Access Restricted</CardTitle>
+                  <CardDescription>You don't have permission to view users</CardDescription>
+                </CardHeader>
+              </Card>
+            }
+          >
+            <UserDirectory />
+          </PermissionBoundary>
         </TabsContent>
 
         <TabsContent value="roles">
