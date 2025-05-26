@@ -95,7 +95,7 @@ export function UserForm({ user, onClose, tenantId }: UserFormProps) {
           status: formData.status
         };
 
-        const result = await userManagementService.updateUser(user.id, updateRequest, currentUser.id);
+        const result = await userManagementService.updateUser(user.id, updateRequest);
         
         if (result.success) {
           onClose();
@@ -112,7 +112,7 @@ export function UserForm({ user, onClose, tenantId }: UserFormProps) {
           roleIds: formData.roleIds.length > 0 ? formData.roleIds : undefined
         };
 
-        const result = await userManagementService.createUser(createRequest, currentUser.id);
+        const result = await userManagementService.createUser(createRequest);
         
         if (result.success) {
           onClose();
