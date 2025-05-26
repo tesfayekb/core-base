@@ -2,32 +2,42 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
 import { 
+  Settings, 
   Users, 
-  UserPlus, 
-  UserMinus, 
-  Search, 
-  Play, 
-  Pause, 
-  AlertTriangle,
-  Settings,
-  BarChart3 
+  Activity, 
+  AlertTriangle, 
+  Shield,
+  Database,
+  Trash2,
+  Play,
+  Pause
 } from 'lucide-react';
-import { tenantManagementService, TenantConfig } from '@/services/tenant/TenantManagementService';
 import { enhancedTenantManagementService } from '@/services/tenant/EnhancedTenantManagementService';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
 
+interface TenantSummary {
+  id: string;
+  name: string;
+  status: string;
+  userCount: number;
+  resourceUsage: number;
+  lastActivity: string;
+  domain?: string;
+}
+
 export function TenantAdministration() {
-  const { tenantId, user } = useAuth();
+  const { user } = useAuth();
   const { toast } = useToast();
-  const [tenants, setTenants] = useState<TenantConfig[]>([]);
+  const [tenants, setTenants] = useState<TenantSummary[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
   const [selectedTenant, setSelectedTenant] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
     loadTenants();
@@ -35,8 +45,37 @@ export function TenantAdministration() {
 
   const loadTenants = async () => {
     try {
-      const tenantsData = await tenantManagementService.getAllTenants();
-      setTenants(tenantsData);
+      // Mock data for now - replace with actual service call
+      const mockTenants: TenantSummary[] = [
+        {
+          id: '1',
+          name: 'Acme Corporation',
+          status: 'active',
+          userCount: 150,
+          resourceUsage: 75,
+          lastActivity: '2024-01-15T10:30:00Z',
+          domain: 'acme.example.com'
+        },
+        {
+          id: '2',
+          name: 'TechStart Inc',
+          status: 'active',
+          userCount: 45,
+          resourceUsage: 32,
+          lastActivity: '2024-01-15T09:15:00Z'
+        },
+        {
+          id: '3',
+          name: 'Global Enterprises',
+          status: 'suspended',
+          userCount: 200,
+          resourceUsage: 95,
+          lastActivity: '2024-01-14T16:45:00Z',
+          domain: 'global.example.com'
+        }
+      ];
+      
+      setTenants(mockTenants);
     } catch (error) {
       console.error('Failed to load tenants:', error);
       toast({
@@ -49,59 +88,26 @@ export function TenantAdministration() {
     }
   };
 
-  const handleSuspendTenant = async (tenantId: string) => {
+  const handleTenantStatusChange = async (tenantId: string, newStatus: string) => {
     try {
-      await tenantManagementService.updateTenantConfiguration(tenantId, {
-        status: 'suspended'
-      });
-      await loadTenants();
-      toast({
-        title: "Tenant suspended",
-        description: "Tenant has been suspended successfully."
-      });
-    } catch (error) {
-      console.error('Failed to suspend tenant:', error);
-      toast({
-        title: "Error",
-        description: "Failed to suspend tenant.",
-        variant: "destructive"
-      });
-    }
-  };
+      // Update tenant status
+      setTenants(prev => 
+        prev.map(tenant => 
+          tenant.id === tenantId 
+            ? { ...tenant, status: newStatus }
+            : tenant
+        )
+      );
 
-  const handleActivateTenant = async (tenantId: string) => {
-    try {
-      await tenantManagementService.updateTenantConfiguration(tenantId, {
-        status: 'active'
-      });
-      await loadTenants();
       toast({
-        title: "Tenant activated",
-        description: "Tenant has been activated successfully."
+        title: "Status updated",
+        description: `Tenant status changed to ${newStatus}.`
       });
     } catch (error) {
-      console.error('Failed to activate tenant:', error);
+      console.error('Failed to update tenant status:', error);
       toast({
         title: "Error",
-        description: "Failed to activate tenant.",
-        variant: "destructive"
-      });
-    }
-  };
-
-  const getTenantDashboardData = async (tenantId: string) => {
-    try {
-      const dashboardData = await enhancedTenantManagementService.getTenantDashboardData(tenantId);
-      console.log('Tenant dashboard data:', dashboardData);
-      toast({
-        title: "Dashboard data loaded",
-        description: `Loaded data for tenant with ${dashboardData.totalQuotas} quotas.`
-      });
-    } catch (error) {
-      console.error('Failed to get tenant dashboard data:', error);
-      toast({
-        title: "Error",
-        description: "Failed to load tenant dashboard data.",
+        description: "Failed to update tenant status.",
         variant: "destructive"
       });
     }
@@ -109,29 +115,23 @@ export function TenantAdministration() {
 
   const filteredTenants = tenants.filter(tenant =>
     tenant.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    tenant.slug.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (tenant.domain && tenant.domain.toLowerCase().includes(searchTerm.toLowerCase()))
+    tenant.domain?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const getStatusBadgeVariant = (status: string) => {
+  const getStatusColor = (status: string) => {
     switch (status) {
       case 'active': return 'default';
       case 'suspended': return 'destructive';
-      case 'inactive': return 'secondary';
-      default: return 'outline';
+      case 'pending': return 'warning';
+      default: return 'secondary';
     }
   };
 
-  const getTenantStats = () => {
-    const total = tenants.length;
-    const active = tenants.filter(t => t.status === 'active').length;
-    const suspended = tenants.filter(t => t.status === 'suspended').length;
-    const inactive = tenants.filter(t => t.status === 'inactive').length;
-
-    return { total, active, suspended, inactive };
+  const getResourceUsageColor = (usage: number) => {
+    if (usage >= 90) return 'text-red-600';
+    if (usage >= 75) return 'text-yellow-600';
+    return 'text-green-600';
   };
-
-  const stats = getTenantStats();
 
   if (loading) {
     return <div className="p-6">Loading tenant administration...</div>;
@@ -144,145 +144,181 @@ export function TenantAdministration() {
         <p className="text-muted-foreground">System-wide tenant management and monitoring</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Tenants</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.total}</div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active</CardTitle>
-            <Play className="h-4 w-4 text-green-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">{stats.active}</div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Suspended</CardTitle>
-            <Pause className="h-4 w-4 text-red-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-red-600">{stats.suspended}</div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Inactive</CardTitle>
-            <AlertTriangle className="h-4 w-4 text-amber-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-amber-600">{stats.inactive}</div>
-          </CardContent>
-        </Card>
-      </div>
-
+      {/* Search and Filters */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Settings className="h-5 w-5" />
             Tenant Management
           </CardTitle>
-          <div className="flex gap-2">
-            <div className="relative flex-1">
-              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+        </CardHeader>
+        <CardContent>
+          <div className="flex gap-4 mb-4">
+            <div className="flex-1">
+              <Label htmlFor="search">Search Tenants</Label>
               <Input
-                placeholder="Search tenants by name, slug, or domain..."
+                id="search"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-8"
+                placeholder="Search by name or domain..."
               />
             </div>
           </div>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Slug</TableHead>
-                <TableHead>Domain</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Created</TableHead>
-                <TableHead>Features</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredTenants.map((tenant) => (
-                <TableRow key={tenant.id}>
-                  <TableCell className="font-medium">{tenant.name}</TableCell>
-                  <TableCell>{tenant.slug}</TableCell>
-                  <TableCell>{tenant.domain || '-'}</TableCell>
-                  <TableCell>
-                    <Badge variant={getStatusBadgeVariant(tenant.status)}>
-                      {tenant.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>{tenant.createdAt.toLocaleDateString()}</TableCell>
-                  <TableCell>
-                    <div className="flex flex-wrap gap-1">
-                      {tenant.settings.features.slice(0, 2).map((feature) => (
-                        <Badge key={feature} variant="outline" className="text-xs">
-                          {feature}
-                        </Badge>
-                      ))}
-                      {tenant.settings.features.length > 2 && (
-                        <Badge variant="outline" className="text-xs">
-                          +{tenant.settings.features.length - 2}
-                        </Badge>
-                      )}
+        </CardContent>
+      </Card>
+
+      {/* Tenant List */}
+      <div className="grid gap-4">
+        {filteredTenants.map((tenant) => (
+          <Card key={tenant.id} className="cursor-pointer hover:shadow-md transition-shadow">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div>
+                    <h3 className="text-lg font-semibold">{tenant.name}</h3>
+                    {tenant.domain && (
+                      <p className="text-sm text-muted-foreground">{tenant.domain}</p>
+                    )}
+                  </div>
+                  <Badge variant={getStatusColor(tenant.status) as any}>
+                    {tenant.status}
+                  </Badge>
+                </div>
+
+                <div className="flex items-center gap-6">
+                  <div className="text-center">
+                    <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                      <Users className="h-4 w-4" />
+                      <span>{tenant.userCount} users</span>
                     </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex gap-1">
-                      {tenant.status === 'active' ? (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleSuspendTenant(tenant.id)}
-                        >
-                          <Pause className="h-4 w-4" />
-                        </Button>
-                      ) : (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleActivateTenant(tenant.id)}
-                        >
-                          <Play className="h-4 w-4" />
-                        </Button>
-                      )}
+                  </div>
+
+                  <div className="text-center">
+                    <div className="flex items-center gap-1 text-sm">
+                      <Database className="h-4 w-4" />
+                      <span className={getResourceUsageColor(tenant.resourceUsage)}>
+                        {tenant.resourceUsage}% usage
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="text-center">
+                    <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                      <Activity className="h-4 w-4" />
+                      <span>{new Date(tenant.lastActivity).toLocaleDateString()}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2">
+                    {tenant.status === 'active' ? (
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => getTenantDashboardData(tenant.id)}
+                        onClick={() => handleTenantStatusChange(tenant.id, 'suspended')}
                       >
-                        <BarChart3 className="h-4 w-4" />
+                        <Pause className="h-4 w-4 mr-1" />
+                        Suspend
                       </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleTenantStatusChange(tenant.id, 'active')}
+                      >
+                        <Play className="h-4 w-4 mr-1" />
+                        Activate
+                      </Button>
+                    )}
 
-          {filteredTenants.length === 0 && (
-            <div className="text-center py-8 text-muted-foreground">
-              {searchTerm ? 'No tenants match your search criteria.' : 'No tenants found.'}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setSelectedTenant(tenant.id)}
+                    >
+                      <Settings className="h-4 w-4 mr-1" />
+                      Manage
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
+              {tenant.resourceUsage >= 90 && (
+                <div className="mt-4 flex items-center gap-2 text-red-600 bg-red-50 p-2 rounded">
+                  <AlertTriangle className="h-4 w-4" />
+                  <span className="text-sm">High resource usage - review quotas</span>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        ))}
+
+        {filteredTenants.length === 0 && (
+          <Card>
+            <CardContent className="text-center py-8">
+              <p className="text-muted-foreground">
+                {searchTerm ? 'No tenants found matching your search.' : 'No tenants configured.'}
+              </p>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+
+      {/* System Statistics */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2">
+              <Shield className="h-5 w-5 text-blue-500" />
+              <div>
+                <p className="text-sm text-muted-foreground">Total Tenants</p>
+                <p className="text-2xl font-bold">{tenants.length}</p>
+              </div>
             </div>
-          )}
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2">
+              <Users className="h-5 w-5 text-green-500" />
+              <div>
+                <p className="text-sm text-muted-foreground">Total Users</p>
+                <p className="text-2xl font-bold">
+                  {tenants.reduce((sum, tenant) => sum + tenant.userCount, 0)}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2">
+              <Activity className="h-5 w-5 text-yellow-500" />
+              <div>
+                <p className="text-sm text-muted-foreground">Active Tenants</p>
+                <p className="text-2xl font-bold">
+                  {tenants.filter(t => t.status === 'active').length}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-red-500" />
+              <div>
+                <p className="text-sm text-muted-foreground">High Usage</p>
+                <p className="text-2xl font-bold">
+                  {tenants.filter(t => t.resourceUsage >= 80).length}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

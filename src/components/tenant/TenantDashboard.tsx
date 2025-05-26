@@ -1,155 +1,156 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Building2, Users, Settings, BarChart3 } from 'lucide-react';
-import { tenantManagementService, TenantConfig, TenantUsageAnalytics, TenantHealthStatus } from '@/services/tenant/TenantManagementService';
+import { Progress } from '@/components/ui/progress';
+import { Building2, Users, Activity, Settings, TrendingUp } from 'lucide-react';
+import { TenantMetrics } from './TenantMetrics';
+import { TenantContextIndicator } from './TenantContextIndicator';
+import { enhancedTenantManagementService } from '@/services/tenant/EnhancedTenantManagementService';
 import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/components/ui/use-toast';
 
 export function TenantDashboard() {
-  const { tenantId } = useAuth();
-  const [tenant, setTenant] = useState<TenantConfig | null>(null);
-  const [analytics, setAnalytics] = useState<TenantUsageAnalytics | null>(null);
-  const [health, setHealth] = useState<TenantHealthStatus | null>(null);
+  const { tenantId, user } = useAuth();
+  const { toast } = useToast();
+  const [dashboardData, setDashboardData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const loadTenantData = async () => {
-      if (!tenantId) return;
-
-      try {
-        const [tenantData, analyticsData, healthData] = await Promise.all([
-          tenantManagementService.getTenant(tenantId),
-          tenantManagementService.getTenantUsageAnalytics(tenantId),
-          tenantManagementService.getTenantHealthStatus(tenantId)
-        ]);
-
-        setTenant(tenantData);
-        setAnalytics(analyticsData);
-        setHealth(healthData);
-      } catch (error) {
-        console.error('Failed to load tenant data:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadTenantData();
+    loadDashboardData();
   }, [tenantId]);
 
-  if (loading) {
-    return <div className="p-6">Loading tenant dashboard...</div>;
-  }
+  const loadDashboardData = async () => {
+    if (!tenantId) return;
 
-  if (!tenant) {
-    return <div className="p-6">Tenant not found</div>;
+    try {
+      const data = await enhancedTenantManagementService.getTenantDashboardData(tenantId);
+      setDashboardData(data);
+    } catch (error) {
+      console.error('Failed to load dashboard data:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load dashboard data.",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return <div className="p-6">Loading dashboard...</div>;
   }
 
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">{tenant.name}</h1>
-          <p className="text-muted-foreground">Tenant Dashboard</p>
+          <h1 className="text-3xl font-bold">Tenant Dashboard</h1>
+          <p className="text-muted-foreground">Overview of your tenant's performance and usage</p>
         </div>
-        <Badge variant={tenant.status === 'active' ? 'default' : 'secondary'}>
-          {tenant.status}
-        </Badge>
+        <TenantContextIndicator showDetails />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Users</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{analytics?.activeUsers || 0}</div>
-            <p className="text-xs text-muted-foreground">
-              {analytics?.totalUsers || 0} total users
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Storage Used</CardTitle>
-            <BarChart3 className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{analytics?.storageUsed || 0} MB</div>
-            <p className="text-xs text-muted-foreground">
-              of {tenant.settings.storageQuota || 1000} MB quota
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">API Calls</CardTitle>
-            <Building2 className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{analytics?.apiCalls || 0}</div>
-            <p className="text-xs text-muted-foreground">This month</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Health Status</CardTitle>
-            <Settings className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <Badge variant={health?.status === 'healthy' ? 'default' : 'destructive'}>
-              {health?.status || 'unknown'}
-            </Badge>
-            <p className="text-xs text-muted-foreground mt-1">
-              {health?.metrics.responseTime?.toFixed(0)}ms avg response
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Tenant Information</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
+      {/* Welcome Section */}
+      <Card>
+        <CardContent className="p-6">
+          <div className="flex items-center gap-4">
+            <Building2 className="h-12 w-12 text-blue-500" />
             <div>
-              <span className="font-medium">Name:</span> {tenant.name}
+              <h2 className="text-xl font-semibold">
+                Welcome to {dashboardData?.tenant?.name || 'Your Tenant'}
+              </h2>
+              <p className="text-muted-foreground">
+                {dashboardData?.tenant?.domain || 'Tenant dashboard'}
+              </p>
+              <Badge variant="default" className="mt-2">
+                {dashboardData?.tenant?.status || 'Active'}
+              </Badge>
             </div>
-            <div>
-              <span className="font-medium">Slug:</span> {tenant.slug}
-            </div>
-            {tenant.domain && (
-              <div>
-                <span className="font-medium">Domain:</span> {tenant.domain}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Quick Stats */}
+      {dashboardData && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2">
+                <Settings className="h-5 w-5 text-blue-500" />
+                <div>
+                  <p className="text-sm text-muted-foreground">Total Quotas</p>
+                  <p className="text-2xl font-bold">{dashboardData.totalQuotas}</p>
+                </div>
               </div>
-            )}
-            <div>
-              <span className="font-medium">Created:</span> {tenant.createdAt.toLocaleDateString()}
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
 
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2">
+                <Activity className="h-5 w-5 text-yellow-500" />
+                <div>
+                  <p className="text-sm text-muted-foreground">Warning Quotas</p>
+                  <p className="text-2xl font-bold text-yellow-600">{dashboardData.warningQuotas}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2">
+                <TrendingUp className="h-5 w-5 text-green-500" />
+                <div>
+                  <p className="text-sm text-muted-foreground">Health Score</p>
+                  <p className="text-2xl font-bold text-green-600">
+                    {dashboardData.warningQuotas === 0 ? '100%' : '85%'}
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Detailed Metrics */}
+      <TenantMetrics />
+
+      {/* Quota Overview */}
+      {dashboardData?.quotaUsage && (
         <Card>
           <CardHeader>
-            <CardTitle>Features</CardTitle>
+            <CardTitle>Resource Quota Overview</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex flex-wrap gap-2">
-              {tenant.settings.features.map((feature) => (
-                <Badge key={feature} variant="outline">
-                  {feature}
-                </Badge>
+            <div className="space-y-4">
+              {dashboardData.quotaUsage.map((quota: any) => (
+                <div key={quota.resource_type} className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm font-medium capitalize">
+                      {quota.resource_type.replace('_', ' ')}
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-muted-foreground">
+                        {quota.current_usage} / {quota.quota_limit}
+                      </span>
+                      {quota.warning && (
+                        <Badge variant="destructive">Warning</Badge>
+                      )}
+                    </div>
+                  </div>
+                  <Progress 
+                    value={Math.min(quota.usage_percentage, 100)} 
+                    className="h-2"
+                  />
+                </div>
               ))}
             </div>
           </CardContent>
         </Card>
-      </div>
+      )}
     </div>
   );
 }

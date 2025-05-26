@@ -7,6 +7,17 @@ import { TenantAdministration } from '@/components/tenant/TenantAdministration';
 import { TenantCustomization } from '@/components/tenant/TenantCustomization';
 import { TenantQuotaManagement } from '@/components/tenant/TenantQuotaManagement';
 import { TenantWorkflowManager } from '@/components/tenant/TenantWorkflowManager';
+import { withTenantBoundary, withTenantAdmin } from '@/components/tenant/withTenantSecurity';
+
+// Secure components with tenant boundary enforcement
+const SecureTenantDashboard = withTenantBoundary(TenantDashboard);
+const SecureTenantSettings = withTenantBoundary(TenantSettings);
+const SecureTenantCustomization = withTenantBoundary(TenantCustomization);
+const SecureTenantQuotaManagement = withTenantBoundary(TenantQuotaManagement);
+const SecureTenantWorkflowManager = withTenantBoundary(TenantWorkflowManager);
+
+// Admin-only components
+const SecureTenantAdministration = withTenantAdmin(TenantAdministration);
 
 export default function TenantManagement() {
   return (
@@ -22,27 +33,27 @@ export default function TenantManagement() {
         </TabsList>
         
         <TabsContent value="dashboard">
-          <TenantDashboard />
+          <SecureTenantDashboard />
         </TabsContent>
         
         <TabsContent value="settings">
-          <TenantSettings />
+          <SecureTenantSettings />
         </TabsContent>
         
         <TabsContent value="customization">
-          <TenantCustomization />
+          <SecureTenantCustomization />
         </TabsContent>
         
         <TabsContent value="quotas">
-          <TenantQuotaManagement />
+          <SecureTenantQuotaManagement />
         </TabsContent>
         
         <TabsContent value="workflows">
-          <TenantWorkflowManager />
+          <SecureTenantWorkflowManager />
         </TabsContent>
         
         <TabsContent value="administration">
-          <TenantAdministration />
+          <SecureTenantAdministration />
         </TabsContent>
       </Tabs>
     </div>
