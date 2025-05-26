@@ -78,23 +78,23 @@ export function UserProfile({ user }: UserProfileProps) {
         <CardContent>
           {user.roles && user.roles.length > 0 ? (
             <div className="space-y-3">
-              {user.roles.map((role) => (
-                <div key={role.id} className="flex items-center justify-between p-3 border rounded-lg">
+              {user.roles.map((userRole) => (
+                <div key={userRole.id} className="flex items-center justify-between p-3 border rounded-lg">
                   <div>
-                    <div className="font-medium">{role.name}</div>
-                    {role.assigned_at && (
+                    <div className="font-medium">{userRole.role.name}</div>
+                    {userRole.assigned_at && (
                       <div className="text-sm text-muted-foreground">
-                        Assigned on {new Date(role.assigned_at).toLocaleDateString()}
+                        Assigned on {new Date(userRole.assigned_at).toLocaleDateString()}
                       </div>
                     )}
-                    {role.description && (
+                    {userRole.role.description && (
                       <div className="text-sm text-muted-foreground">
-                        {role.description}
+                        {userRole.role.description}
                       </div>
                     )}
                   </div>
-                  <Badge variant={role.is_system_role ? "secondary" : "outline"}>
-                    {role.is_system_role ? "System Role" : "Custom Role"}
+                  <Badge variant={userRole.role.is_system_role ? "secondary" : "outline"}>
+                    {userRole.role.is_system_role ? "System Role" : "Custom Role"}
                   </Badge>
                 </div>
               ))}
