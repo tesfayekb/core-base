@@ -1,313 +1,165 @@
-import { supabase } from '@/services/database/connection';
-import { startOfDay, endOfDay, subDays, format } from 'date-fns';
 
-export interface TenantProfile {
-  id: string;
-  name: string;
-  slug: string;
-  settings: Record<string, any>;
-  createdAt: Date;
-  updatedAt: Date;
-}
+import { databaseConnection } from '@/services/database/connection';
 
-export interface UserProfile {
-  id: string;
-  tenantId: string;
-  email: string;
-  firstName: string | null;
-  lastName: string | null;
-  status: 'active' | 'inactive' | 'pending_verification' | 'suspended';
-  lastLoginAt: Date | null;
-  failedLoginAttempts: number;
-  emailVerifiedAt: Date | null;
-  createdAt: Date;
-  updatedAt: Date;
-}
+export type AnalyticsTimeRange = '7d' | '30d' | '90d' | '1y';
 
-export interface UserSession {
-  id: string;
-  userId: string;
-  tenantId: string;
-  sessionId: string;
-  ipAddress: string;
-  userAgent: string;
-  loginTime: Date;
-  lastAccessedAt: Date;
-  logoutTime: Date | null;
-}
-
-export interface AuditLog {
-  id: string;
-  tenantId: string;
-  userId: string;
-  timestamp: Date;
-  action: string;
-  resourceType: string;
-  resourceId: string;
-  details: Record<string, any>;
-  ipAddress: string;
-  userAgent: string;
-  sessionId: string;
-}
-
-export interface UserMetrics {
+export interface TenantAnalytics {
   totalUsers: number;
   activeUsers: number;
   newUsers: number;
   userGrowthRate: number;
+  averageSessionDuration: number;
+  totalSessions: number;
+}
+
+export interface UserActivityMetric {
+  date: string;
+  activeUsers: number;
+  newUsers: number;
+  totalSessions: number;
+  averageSessionDuration: number;
 }
 
 export interface UsagePattern {
   feature: string;
   usageCount: number;
   uniqueUsers: number;
-  averageSessionTime: number;
-  peakHours: number[];
+  lastUsed: string;
+  peakUsageHours: number[];
+  growthRate: number;
 }
 
 export interface SecurityEvent {
   id: string;
-  eventType: string;
-  userId: string;
-  timestamp: Date;
-  riskLevel: 'low' | 'medium' | 'high' | 'critical';
+  type: string;
+  severity: 'low' | 'medium' | 'high' | 'critical';
   description: string;
-  metadata: Record<string, any>;
+  userId?: string;
+  timestamp: string;
+  ipAddress?: string;
+  userAgent?: string;
+  correlatedEvents: string[];
+  riskScore: number;
 }
 
-export interface AnalyticsTimeRange {
-  start: Date;
-  end: Date;
-  period: 'day' | 'week' | 'month' | 'quarter' | 'year';
-}
+export class UserAnalyticsService {
+  private static instance: UserAnalyticsService;
 
-class UserAnalyticsService {
-  async getUserMetrics(tenantId: string, timeRange: AnalyticsTimeRange): Promise<UserMetrics> {
-    try {
-      const { start, end } = timeRange;
-      
-      // Get total users for tenant
-      const { count: totalUsers } = await supabase
-        .from('users')
-        .select('*', { count: 'exact', head: true })
-        .eq('tenant_id', tenantId);
-
-      // Get active users (users with recent activity)
-      const { count: activeUsers } = await supabase
-        .from('user_sessions')
-        .select('user_id', { count: 'exact', head: true })
-        .eq('tenant_id', tenantId)
-        .gte('last_accessed_at', start.toISOString())
-        .lte('last_accessed_at', end.toISOString());
-
-      // Get new users in period
-      const { count: newUsers } = await supabase
-        .from('users')
-        .select('*', { count: 'exact', head: true })
-        .eq('tenant_id', tenantId)
-        .gte('created_at', start.toISOString())
-        .lte('created_at', end.toISOString());
-
-      // Calculate growth rate
-      const previousPeriodStart = new Date(start);
-      previousPeriodStart.setDate(start.getDate() - (end.getDate() - start.getDate()));
-      
-      const { count: previousNewUsers } = await supabase
-        .from('users')
-        .select('*', { count: 'exact', head: true })
-        .eq('tenant_id', tenantId)
-        .gte('created_at', previousPeriodStart.toISOString())
-        .lte('created_at', start.toISOString());
-
-      const userGrowthRate = previousNewUsers ? 
-        ((newUsers || 0) - (previousNewUsers || 0)) / (previousNewUsers || 1) * 100 : 0;
-
-      return {
-        totalUsers: totalUsers || 0,
-        activeUsers: activeUsers || 0,
-        newUsers: newUsers || 0,
-        userGrowthRate
-      };
-    } catch (error) {
-      console.error('Error fetching user metrics:', error);
-      throw new Error('Failed to fetch user metrics');
+  static getInstance(): UserAnalyticsService {
+    if (!UserAnalyticsService.instance) {
+      UserAnalyticsService.instance = new UserAnalyticsService();
     }
+    return UserAnalyticsService.instance;
   }
 
-  async getUsagePatterns(tenantId: string, timeRange: AnalyticsTimeRange): Promise<UsagePattern[]> {
-    try {
-      // Get audit logs for usage analysis
-      const { data: auditLogs } = await supabase
-        .from('audit_logs')
-        .select('action, user_id, timestamp, details')
-        .eq('tenant_id', tenantId)
-        .gte('timestamp', timeRange.start.toISOString())
-        .lte('timestamp', timeRange.end.toISOString())
-        .order('timestamp', { ascending: false });
+  async getTenantAnalytics(tenantId: string, timeRange: AnalyticsTimeRange = '30d'): Promise<TenantAnalytics> {
+    // Mock implementation - in production, this would query the database
+    const daysMap = { '7d': 7, '30d': 30, '90d': 90, '1y': 365 };
+    const days = daysMap[timeRange];
+    
+    return {
+      totalUsers: 142,
+      activeUsers: 95,
+      newUsers: 12,
+      userGrowthRate: 8.5,
+      averageSessionDuration: 1200, // 20 minutes in seconds
+      totalSessions: 1250
+    };
+  }
 
-      if (!auditLogs) return [];
-
-      // Group by feature/action
-      const featureUsage = new Map<string, {
-        count: number;
-        users: Set<string>;
-        sessionTimes: number[];
-        hours: number[];
-      }>();
-
-      auditLogs.forEach(log => {
-        const feature = log.action || 'unknown';
-        const hour = new Date(log.timestamp).getHours();
-        
-        if (!featureUsage.has(feature)) {
-          featureUsage.set(feature, {
-            count: 0,
-            users: new Set(),
-            sessionTimes: [],
-            hours: []
-          });
-        }
-
-        const usage = featureUsage.get(feature)!;
-        usage.count++;
-        usage.users.add(log.user_id);
-        usage.hours.push(hour);
-        
-        // Simulate session time (in real app, this would come from session data)
-        usage.sessionTimes.push(Math.random() * 30 + 5); // 5-35 minutes
+  async getUserActivityMetrics(tenantId: string, timeRange: AnalyticsTimeRange = '30d'): Promise<UserActivityMetric[]> {
+    // Mock implementation - generate sample data
+    const daysMap = { '7d': 7, '30d': 30, '90d': 90, '1y': 365 };
+    const days = daysMap[timeRange];
+    
+    const metrics: UserActivityMetric[] = [];
+    const now = new Date();
+    
+    for (let i = days - 1; i >= 0; i--) {
+      const date = new Date(now);
+      date.setDate(date.getDate() - i);
+      
+      metrics.push({
+        date: date.toISOString().split('T')[0],
+        activeUsers: Math.floor(Math.random() * 50) + 50,
+        newUsers: Math.floor(Math.random() * 10) + 1,
+        totalSessions: Math.floor(Math.random() * 200) + 100,
+        averageSessionDuration: Math.floor(Math.random() * 600) + 900 // 15-25 minutes
       });
-
-      // Convert to UsagePattern array
-      return Array.from(featureUsage.entries()).map(([feature, data]) => {
-        const peakHours = this.calculatePeakHours(data.hours);
-        const averageSessionTime = data.sessionTimes.reduce((a, b) => a + b, 0) / data.sessionTimes.length;
-
-        return {
-          feature,
-          usageCount: data.count,
-          uniqueUsers: data.users.size,
-          averageSessionTime,
-          peakHours
-        };
-      }).sort((a, b) => b.usageCount - a.usageCount);
-    } catch (error) {
-      console.error('Error fetching usage patterns:', error);
-      throw new Error('Failed to fetch usage patterns');
-    }
-  }
-
-  async getSecurityEvents(tenantId: string, timeRange: AnalyticsTimeRange): Promise<SecurityEvent[]> {
-    try {
-      // Get security-related audit logs
-      const { data: securityLogs } = await supabase
-        .from('audit_logs')
-        .select('*')
-        .eq('tenant_id', tenantId)
-        .in('event_type', ['security_event', 'authentication_event', 'authorization_event'])
-        .gte('timestamp', timeRange.start.toISOString())
-        .lte('timestamp', timeRange.end.toISOString())
-        .order('timestamp', { ascending: false });
-
-      if (!securityLogs) return [];
-
-      return securityLogs.map(log => ({
-        id: log.id,
-        eventType: log.action || 'unknown',
-        userId: log.user_id || 'system',
-        timestamp: new Date(log.timestamp),
-        riskLevel: this.calculateRiskLevel(log),
-        description: this.generateEventDescription(log),
-        metadata: log.details || {}
-      }));
-    } catch (error) {
-      console.error('Error fetching security events:', error);
-      throw new Error('Failed to fetch security events');
-    }
-  }
-
-  async getUserActivityTimeline(userId: string, tenantId: string, days: number = 30): Promise<any[]> {
-    try {
-      const startDate = subDays(new Date(), days);
-      
-      const { data: activities } = await supabase
-        .from('audit_logs')
-        .select('*')
-        .eq('tenant_id', tenantId)
-        .eq('user_id', userId)
-        .gte('timestamp', startDate.toISOString())
-        .order('timestamp', { ascending: false })
-        .limit(100);
-
-      return activities || [];
-    } catch (error) {
-      console.error('Error fetching user activity timeline:', error);
-      throw new Error('Failed to fetch user activity timeline');
-    }
-  }
-
-  async getTenantAnalyticsSummary(tenantId: string): Promise<Record<string, any>> {
-    try {
-      const timeRange: AnalyticsTimeRange = {
-        start: subDays(new Date(), 30),
-        end: new Date(),
-        period: 'month'
-      };
-
-      const [userMetrics, usagePatterns, securityEvents] = await Promise.all([
-        this.getUserMetrics(tenantId, timeRange),
-        this.getUsagePatterns(tenantId, timeRange),
-        this.getSecurityEvents(tenantId, timeRange)
-      ]);
-
-      return {
-        userMetrics,
-        topFeatures: usagePatterns.slice(0, 5),
-        securitySummary: {
-          totalEvents: securityEvents.length,
-          criticalEvents: securityEvents.filter(e => e.riskLevel === 'critical').length,
-          highRiskEvents: securityEvents.filter(e => e.riskLevel === 'high').length
-        },
-        generatedAt: new Date()
-      };
-    } catch (error) {
-      console.error('Error generating tenant analytics summary:', error);
-      throw new Error('Failed to generate analytics summary');
-    }
-  }
-
-  private calculatePeakHours(hours: number[]): number[] {
-    const hourCounts = new Array(24).fill(0);
-    hours.forEach(hour => hourCounts[hour]++);
-    
-    const maxCount = Math.max(...hourCounts);
-    return hourCounts
-      .map((count, hour) => ({ hour, count }))
-      .filter(({ count }) => count >= maxCount * 0.8)
-      .map(({ hour }) => hour);
-  }
-
-  private calculateRiskLevel(log: any): 'low' | 'medium' | 'high' | 'critical' {
-    const action = log.action?.toLowerCase() || '';
-    
-    if (action.includes('failed_login') || action.includes('unauthorized')) {
-      return 'high';
-    }
-    if (action.includes('permission_denied') || action.includes('invalid_access')) {
-      return 'medium';
-    }
-    if (action.includes('login') || action.includes('logout')) {
-      return 'low';
     }
     
-    return 'low';
+    return metrics;
   }
 
-  private generateEventDescription(log: any): string {
-    const action = log.action || 'Unknown action';
-    const resource = log.resource_type || 'resource';
-    
-    return `${action} on ${resource}`;
+  async getUsagePatterns(tenantId: string, timeRange: AnalyticsTimeRange = '30d'): Promise<UsagePattern[]> {
+    // Mock implementation
+    return [
+      {
+        feature: 'User Management',
+        usageCount: 450,
+        uniqueUsers: 25,
+        lastUsed: new Date().toISOString(),
+        peakUsageHours: [9, 10, 14, 15],
+        growthRate: 12.5
+      },
+      {
+        feature: 'Role Assignment',
+        usageCount: 320,
+        uniqueUsers: 18,
+        lastUsed: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+        peakUsageHours: [10, 11, 16],
+        growthRate: 8.2
+      },
+      {
+        feature: 'Permission Review',
+        usageCount: 180,
+        uniqueUsers: 12,
+        lastUsed: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString(),
+        peakUsageHours: [9, 17],
+        growthRate: 15.3
+      }
+    ];
+  }
+
+  async getSecurityEventCorrelation(tenantId: string, timeRange: AnalyticsTimeRange = '30d'): Promise<SecurityEvent[]> {
+    // Mock implementation
+    return [
+      {
+        id: 'sec-001',
+        type: 'Failed Login Attempt',
+        severity: 'medium',
+        description: 'Multiple failed login attempts detected',
+        userId: 'user-123',
+        timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+        ipAddress: '192.168.1.100',
+        userAgent: 'Mozilla/5.0...',
+        correlatedEvents: ['sec-002', 'sec-003'],
+        riskScore: 65
+      },
+      {
+        id: 'sec-002',
+        type: 'Permission Escalation',
+        severity: 'high',
+        description: 'User attempted to access restricted resource',
+        userId: 'user-456',
+        timestamp: new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString(),
+        ipAddress: '10.0.0.50',
+        correlatedEvents: ['sec-001'],
+        riskScore: 85
+      }
+    ];
+  }
+
+  async getUserEngagementMetrics(tenantId: string, userId?: string): Promise<any> {
+    // Mock implementation for user engagement
+    return {
+      sessionFrequency: 'daily',
+      averageSessionLength: 1200,
+      featuresUsed: 8,
+      lastActive: new Date().toISOString(),
+      engagementScore: 78
+    };
   }
 }
 
-export const userAnalyticsService = new UserAnalyticsService();
+export const userAnalyticsService = UserAnalyticsService.getInstance();
