@@ -1,9 +1,9 @@
 
 // Phase 2.3 Enhanced Audit Logging - Validation Tests
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { standardizedAuditLogger } from '@/services/audit/StandardizedAuditLogger';
-import { realTimeAuditMonitor } from '@/services/audit/RealTimeAuditMonitor';
+import { describe, it, expect, beforeEach, vi } from '@testing-library/jest-dom';
+import { standardizedAuditLogger } from '../../services/audit/StandardizedAuditLogger';
+import { realTimeAuditMonitor } from '../../services/audit/RealTimeAuditMonitor';
 
 describe('Phase 2.3: Enhanced Audit Logging Validation', () => {
   beforeEach(() => {
@@ -81,7 +81,7 @@ describe('Phase 2.3: Enhanced Audit Logging Validation', () => {
       };
 
       // Mock supabase response
-      vi.doMock('@/integrations/supabase/client', () => ({
+      vi.doMock('../../integrations/supabase/client', () => ({
         supabase: {
           from: vi.fn(() => ({
             select: vi.fn(() => ({
