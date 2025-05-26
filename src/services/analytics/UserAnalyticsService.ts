@@ -79,10 +79,10 @@ export class UserAnalyticsService {
     const cacheKey = `tenant_analytics_${tenantId}_${timeRange}`;
     
     try {
-      // Use the optimized data service
+      // Use the optimized data service with correct parameter format
       const result = await analyticsDataService.executeAnalyticsQuery(
         'get_tenant_analytics',
-        { tenant_id: tenantId, time_range: timeRange },
+        [tenantId, timeRange], // Fixed: pass as array instead of object
         cacheKey
       );
 
