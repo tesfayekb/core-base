@@ -1,0 +1,33 @@
+import { FC } from 'react';
+import { cn } from '@/lib/utils';
+import { Card } from '@/components/ui/card';
+import { usePermission } from '@/hooks/usePermission';
+
+interface {{ComponentName}}Props {
+  className?: string;
+  // Add additional props here
+}
+
+/**
+ * {{ComponentName}} - {{ComponentDescription}}
+ * 
+ * @example
+ * ```tsx
+ * <{{ComponentName}} />
+ * ```
+ */
+export const {{ComponentName}}: FC<{{ComponentName}}Props> = ({ 
+  className,
+  ...props 
+}) => {
+  // Permission checks if needed
+  // const canEdit = usePermission('Update', '{{resource}}');
+  
+  return (
+    <Card className={cn('', className)} {...props}>
+      {/* Component content */}
+    </Card>
+  );
+};
+
+{{ComponentName}}.displayName = '{{ComponentName}}';

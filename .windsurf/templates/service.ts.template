@@ -1,0 +1,161 @@
+import { z } from 'zod';
+import { apiClient } from '@/lib/api-client';
+import { handleApiError } from '@/utils/error-handling';
+
+// Validation schemas
+const {{serviceName}}Schema = z.object({
+  // Define schema properties
+  id: z.string().uuid(),
+  // Add more fields
+});
+
+const create{{ServiceName}}Schema = {{serviceName}}Schema.omit({ id: true });
+const update{{ServiceName}}Schema = {{serviceName}}Schema.partial().omit({ id: true });
+
+// Types
+export type {{ServiceName}} = z.infer<typeof {{serviceName}}Schema>;
+export type Create{{ServiceName}}Data = z.infer<typeof create{{ServiceName}}Schema>;
+export type Update{{ServiceName}}Data = z.infer<typeof update{{ServiceName}}Schema>;
+
+// API response types
+interface {{ServiceName}}Response {
+  data: {{ServiceName}};
+  message?: string;
+}
+
+interface {{ServiceName}}ListResponse {
+  data: {{ServiceName}}[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+/**
+ * {{ServiceName}}Service - Handles all {{serviceName}} related API operations
+ */
+export class {{ServiceName}}Service {
+  private readonly basePath = '/api/v1/{{resourcePath}}';
+
+  /**
+   * Get all {{serviceName}}s with pagination
+   */
+  async list(params?: {
+    page?: number;
+    pageSize?: number;
+    search?: string;
+    filters?: Record<string, any>;
+  }): Promise<{{ServiceName}}ListResponse> {
+    try {
+      const response = await apiClient.get<{{ServiceName}}ListResponse>(this.basePath, {
+        params: {
+          page: params?.page || 1,
+          pageSize: params?.pageSize || 20,
+          search: params?.search,
+          ...params?.filters,
+        },
+      });
+      return response.data;
+    } catch (error) {
+      throw handleApiError(error);
+    }
+  }
+
+  /**
+   * Get a single {{serviceName}} by ID
+   */
+  async getById(id: string): Promise<{{ServiceName}}> {
+    try {
+      const response = await apiClient.get<{{ServiceName}}Response>(`${this.basePath}/${id}`);
+      return response.data.data;
+    } catch (error) {
+      throw handleApiError(error);
+    }
+  }
+
+  /**
+   * Create a new {{serviceName}}
+   */
+  async create(data: Create{{ServiceName}}Data): Promise<{{ServiceName}}> {
+    try {
+      // Validate input data
+      const validatedData = create{{ServiceName}}Schema.parse(data);
+      
+      const response = await apiClient.post<{{ServiceName}}Response>(
+        this.basePath,
+        validatedData
+      );
+      return response.data.data;
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        throw new Error(`Validation error: ${error.message}`);
+      }
+      throw handleApiError(error);
+    }
+  }
+
+  /**
+   * Update an existing {{serviceName}}
+   */
+  async update(id: string, data: Update{{ServiceName}}Data): Promise<{{ServiceName}}> {
+    try {
+      // Validate input data
+      const validatedData = update{{ServiceName}}Schema.parse(data);
+      
+      const response = await apiClient.patch<{{ServiceName}}Response>(
+        `${this.basePath}/${id}`,
+        validatedData
+      );
+      return response.data.data;
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        throw new Error(`Validation error: ${error.message}`);
+      }
+      throw handleApiError(error);
+    }
+  }
+
+  /**
+   * Delete a {{serviceName}}
+   */
+  async delete(id: string): Promise<void> {
+    try {
+      await apiClient.delete(`${this.basePath}/${id}`);
+    } catch (error) {
+      throw handleApiError(error);
+    }
+  }
+
+  /**
+   * Bulk operations
+   */
+  async bulkDelete(ids: string[]): Promise<void> {
+    try {
+      await apiClient.post(`${this.basePath}/bulk-delete`, { ids });
+    } catch (error) {
+      throw handleApiError(error);
+    }
+  }
+
+  /**
+   * Check permissions for a specific action
+   */
+  async checkPermission(action: string, id?: string): Promise<boolean> {
+    try {
+      const response = await apiClient.post<{ allowed: boolean }>(
+        '/api/v1/permissions/check',
+        {
+          action,
+          resource: '{{resourceName}}',
+          resourceId: id,
+        }
+      );
+      return response.data.allowed;
+    } catch (error) {
+      console.error('Permission check failed:', error);
+      return false;
+    }
+  }
+}
+
+// Export singleton instance
+export const {{serviceName}}Service = new {{ServiceName}}Service();

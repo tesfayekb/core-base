@@ -1,4 +1,3 @@
-
 import * as React from "react"
 import {
   Dialog,
@@ -11,6 +10,7 @@ import {
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { X } from "lucide-react"
+import { VisuallyHidden } from '@radix-ui/react-visually-hidden'
 
 interface ModalProps {
   children: React.ReactNode
@@ -54,12 +54,16 @@ export function Modal({
           </button>
         )}
         
-        {(title || description) && (
-          <DialogHeader>
-            {title && <DialogTitle>{title}</DialogTitle>}
-            {description && <DialogDescription>{description}</DialogDescription>}
-          </DialogHeader>
-        )}
+        <DialogHeader>
+          {title ? (
+            <DialogTitle>{title}</DialogTitle>
+          ) : (
+            <VisuallyHidden>
+              <DialogTitle>Modal Dialog</DialogTitle>
+            </VisuallyHidden>
+          )}
+          {description && <DialogDescription>{description}</DialogDescription>}
+        </DialogHeader>
         
         {children}
       </DialogContent>

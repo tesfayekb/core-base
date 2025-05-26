@@ -1,5 +1,6 @@
 import React from 'react';
-import { Sheet, SheetContent } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
+import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 import { SidebarNavItem } from './SidebarNavItem';
 import { Home, Shield, Layout, Puzzle, Building2 } from 'lucide-react';
 
@@ -49,6 +50,9 @@ export function Sidebar({ isOpen, toggleSidebar, isMobile }: SidebarProps) {
     return (
       <Sheet open={isOpen} onOpenChange={toggleSidebar}>
         <SheetContent side="left" className="w-64 p-0 border-r">
+          <VisuallyHidden>
+            <SheetTitle>Navigation Menu</SheetTitle>
+          </VisuallyHidden>
           {sidebarContent}
         </SheetContent>
       </Sheet>

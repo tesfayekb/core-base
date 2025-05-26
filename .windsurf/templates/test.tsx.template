@@ -1,0 +1,229 @@
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { BrowserRouter } from 'react-router-dom';
+import { vi } from 'vitest';
+import { {{ComponentName}} } from './{{ComponentName}}';
+
+// Mock dependencies
+vi.mock('@/hooks/usePermission', () => ({
+  usePermission: vi.fn(() => true), // Default to having permission
+}));
+
+vi.mock('@/services/{{serviceName}}', () => ({
+  {{serviceName}}Service: {
+    list: vi.fn().mockResolvedValue({ data: [], total: 0 }),
+    getById: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
+    delete: vi.fn(),
+  },
+}));
+
+// Test utilities
+const createQueryClient = () => new QueryClient({
+  defaultOptions: {
+    queries: { retry: false },
+    mutations: { retry: false },
+  },
+});
+
+const renderWithProviders = (ui: React.ReactElement, options = {}) => {
+  const queryClient = createQueryClient();
+  
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <BrowserRouter>
+        {ui}
+      </BrowserRouter>
+    </QueryClientProvider>,
+    options
+  );
+};
+
+describe('{{ComponentName}}', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  describe('Rendering', () => {
+    it('should render successfully', () => {
+      renderWithProviders(<{{ComponentName}} />);
+      
+      expect(screen.getByRole('{{role}}')).toBeInTheDocument();
+    });
+
+    it('should display loading state', () => {
+      renderWithProviders(<{{ComponentName}} />);
+      
+      expect(screen.getByText(/loading/i)).toBeInTheDocument();
+    });
+
+    it('should display error state', async () => {
+      // Mock error response
+      vi.mocked({{serviceName}}Service.list).mockRejectedValueOnce(
+        new Error('Failed to fetch')
+      );
+
+      renderWithProviders(<{{ComponentName}} />);
+      
+      await waitFor(() => {
+        expect(screen.getByText(/error/i)).toBeInTheDocument();
+      });
+    });
+  });
+
+  describe('Permissions', () => {
+    it('should hide actions when user lacks permissions', () => {
+      vi.mocked(usePermission).mockReturnValue(false);
+      
+      renderWithProviders(<{{ComponentName}} />);
+      
+      expect(screen.queryByRole('button', { name: /edit/i })).not.toBeInTheDocument();
+    });
+
+    it('should show actions when user has permissions', () => {
+      vi.mocked(usePermission).mockReturnValue(true);
+      
+      renderWithProviders(<{{ComponentName}} />);
+      
+      expect(screen.getByRole('button', { name: /edit/i })).toBeInTheDocument();
+    });
+  });
+
+  describe('User Interactions', () => {
+    it('should handle click events', async () => {
+      const user = userEvent.setup();
+      const handleClick = vi.fn();
+      
+      renderWithProviders(<{{ComponentName}} onClick={handleClick} />);
+      
+      const button = screen.getByRole('button', { name: /action/i });
+      await user.click(button);
+      
+      expect(handleClick).toHaveBeenCalledTimes(1);
+    });
+
+    it('should handle form submission', async () => {
+      const user = userEvent.setup();
+      const handleSubmit = vi.fn();
+      
+      renderWithProviders(<{{ComponentName}} onSubmit={handleSubmit} />);
+      
+      // Fill form fields
+      const input = screen.getByLabelText(/name/i);
+      await user.type(input, 'Test Value');
+      
+      // Submit form
+      const submitButton = screen.getByRole('button', { name: /submit/i });
+      await user.click(submitButton);
+      
+      await waitFor(() => {
+        expect(handleSubmit).toHaveBeenCalledWith(
+          expect.objectContaining({
+            name: 'Test Value',
+          })
+        );
+      });
+    });
+  });
+
+  describe('Data Operations', () => {
+    it('should fetch and display data', async () => {
+      const mockData = [
+        { id: '1', name: 'Item 1' },
+        { id: '2', name: 'Item 2' },
+      ];
+      
+      vi.mocked({{serviceName}}Service.list).mockResolvedValueOnce({
+        data: mockData,
+        total: 2,
+        page: 1,
+        pageSize: 20,
+      });
+      
+      renderWithProviders(<{{ComponentName}} />);
+      
+      await waitFor(() => {
+        expect(screen.getByText('Item 1')).toBeInTheDocument();
+        expect(screen.getByText('Item 2')).toBeInTheDocument();
+      });
+    });
+
+    it('should handle data mutations', async () => {
+      const user = userEvent.setup();
+      
+      renderWithProviders(<{{ComponentName}} />);
+      
+      // Trigger mutation
+      const createButton = screen.getByRole('button', { name: /create/i });
+      await user.click(createButton);
+      
+      await waitFor(() => {
+        expect({{serviceName}}Service.create).toHaveBeenCalledWith(
+          expect.objectContaining({
+            // Expected data
+          })
+        );
+      });
+    });
+  });
+
+  describe('Accessibility', () => {
+    it('should have proper ARIA labels', () => {
+      renderWithProviders(<{{ComponentName}} />);
+      
+      expect(screen.getByRole('{{role}}', { name: /{{ariaLabel}}/i })).toBeInTheDocument();
+    });
+
+    it('should be keyboard navigable', async () => {
+      const user = userEvent.setup();
+      
+      renderWithProviders(<{{ComponentName}} />);
+      
+      // Tab through interactive elements
+      await user.tab();
+      expect(screen.getByRole('button', { name: /first/i })).toHaveFocus();
+      
+      await user.tab();
+      expect(screen.getByRole('button', { name: /second/i })).toHaveFocus();
+    });
+
+    it('should announce changes to screen readers', async () => {
+      renderWithProviders(<{{ComponentName}} />);
+      
+      // Check for live regions
+      const liveRegion = screen.getByRole('status');
+      expect(liveRegion).toHaveAttribute('aria-live', 'polite');
+    });
+  });
+
+  describe('Edge Cases', () => {
+    it('should handle empty state', async () => {
+      vi.mocked({{serviceName}}Service.list).mockResolvedValueOnce({
+        data: [],
+        total: 0,
+        page: 1,
+        pageSize: 20,
+      });
+      
+      renderWithProviders(<{{ComponentName}} />);
+      
+      await waitFor(() => {
+        expect(screen.getByText(/no items found/i)).toBeInTheDocument();
+      });
+    });
+
+    it('should handle network errors gracefully', async () => {
+      vi.mocked({{serviceName}}Service.list).mockRejectedValueOnce(
+        new Error('Network error')
+      );
+      
+      renderWithProviders(<{{ComponentName}} />);
+      
+      await waitFor(() => {
+        expect(screen.getByText(/unable to load/i)).toBeInTheDocument();
+      });
+    });
+  });
+});

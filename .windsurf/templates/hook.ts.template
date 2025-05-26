@@ -1,0 +1,70 @@
+import { useState, useEffect, useCallback } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { z } from 'zod';
+
+// Define types
+interface {{HookName}}Options {
+  // Add hook options here
+}
+
+interface {{HookName}}Return {
+  // Define return type
+}
+
+/**
+ * {{HookName}} - {{HookDescription}}
+ * 
+ * @param options - Hook configuration options
+ * @returns Hook state and methods
+ * 
+ * @example
+ * ```tsx
+ * const { data, isLoading } = {{HookName}}({
+ *   // options
+ * });
+ * ```
+ */
+export function {{HookName}}(options?: {{HookName}}Options): {{HookName}}Return {
+  const queryClient = useQueryClient();
+  
+  // State management
+  const [state, setState] = useState();
+  
+  // Queries
+  const query = useQuery({
+    queryKey: ['{{queryKey}}', options],
+    queryFn: async () => {
+      // Implement query logic
+      return null;
+    },
+    enabled: !!options,
+  });
+  
+  // Mutations
+  const mutation = useMutation({
+    mutationFn: async (data: unknown) => {
+      // Implement mutation logic
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['{{queryKey}}'] });
+    },
+    onError: (error) => {
+      console.error('{{HookName}} error:', error);
+    },
+  });
+  
+  // Callbacks
+  const handleAction = useCallback((data: unknown) => {
+    // Implement action handler
+  }, []);
+  
+  // Effects
+  useEffect(() => {
+    // Implement side effects
+  }, []);
+  
+  return {
+    // Return hook interface
+  };
+}
