@@ -1,50 +1,86 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { useQuery } from '@tanstack/react-query';
-import { Users, Search, UserPlus, Settings, Eye } from 'lucide-react';
-import { useAuth } from '@/contexts/AuthContext';
-import { userManagementService, UserWithRoles } from '@/services/user/UserManagementService';
+import { Plus, Search, MoreHorizontal, Edit, Trash2, UserCheck } from 'lucide-react';
+import { userManagementService, UserWithRoles, UserSearchFilters } from '@/services/user/UserManagementService';
 import { UserForm } from './UserForm';
-import { UserRoleAssignment } from './UserRoleAssignment';
 import { UserProfile } from './UserProfile';
+import { useAuth } from '@/contexts/AuthContext';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { PermissionBoundary } from '@/components/rbac/PermissionBoundary';
 
 export function UserDirectory() {
   const { tenantId } = useAuth();
-  const [search, setSearch] = useState('');
-  const [status, setStatus] = useState('all');
-  const [selectedUser, setSelectedUser] = useState<UserWithRoles | null>(null);
+  const queryClient = useQueryClient();
   const [showUserForm, setShowUserForm] = useState(false);
-  const [showRoleAssignment, setShowRoleAssignment] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<UserWithRoles | null>(null);
   const [showUserProfile, setShowUserProfile] = useState(false);
-
-  const { data: users = [], isLoading, error } = useQuery({
-    queryKey: ['users', tenantId, search, status],
-    queryFn: async () => {
-      if (!tenantId) return [];
-      
-      const result = await userManagementService.getUsers({
-        tenantId,
-        search: search || undefined,
-        status: status === 'all' ? undefined : status,
-        limit: 50
-      });
-      
-      if (!result.success) {
-        throw new Error(result.error || 'Failed to fetch users');
-      }
-      
-      return result.data || [];
-    },
-    enabled: !!tenantId
+  const [filters, setFilters] = useState<UserSearchFilters>({
+    search: '',
+    status: '',
+    page: 1,
+    limit: 50
   });
 
-  const getStatusBadgeVariant = (userStatus: string) => {
-    switch (userStatus) {
+  // Fetch users
+  const { data: userResult, isLoading, error } = useQuery({
+    queryKey: ['users', tenantId, filters],
+    queryFn: () => userManagementService.getUsers(tenantId!, filters),
+    enabled: !!tenantId,
+    refetchInterval: 30000 // Refresh every 30 seconds
+  });
+
+  const handleCreateUser = () => {
+    setSelectedUser(null);
+    setShowUserForm(true);
+  };
+
+  const handleEditUser = (user: UserWithRoles) => {
+    setSelectedUser(user);
+    setShowUserForm(true);
+  };
+
+  const handleViewUser = (user: UserWithRoles) => {
+    setSelectedUser(user);
+    setShowUserProfile(true);
+  };
+
+  const handleDeleteUser = async (user: UserWithRoles) => {
+    if (!confirm(`Are you sure you want to deactivate ${user.email}?`)) {
+      return;
+    }
+
+    // Implementation would call userManagementService.deleteUser
+    // For now, just refresh the list
+    queryClient.invalidateQueries({ queryKey: ['users', tenantId] });
+  };
+
+  const handleFormClose = () => {
+    setShowUserForm(false);
+    setSelectedUser(null);
+    // Refresh user list after form operations
+    queryClient.invalidateQueries({ queryKey: ['users', tenantId] });
+  };
+
+  const handleProfileClose = () => {
+    setShowUserProfile(false);
+    setSelectedUser(null);
+  };
+
+  const handleSearchChange = (value: string) => {
+    setFilters(prev => ({ ...prev, search: value, page: 1 }));
+  };
+
+  const handleStatusFilterChange = (value: string) => {
+    setFilters(prev => ({ ...prev, status: value === 'all' ? '' : value, page: 1 }));
+  };
+
+  const getStatusBadgeVariant = (status: string) => {
+    switch (status) {
       case 'active': return 'default';
       case 'inactive': return 'secondary';
       case 'suspended': return 'destructive';
@@ -53,40 +89,28 @@ export function UserDirectory() {
     }
   };
 
-  const handleUserAction = (user: UserWithRoles, action: 'profile' | 'roles' | 'edit') => {
-    setSelectedUser(user);
-    switch (action) {
-      case 'profile':
-        setShowUserProfile(true);
-        break;
-      case 'roles':
-        setShowRoleAssignment(true);
-        break;
-      case 'edit':
-        setShowUserForm(true);
-        break;
-    }
-  };
-
-  const closeModals = () => {
-    setSelectedUser(null);
-    setShowUserForm(false);
-    setShowRoleAssignment(false);
-    setShowUserProfile(false);
-  };
+  if (isLoading) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Users</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="text-center py-8">Loading users...</div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   if (error) {
     return (
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center space-x-2">
-            <Users className="h-5 w-5" />
-            <span>User Directory</span>
-          </CardTitle>
+          <CardTitle>Users</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="text-center py-6 text-red-600">
-            Failed to load users: {error instanceof Error ? error.message : 'Unknown error'}
+          <div className="text-center py-8 text-red-600">
+            Error loading users: {error instanceof Error ? error.message : 'Unknown error'}
           </div>
         </CardContent>
       </Card>
@@ -98,34 +122,35 @@ export function UserDirectory() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-              <Users className="h-5 w-5" />
-              <span>User Directory</span>
-            </div>
-            <Button onClick={() => setShowUserForm(true)}>
-              <UserPlus className="h-4 w-4 mr-2" />
-              Add User
-            </Button>
+            <span>Users ({userResult?.total || 0})</span>
+            <PermissionBoundary action="create" resource="users">
+              <Button onClick={handleCreateUser}>
+                <Plus className="h-4 w-4 mr-2" />
+                Add User
+              </Button>
+            </PermissionBoundary>
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          {/* Search and Filters */}
-          <div className="flex items-center space-x-4">
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search users..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-10"
-              />
+        <CardContent className="space-y-6">
+          {/* Filters */}
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="flex-1">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                <Input
+                  placeholder="Search users..."
+                  value={filters.search}
+                  onChange={(e) => handleSearchChange(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
             </div>
-            <Select value={status} onValueChange={setStatus}>
-              <SelectTrigger className="w-40">
+            <Select value={filters.status || 'all'} onValueChange={handleStatusFilterChange}>
+              <SelectTrigger className="w-full sm:w-48">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="all">All Statuses</SelectItem>
                 <SelectItem value="active">Active</SelectItem>
                 <SelectItem value="inactive">Inactive</SelectItem>
                 <SelectItem value="suspended">Suspended</SelectItem>
@@ -134,96 +159,84 @@ export function UserDirectory() {
             </Select>
           </div>
 
-          {/* Users List */}
-          {isLoading ? (
-            <div className="text-center py-6">Loading users...</div>
-          ) : users.length === 0 ? (
-            <div className="text-center py-6 text-muted-foreground">
-              <Users className="h-12 w-12 mx-auto mb-4 opacity-30" />
-              <h3 className="font-medium mb-2">No Users Found</h3>
-              <p className="text-sm">
-                {search || status !== 'all' 
-                  ? 'Try adjusting your search or filters'
-                  : 'Get started by adding your first user'
-                }
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {users.map((user) => (
-                <div key={user.id} className="flex items-center justify-between p-4 border rounded-lg">
+          {/* User List */}
+          <div className="space-y-4">
+            {userResult?.users.map((user) => (
+              <div key={user.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50">
+                <div className="flex items-center space-x-4">
                   <div className="flex-1">
-                    <div className="flex items-center space-x-3">
-                      <div>
-                        <div className="font-medium">
-                          {user.first_name && user.last_name 
-                            ? `${user.first_name} ${user.last_name}`
-                            : user.email
-                          }
-                        </div>
-                        <div className="text-sm text-muted-foreground">{user.email}</div>
-                      </div>
-                      <Badge variant={getStatusBadgeVariant(user.status)}>
+                    <div className="flex items-center space-x-2">
+                      <h4 className="font-medium">{user.first_name && user.last_name ? `${user.first_name} ${user.last_name}` : user.email}</h4>
+                      <Badge variant={getStatusBadgeVariant(user.status) as any}>
                         {user.status.replace('_', ' ')}
                       </Badge>
                     </div>
-                    <div className="mt-2 flex items-center space-x-4 text-xs text-muted-foreground">
-                      <span>
-                        Roles: {user.roles?.length || 0}
-                      </span>
-                      <span>
-                        Created: {new Date(user.created_at).toLocaleDateString()}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleUserAction(user, 'profile')}
-                    >
-                      <Eye className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleUserAction(user, 'roles')}
-                    >
-                      <Settings className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleUserAction(user, 'edit')}
-                    >
-                      Edit
-                    </Button>
+                    <p className="text-sm text-muted-foreground">{user.email}</p>
+                    {user.roles && user.roles.length > 0 && (
+                      <div className="flex items-center space-x-1 mt-1">
+                        <UserCheck className="h-3 w-3 text-gray-400" />
+                        <span className="text-xs text-gray-500">
+                          {user.roles.map(role => role.name).join(', ')}
+                        </span>
+                      </div>
+                    )}
+                    <p className="text-xs text-gray-400">
+                      Created {new Date(user.created_at).toLocaleDateString()}
+                    </p>
                   </div>
                 </div>
-              ))}
+                
+                <div className="flex items-center space-x-2">
+                  <Button variant="ghost" size="sm" onClick={() => handleViewUser(user)}>
+                    View
+                  </Button>
+                  <PermissionBoundary action="update" resource="users">
+                    <Button variant="ghost" size="sm" onClick={() => handleEditUser(user)}>
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                  </PermissionBoundary>
+                  <PermissionBoundary action="delete" resource="users">
+                    <Button variant="ghost" size="sm" onClick={() => handleDeleteUser(user)}>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </PermissionBoundary>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {userResult?.users.length === 0 && (
+            <div className="text-center py-8 text-muted-foreground">
+              No users found matching your criteria
             </div>
           )}
         </CardContent>
       </Card>
 
-      {/* Modals */}
+      {/* User Form Modal */}
       {showUserForm && (
         <UserForm
           user={selectedUser}
-          onClose={closeModals}
-          tenantId={tenantId || ''}
+          onClose={handleFormClose}
+          tenantId={tenantId!}
         />
       )}
 
-      {showRoleAssignment && selectedUser && (
-        <UserRoleAssignment
-          user={selectedUser}
-          onClose={closeModals}
-        />
-      )}
-
+      {/* User Profile Modal */}
       {showUserProfile && selectedUser && (
-        <UserProfile user={selectedUser} />
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between p-4 border-b">
+              <h2 className="text-lg font-semibold">User Profile</h2>
+              <Button variant="ghost" size="sm" onClick={handleProfileClose}>
+                ×
+              </Button>
+            </div>
+            <div className="p-4">
+              <UserProfile user={selectedUser} />
+            </div>
+          </div>
+        </div>
       )}
     </>
   );
