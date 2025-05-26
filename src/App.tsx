@@ -24,6 +24,7 @@ function App() {
               <Route path="validation" element={<ValidationDashboard />} />
               <Route path="components" element={<ComponentShowcase />} />
               <Route path="integration" element={<IntegrationDemo />} />
+              <Route path="tenant-management" element={<TenantManagement />} />
             </Route>
           </Routes>
           <Toaster />

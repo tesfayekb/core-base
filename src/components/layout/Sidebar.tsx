@@ -1,8 +1,7 @@
-
 import React from 'react';
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { SidebarNavItem } from './SidebarNavItem';
-import { Home, Shield, Layout, Puzzle } from 'lucide-react';
+import { Home, Shield, Layout, Puzzle, Building2 } from 'lucide-react';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -16,6 +15,7 @@ export function Sidebar({ isOpen, toggleSidebar, isMobile }: SidebarProps) {
     { icon: Shield, label: 'Validation', path: '/validation' },
     { icon: Layout, label: 'Components', path: '/components' },
     { icon: Puzzle, label: 'Integration', path: '/integration' },
+    { icon: Building2, label: 'Tenant Management', path: '/tenant-management' },
   ];
 
   const handleClose = () => {
