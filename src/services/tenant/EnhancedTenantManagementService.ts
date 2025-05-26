@@ -1,4 +1,3 @@
-
 import { tenantManagementService } from './TenantManagementService';
 import { tenantQuotaService } from './TenantQuotaService';
 import { tenantCustomizationService } from './TenantCustomizationService';
@@ -74,11 +73,19 @@ export class EnhancedTenantManagementService {
     name: string,
     slug: string,
     domain?: string,
-    initialConfig: any = {}
+    initialConfig: any = {},
+    ownerId: string = 'system'
   ): Promise<EnhancedTenantConfig> {
     try {
-      // Create base tenant
-      const tenant = await tenantManagementService.createTenant(name, slug, initialConfig, domain);
+      // Create base tenant using the correct CreateTenantRequest structure
+      const tenant = await tenantManagementService.createTenant({
+        name,
+        slug,
+        domain,
+        ownerId,
+        settings: initialConfig,
+        metadata: {}
+      });
       
       // Set up default quotas
       const defaultQuotas = [
