@@ -1,9 +1,9 @@
-
 // Real-Time Audit Monitoring Service - Phase 2.3
 // Provides real-time audit event processing and monitoring
 
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../../integrations/supabase/client';
+import { threatDetectionService } from '../security/ThreatDetectionService';
 
 export interface AuditEventFilter {
   tenantId?: string;
@@ -27,11 +27,21 @@ export interface AuditMetrics {
     resource: string;
     outcome: string;
   }>;
+  threatDetection?: {
+    activeThreats: number;
+    threatsBySeverity: Record<string, number>;
+    recentThreats: Array<{
+      type: string;
+      severity: string;
+      timestamp: string;
+    }>;
+  };
 }
 
 export class RealTimeAuditMonitor {
   private static instance: RealTimeAuditMonitor;
   private subscribers = new Set<(event: any) => void>();
+  private threatSubscribers = new Set<(threat: any) => void>();
 
   static getInstance(): RealTimeAuditMonitor {
     if (!RealTimeAuditMonitor.instance) {
@@ -80,12 +90,28 @@ export class RealTimeAuditMonitor {
       outcome: log.details?.outcome || 'unknown'
     }));
 
+    // Get threat detection metrics
+    const activeThreats = threatDetectionService.getActiveThreats(tenantId);
+    const threatDetection = {
+      activeThreats: activeThreats.length,
+      threatsBySeverity: activeThreats.reduce((acc, threat) => {
+        acc[threat.severity] = (acc[threat.severity] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>),
+      recentThreats: activeThreats.slice(0, 5).map(threat => ({
+        type: threat.type,
+        severity: threat.severity,
+        timestamp: threat.timestamp
+      }))
+    };
+
     return {
       totalEvents,
       eventsByType,
       securityEvents,
       failureRate,
-      recentActivity
+      recentActivity,
+      threatDetection
     };
   }
 
@@ -132,14 +158,28 @@ export class RealTimeAuditMonitor {
         event: 'INSERT',
         schema: 'public',
         table: 'audit_logs'
-      }, (payload) => {
+      }, async (payload) => {
         this.subscribers.forEach(subscriber => subscriber(payload.new));
+        
+        // Analyze for security threats
+        const threat = await threatDetectionService.analyzeSecurityEvent(payload.new);
+        if (threat) {
+          this.threatSubscribers.forEach(subscriber => subscriber(threat));
+        }
       })
       .subscribe();
 
     return () => {
       this.subscribers.delete(callback);
       supabase.removeChannel(channel);
+    };
+  }
+
+  subscribeToSecurityThreats(callback: (threat: any) => void) {
+    this.threatSubscribers.add(callback);
+    
+    return () => {
+      this.threatSubscribers.delete(callback);
     };
   }
 
@@ -176,7 +216,12 @@ export class RealTimeAuditMonitor {
       eventsByType: {},
       securityEvents: 0,
       failureRate: 0,
-      recentActivity: []
+      recentActivity: [],
+      threatDetection: {
+        activeThreats: 0,
+        threatsBySeverity: {},
+        recentThreats: []
+      }
     };
   }
 }

@@ -8,6 +8,7 @@ import { AuditMetricsGrid } from './AuditMetricsGrid';
 import { AuditRecentActivity } from './AuditRecentActivity';
 import { AuditComplianceReports } from './AuditComplianceReports';
 import { AuditEventTypesBreakdown } from './AuditEventTypesBreakdown';
+import { SecurityThreatsPanel } from './SecurityThreatsPanel';
 
 export function AuditDashboard() {
   const { tenantId } = useAuth();
@@ -69,7 +70,12 @@ export function AuditDashboard() {
       </div>
 
       <AuditMetricsGrid metrics={auditMetrics} />
-      <AuditRecentActivity metrics={auditMetrics} />
+      
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <SecurityThreatsPanel tenantId={tenantId} />
+        <AuditRecentActivity metrics={auditMetrics} />
+      </div>
+      
       <AuditComplianceReports tenantId={tenantId} />
       <AuditEventTypesBreakdown metrics={auditMetrics} />
     </div>
