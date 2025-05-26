@@ -162,7 +162,8 @@ describe('Audit System Integration Tests', () => {
           dataAccessLogged: true,
           authenticationTracked: true,
           securityEventsMonitored: true,
-          retentionCompliant: true
+          retentionCompliant: true,
+          threatDetectionActive: true
         }
       };
 
@@ -173,6 +174,7 @@ describe('Audit System Integration Tests', () => {
       
       expect(report.reportType).toBe('daily');
       expect(report.complianceChecks.dataAccessLogged).toBe(true);
+      expect(report.complianceChecks.threatDetectionActive).toBe(true);
     });
   });
 
