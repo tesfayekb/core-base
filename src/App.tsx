@@ -6,6 +6,7 @@ import Dashboard from './pages/Dashboard';
 import ValidationDashboard from './pages/ValidationDashboard';
 import ComponentShowcase from './pages/ComponentShowcase';
 import IntegrationDemo from './pages/IntegrationDemo';
+import TenantManagement from './pages/TenantManagement';
 import { useSecurityHeaders } from './hooks/useSecurityHeaders';
 import { AuthProvider } from './contexts/AuthContext';
 import { Toaster } from './components/ui/toaster';
