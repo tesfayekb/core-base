@@ -5,82 +5,98 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Switch } from '@/components/ui/switch';
 import { 
-  Settings, 
+  Shield, 
   Users, 
-  Activity, 
+  Settings, 
   AlertTriangle, 
-  Shield,
+  CheckCircle,
+  XCircle,
   Database,
-  Trash2,
-  Play,
-  Pause
+  Activity
 } from 'lucide-react';
 import { enhancedTenantManagementService } from '@/services/tenant/EnhancedTenantManagementService';
+import { tenantManagementService } from '@/services/tenant/TenantManagementService';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
 
-interface TenantSummary {
+interface TenantHealthMetrics {
+  tenantId: string;
+  status: 'healthy' | 'warning' | 'critical';
+  responseTime: number;
+  errorRate: number;
+  activeUsers: number;
+  lastHealthCheck: string;
+}
+
+interface SystemTenant {
   id: string;
   name: string;
+  domain?: string;
   status: string;
   userCount: number;
-  resourceUsage: number;
+  quotaUsage: number;
   lastActivity: string;
-  domain?: string;
 }
 
 export function TenantAdministration() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [tenants, setTenants] = useState<TenantSummary[]>([]);
+  const [tenants, setTenants] = useState<SystemTenant[]>([]);
+  const [healthMetrics, setHealthMetrics] = useState<TenantHealthMetrics[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedTenant, setSelectedTenant] = useState<string | null>(null);
-  const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
-    loadTenants();
+    loadSystemData();
   }, []);
 
-  const loadTenants = async () => {
+  const loadSystemData = async () => {
     try {
-      // Mock data for now - replace with actual service call
-      const mockTenants: TenantSummary[] = [
-        {
-          id: '1',
-          name: 'Acme Corporation',
-          status: 'active',
-          userCount: 150,
-          resourceUsage: 75,
-          lastActivity: '2024-01-15T10:30:00Z',
-          domain: 'acme.example.com'
-        },
-        {
-          id: '2',
-          name: 'TechStart Inc',
-          status: 'active',
-          userCount: 45,
-          resourceUsage: 32,
-          lastActivity: '2024-01-15T09:15:00Z'
-        },
-        {
-          id: '3',
-          name: 'Global Enterprises',
-          status: 'suspended',
-          userCount: 200,
-          resourceUsage: 95,
-          lastActivity: '2024-01-14T16:45:00Z',
-          domain: 'global.example.com'
-        }
-      ];
+      const tenantsData = await tenantManagementService.getAllTenants();
       
-      setTenants(mockTenants);
+      // Transform and enrich tenant data
+      const systemTenants: SystemTenant[] = await Promise.all(
+        tenantsData.map(async (tenant) => {
+          const analytics = await tenantManagementService.getTenantUsageAnalytics(tenant.id);
+          const health = await tenantManagementService.getTenantHealthStatus(tenant.id);
+          
+          return {
+            id: tenant.id,
+            name: tenant.name,
+            domain: tenant.domain,
+            status: tenant.status,
+            userCount: analytics.totalUsers,
+            quotaUsage: health.metrics.resourceUsage,
+            lastActivity: analytics.lastActivity.toISOString()
+          };
+        })
+      );
+
+      // Generate health metrics
+      const healthData: TenantHealthMetrics[] = await Promise.all(
+        tenantsData.map(async (tenant) => {
+          const health = await tenantManagementService.getTenantHealthStatus(tenant.id);
+          const analytics = await tenantManagementService.getTenantUsageAnalytics(tenant.id);
+          
+          return {
+            tenantId: tenant.id,
+            status: health.status,
+            responseTime: health.metrics.responseTime,
+            errorRate: health.metrics.errorRate,
+            activeUsers: analytics.activeUsers,
+            lastHealthCheck: health.lastChecked.toISOString()
+          };
+        })
+      );
+
+      setTenants(systemTenants);
+      setHealthMetrics(healthData);
     } catch (error) {
-      console.error('Failed to load tenants:', error);
+      console.error('Failed to load system data:', error);
       toast({
         title: "Error",
-        description: "Failed to load tenant information.",
+        description: "Failed to load system administration data.",
         variant: "destructive"
       });
     } finally {
@@ -90,18 +106,15 @@ export function TenantAdministration() {
 
   const handleTenantStatusChange = async (tenantId: string, newStatus: string) => {
     try {
-      // Update tenant status
-      setTenants(prev => 
-        prev.map(tenant => 
-          tenant.id === tenantId 
-            ? { ...tenant, status: newStatus }
-            : tenant
-        )
-      );
+      await tenantManagementService.updateTenantConfiguration(tenantId, {
+        status: newStatus as any
+      });
 
+      await loadSystemData();
+      
       toast({
         title: "Status updated",
-        description: `Tenant status changed to ${newStatus}.`
+        description: "Tenant status has been updated successfully."
       });
     } catch (error) {
       console.error('Failed to update tenant status:', error);
@@ -113,162 +126,53 @@ export function TenantAdministration() {
     }
   };
 
-  const filteredTenants = tenants.filter(tenant =>
-    tenant.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    tenant.domain?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  const getStatusColor = (status: string) => {
+  const getStatusBadgeVariant = (status: string) => {
     switch (status) {
       case 'active': return 'default';
+      case 'inactive': return 'secondary';
       case 'suspended': return 'destructive';
-      case 'pending': return 'warning';
-      default: return 'secondary';
+      default: return 'outline';
     }
   };
 
-  const getResourceUsageColor = (usage: number) => {
-    if (usage >= 90) return 'text-red-600';
-    if (usage >= 75) return 'text-yellow-600';
-    return 'text-green-600';
+  const getHealthStatusColor = (status: 'healthy' | 'warning' | 'critical') => {
+    switch (status) {
+      case 'healthy': return 'text-green-600';
+      case 'warning': return 'text-yellow-600';
+      case 'critical': return 'text-red-600';
+    }
+  };
+
+  const getHealthIcon = (status: 'healthy' | 'warning' | 'critical') => {
+    switch (status) {
+      case 'healthy': return <CheckCircle className="h-4 w-4" />;
+      case 'warning': return <AlertTriangle className="h-4 w-4" />;
+      case 'critical': return <XCircle className="h-4 w-4" />;
+    }
   };
 
   if (loading) {
-    return <div className="p-6">Loading tenant administration...</div>;
+    return <div className="p-6">Loading system administration...</div>;
   }
 
   return (
     <div className="p-6 space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Tenant Administration</h1>
-        <p className="text-muted-foreground">System-wide tenant management and monitoring</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold flex items-center gap-2">
+            <Shield className="h-8 w-8" />
+            System Administration
+          </h1>
+          <p className="text-muted-foreground">Manage all tenants and system health</p>
+        </div>
       </div>
 
-      {/* Search and Filters */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Settings className="h-5 w-5" />
-            Tenant Management
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex gap-4 mb-4">
-            <div className="flex-1">
-              <Label htmlFor="search">Search Tenants</Label>
-              <Input
-                id="search"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Search by name or domain..."
-              />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Tenant List */}
-      <div className="grid gap-4">
-        {filteredTenants.map((tenant) => (
-          <Card key={tenant.id} className="cursor-pointer hover:shadow-md transition-shadow">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div>
-                    <h3 className="text-lg font-semibold">{tenant.name}</h3>
-                    {tenant.domain && (
-                      <p className="text-sm text-muted-foreground">{tenant.domain}</p>
-                    )}
-                  </div>
-                  <Badge variant={getStatusColor(tenant.status) as any}>
-                    {tenant.status}
-                  </Badge>
-                </div>
-
-                <div className="flex items-center gap-6">
-                  <div className="text-center">
-                    <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                      <Users className="h-4 w-4" />
-                      <span>{tenant.userCount} users</span>
-                    </div>
-                  </div>
-
-                  <div className="text-center">
-                    <div className="flex items-center gap-1 text-sm">
-                      <Database className="h-4 w-4" />
-                      <span className={getResourceUsageColor(tenant.resourceUsage)}>
-                        {tenant.resourceUsage}% usage
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="text-center">
-                    <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                      <Activity className="h-4 w-4" />
-                      <span>{new Date(tenant.lastActivity).toLocaleDateString()}</span>
-                    </div>
-                  </div>
-
-                  <div className="flex gap-2">
-                    {tenant.status === 'active' ? (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleTenantStatusChange(tenant.id, 'suspended')}
-                      >
-                        <Pause className="h-4 w-4 mr-1" />
-                        Suspend
-                      </Button>
-                    ) : (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleTenantStatusChange(tenant.id, 'active')}
-                      >
-                        <Play className="h-4 w-4 mr-1" />
-                        Activate
-                      </Button>
-                    )}
-
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setSelectedTenant(tenant.id)}
-                    >
-                      <Settings className="h-4 w-4 mr-1" />
-                      Manage
-                    </Button>
-                  </div>
-                </div>
-              </div>
-
-              {tenant.resourceUsage >= 90 && (
-                <div className="mt-4 flex items-center gap-2 text-red-600 bg-red-50 p-2 rounded">
-                  <AlertTriangle className="h-4 w-4" />
-                  <span className="text-sm">High resource usage - review quotas</span>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        ))}
-
-        {filteredTenants.length === 0 && (
-          <Card>
-            <CardContent className="text-center py-8">
-              <p className="text-muted-foreground">
-                {searchTerm ? 'No tenants found matching your search.' : 'No tenants configured.'}
-              </p>
-            </CardContent>
-          </Card>
-        )}
-      </div>
-
-      {/* System Statistics */}
+      {/* System Overview */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-2">
-              <Shield className="h-5 w-5 text-blue-500" />
+              <Database className="h-5 w-5 text-blue-500" />
               <div>
                 <p className="text-sm text-muted-foreground">Total Tenants</p>
                 <p className="text-2xl font-bold">{tenants.length}</p>
@@ -284,7 +188,7 @@ export function TenantAdministration() {
               <div>
                 <p className="text-sm text-muted-foreground">Total Users</p>
                 <p className="text-2xl font-bold">
-                  {tenants.reduce((sum, tenant) => sum + tenant.userCount, 0)}
+                  {tenants.reduce((sum, t) => sum + t.userCount, 0)}
                 </p>
               </div>
             </div>
@@ -294,11 +198,11 @@ export function TenantAdministration() {
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-2">
-              <Activity className="h-5 w-5 text-yellow-500" />
+              <CheckCircle className="h-5 w-5 text-green-500" />
               <div>
-                <p className="text-sm text-muted-foreground">Active Tenants</p>
+                <p className="text-sm text-muted-foreground">Healthy Tenants</p>
                 <p className="text-2xl font-bold">
-                  {tenants.filter(t => t.status === 'active').length}
+                  {healthMetrics.filter(h => h.status === 'healthy').length}
                 </p>
               </div>
             </div>
@@ -308,17 +212,110 @@ export function TenantAdministration() {
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-red-500" />
+              <Activity className="h-5 w-5 text-purple-500" />
               <div>
-                <p className="text-sm text-muted-foreground">High Usage</p>
+                <p className="text-sm text-muted-foreground">Active Users</p>
                 <p className="text-2xl font-bold">
-                  {tenants.filter(t => t.resourceUsage >= 80).length}
+                  {healthMetrics.reduce((sum, h) => sum + h.activeUsers, 0)}
                 </p>
               </div>
             </div>
           </CardContent>
         </Card>
       </div>
+
+      {/* Tenant List */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Tenant Management</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {tenants.map((tenant) => {
+              const health = healthMetrics.find(h => h.tenantId === tenant.id);
+              
+              return (
+                <div key={tenant.id} className="border rounded-lg p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <div>
+                        <h3 className="font-semibold">{tenant.name}</h3>
+                        <p className="text-sm text-muted-foreground">
+                          {tenant.domain || `ID: ${tenant.id.slice(0, 8)}...`}
+                        </p>
+                      </div>
+                      
+                      <div className="flex items-center gap-2">
+                        <Badge variant={getStatusBadgeVariant(tenant.status)}>
+                          {tenant.status}
+                        </Badge>
+                        
+                        {health && (
+                          <div className={`flex items-center gap-1 ${getHealthStatusColor(health.status)}`}>
+                            {getHealthIcon(health.status)}
+                            <span className="text-sm capitalize">{health.status}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-4">
+                      <div className="text-sm text-muted-foreground">
+                        <span className="block">{tenant.userCount} users</span>
+                        <span className="block">{tenant.quotaUsage.toFixed(1)}% quota</span>
+                      </div>
+
+                      <div className="flex gap-2">
+                        {tenant.status === 'active' ? (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleTenantStatusChange(tenant.id, 'suspended')}
+                          >
+                            Suspend
+                          </Button>
+                        ) : (
+                          <Button
+                            size="sm"
+                            onClick={() => handleTenantStatusChange(tenant.id, 'active')}
+                          >
+                            Activate
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {health && (
+                    <div className="mt-3 pt-3 border-t">
+                      <div className="grid grid-cols-3 gap-4 text-sm">
+                        <div>
+                          <span className="text-muted-foreground">Response Time:</span>
+                          <span className="ml-2 font-medium">{health.responseTime.toFixed(0)}ms</span>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Error Rate:</span>
+                          <span className="ml-2 font-medium">{health.errorRate.toFixed(1)}%</span>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Active Users:</span>
+                          <span className="ml-2 font-medium">{health.activeUsers}</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+
+            {tenants.length === 0 && (
+              <div className="text-center py-8 text-muted-foreground">
+                No tenants found in the system.
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
