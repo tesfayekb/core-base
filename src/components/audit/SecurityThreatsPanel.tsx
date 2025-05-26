@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { AlertTriangle, Shield, CheckCircle } from 'lucide-react';
-import { threatDetectionService, SecurityThreat } from '@/services/security/ThreatDetectionService';
+import { enhancedThreatDetectionService, SecurityThreat } from '@/services/security/EnhancedThreatDetectionService';
 import { realTimeAuditMonitor } from '@/services/audit/RealTimeAuditMonitor';
 
 interface SecurityThreatsPanelProps {
@@ -14,13 +14,16 @@ interface SecurityThreatsPanelProps {
 export function SecurityThreatsPanel({ tenantId }: SecurityThreatsPanelProps) {
   const [activeThreats, setActiveThreats] = useState<SecurityThreat[]>([]);
   const [loading, setLoading] = useState(true);
+  const [healthStatus, setHealthStatus] = useState({ healthy: true, eventCount: 0, correlationCount: 0 });
 
   useEffect(() => {
     if (!tenantId) return;
 
     const loadThreats = () => {
-      const threats = threatDetectionService.getActiveThreats(tenantId);
+      const threats = enhancedThreatDetectionService.getActiveThreats(tenantId);
+      const health = enhancedThreatDetectionService.getHealthStatus();
       setActiveThreats(threats);
+      setHealthStatus(health);
       setLoading(false);
     };
 
@@ -33,11 +36,17 @@ export function SecurityThreatsPanel({ tenantId }: SecurityThreatsPanelProps) {
       }
     });
 
-    return unsubscribe;
+    // Refresh every 30 seconds
+    const interval = setInterval(loadThreats, 30000);
+
+    return () => {
+      unsubscribe();
+      clearInterval(interval);
+    };
   }, [tenantId]);
 
   const handleAcknowledgeThreat = (threatId: string) => {
-    threatDetectionService.acknowledgeeThreat(threatId);
+    enhancedThreatDetectionService.acknowledgeeThreat(threatId);
     setActiveThreats(prev => prev.filter(threat => threat.id !== threatId));
   };
 
@@ -89,9 +98,25 @@ export function SecurityThreatsPanel({ tenantId }: SecurityThreatsPanelProps) {
               {activeThreats.length}
             </Badge>
           )}
+          {!healthStatus.healthy && (
+            <Badge variant="outline" className="ml-2 text-yellow-600">
+              Service Degraded
+            </Badge>
+          )}
         </CardTitle>
       </CardHeader>
       <CardContent>
+        {!healthStatus.healthy && (
+          <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <p className="text-sm text-yellow-800">
+              Threat detection service is under high load. Some threats may be delayed.
+            </p>
+            <p className="text-xs text-yellow-600 mt-1">
+              Events: {healthStatus.eventCount}, Correlations: {healthStatus.correlationCount}
+            </p>
+          </div>
+        )}
+        
         {activeThreats.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
             <CheckCircle className="h-12 w-12 mx-auto mb-4 text-green-500" />
@@ -120,6 +145,11 @@ export function SecurityThreatsPanel({ tenantId }: SecurityThreatsPanelProps) {
                       <div className="text-xs text-muted-foreground mt-1">
                         <strong>Detected:</strong> {new Date(threat.timestamp).toLocaleString()}
                       </div>
+                      {threat.correlationId && (
+                        <div className="text-xs text-muted-foreground mt-1">
+                          <strong>Correlation ID:</strong> {threat.correlationId.slice(0, 8)}...
+                        </div>
+                      )}
                     </div>
                   </div>
                   <Button
@@ -137,4 +167,28 @@ export function SecurityThreatsPanel({ tenantId }: SecurityThreatsPanelProps) {
       </CardContent>
     </Card>
   );
+}
+
+function getSeverityColor(severity: string) {
+  switch (severity) {
+    case 'critical': return 'destructive';
+    case 'high': return 'destructive';
+    case 'medium': return 'warning';
+    case 'low': return 'secondary';
+    default: return 'secondary';
+  }
+}
+
+function getSeverityIcon(severity: string) {
+  switch (severity) {
+    case 'critical':
+    case 'high':
+      return <AlertTriangle className="h-4 w-4" />;
+    case 'medium':
+      return <Shield className="h-4 w-4" />;
+    case 'low':
+      return <CheckCircle className="h-4 w-4" />;
+    default:
+      return <Shield className="h-4 w-4" />;
+  }
 }
