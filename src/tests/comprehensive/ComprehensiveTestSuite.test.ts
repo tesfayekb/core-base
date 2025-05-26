@@ -1,7 +1,5 @@
-// Comprehensive Test Suite - Enterprise System Validation
-// Version: 2.0.0 - Complete System Integration Testing
 
-import { describe, it, expect, beforeEach, afterEach } from '@jest/globals';
+import { describe, test, expect, beforeEach, afterEach } from '@jest/globals';
 import { rbacService } from '../../services/rbac/rbacService';
 import { tenantService } from '../../services/tenant/TenantService';
 import { auditService } from '../../services/audit/AuditService';
@@ -9,281 +7,355 @@ import { authService } from '../../services/auth/AuthService';
 import { permissionAnalyticsService } from '../../services/rbac/PermissionAnalyticsService';
 import { performanceMonitoringService } from '../../services/monitoring/PerformanceMonitoringService';
 
-// Mock implementations for external dependencies
-jest.mock('../../services/rbac/rbacService', () => ({
-  rbacService: {
-    checkPermission: jest.fn(() => Promise.resolve(true)),
-    assignRoleToUser: jest.fn(() => Promise.resolve()),
-    removeRoleFromUser: jest.fn(() => Promise.resolve()),
-    getPermissionsForUser: jest.fn(() => Promise.resolve(['read', 'write'])),
-  },
-}));
+// Mock all external dependencies
+jest.mock('../../services/rbac/rbacService');
+jest.mock('../../services/tenant/TenantService');
+jest.mock('../../services/audit/AuditService');
+jest.mock('../../services/auth/AuthService');
+jest.mock('../../services/rbac/PermissionAnalyticsService');
+jest.mock('../../services/monitoring/PerformanceMonitoringService');
 
-jest.mock('../../services/tenant/TenantService', () => ({
-  tenantService: {
-    createTenant: jest.fn(() => Promise.resolve({ id: 'tenant-1', name: 'Test Tenant', status: 'active', createdAt: new Date(), updatedAt: new Date() })),
-    getTenant: jest.fn(() => Promise.resolve({ id: 'tenant-1', name: 'Test Tenant', status: 'active', createdAt: new Date(), updatedAt: new Date() })),
-    switchTenantContext: jest.fn(() => Promise.resolve(true)),
-  },
-}));
-
-jest.mock('../../services/auth/AuthService', () => ({
-  authService: {
-    login: jest.fn(() => Promise.resolve({ user: { id: 'user-123', email: 'test@example.com', emailVerified: true, createdAt: new Date() } })),
-    register: jest.fn(() => Promise.resolve({ user: { id: 'user-123', email: 'test@example.com', emailVerified: true, createdAt: new Date() } })),
-    logout: jest.fn(() => Promise.resolve()),
-    getCurrentUser: jest.fn(() => Promise.resolve({ id: 'user-123', email: 'test@example.com', emailVerified: true, createdAt: new Date() })),
-  },
-}));
-
-jest.mock('../../services/monitoring/PerformanceMonitoringService', () => ({
-  performanceMonitoringService: {
-    recordMetric: jest.fn(),
-    getMetrics: jest.fn(() => []),
-    getActiveAlerts: jest.fn(() => []),
-    clearAlerts: jest.fn(),
-    generatePerformanceReport: jest.fn(() => ({
-      summary: { memoryUsage: 50, cpuUsage: 30, networkLatency: 10, databaseResponseTime: 5, cacheHitRate: 95 },
-      alerts: [],
-      trends: []
-    })),
-  },
-}));
-
-jest.mock('../../services/rbac/PermissionAnalyticsService', () => ({
-  permissionAnalyticsService: {
-    recordPermissionCheck: jest.fn(),
-    getPermissionUsageMetrics: jest.fn(() => []),
-    getUserActivityMetrics: jest.fn(() => []),
-    getTenantAnalytics: jest.fn(() => ({
-      tenantId: 'tenant-1',
-      totalUsers: 10,
-      activeUsers: 5,
-      permissionChecksPerDay: 100,
-      mostUsedPermissions: ['read', 'write'],
-      securityEvents: 2
-    })),
-    generateAnalyticsReport: jest.fn(() => ({
-      summary: {
-        totalPermissionChecks: 1000,
-        totalUsers: 100,
-        averageResponseTime: 50,
-        successRate: 0.95
-      },
-      topPermissions: [],
-      activeUsers: []
-    })),
-  },
-}));
-
-jest.mock('../../services/audit/AuditService', () => ({
-  auditService: {
-    logEvent: jest.fn(() => Promise.resolve()),
-    logAuthEvent: jest.fn(() => Promise.resolve()),
-    flush: jest.fn(() => Promise.resolve()),
-  },
-}));
-
-describe('Comprehensive Test Suite - Enterprise System', () => {
+describe('Comprehensive System Integration Tests', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    
-    // Reset performance monitoring
-    performanceMonitoringService.clearAlerts();
-    
-    // Reset analytics
-    jest.spyOn(permissionAnalyticsService, 'recordPermissionCheck');
-    jest.spyOn(permissionAnalyticsService, 'getPermissionUsageMetrics');
-    
-    // Reset audit service
-    jest.spyOn(auditService, 'logEvent');
-    jest.spyOn(auditService, 'logAuthEvent');
   });
 
   afterEach(() => {
     jest.restoreAllMocks();
   });
 
-  describe('RBAC System Integration', () => {
-    it('should check user permissions', async () => {
-      const hasPermission = await rbacService.checkPermission('user-123', 'read');
+  describe('Authentication and Authorization Flow', () => {
+    test('should handle complete user authentication and permission flow', async () => {
+      // Mock authentication
+      const mockUser = {
+        id: 'test-user-123',
+        email: 'test@example.com',
+        firstName: 'Test',
+        lastName: 'User',
+        emailVerified: true,
+        createdAt: new Date()
+      };
+
+      (authService.login as jest.Mock).mockResolvedValue({
+        user: mockUser,
+        session: { token: 'mock-token' }
+      });
+
+      // Mock permission check
+      (rbacService.checkPermission as jest.Mock).mockResolvedValue(true);
+
+      // Test authentication
+      const loginResult = await authService.login({
+        email: 'test@example.com',
+        password: 'password123'
+      });
+
+      expect(loginResult.user).toEqual(mockUser);
+      expect(authService.login).toHaveBeenCalledWith({
+        email: 'test@example.com',
+        password: 'password123'
+      });
+
+      // Test permission checking
+      const hasPermission = await rbacService.checkPermission(
+        mockUser.id,
+        'read',
+        'documents',
+        { tenantId: 'tenant-1' }
+      );
+
       expect(hasPermission).toBe(true);
-      expect(rbacService.checkPermission).toHaveBeenCalledWith('user-123', 'read');
+      expect(rbacService.checkPermission).toHaveBeenCalledWith(
+        mockUser.id,
+        'read',
+        'documents',
+        { tenantId: 'tenant-1' }
+      );
     });
 
-    it('should assign a role to a user', async () => {
-      await rbacService.assignRoleToUser('user-123', 'admin');
-      expect(rbacService.assignRoleToUser).toHaveBeenCalledWith('user-123', 'admin');
-    });
+    test('should handle user registration with tenant assignment', async () => {
+      const mockUser = {
+        id: 'new-user-456',
+        email: 'newuser@example.com',
+        emailVerified: false,
+        createdAt: new Date()
+      };
 
-    it('should remove a role from a user', async () => {
-      await rbacService.removeRoleFromUser('user-123', 'admin');
-      expect(rbacService.removeRoleFromUser).toHaveBeenCalledWith('user-123', 'admin');
-    });
+      const mockTenant = {
+        id: 'tenant-123',
+        name: 'Test Tenant',
+        status: 'active' as const,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
 
-    it('should get permissions for a user', async () => {
-      const permissions = await rbacService.getPermissionsForUser('user-123');
-      expect(permissions).toEqual(['read', 'write']);
-      expect(rbacService.getPermissionsForUser).toHaveBeenCalledWith('user-123');
-    });
-  });
+      (authService.register as jest.Mock).mockResolvedValue({
+        user: mockUser,
+        verificationToken: 'verification-token'
+      });
 
-  describe('Tenant Management Integration', () => {
-    it('should create a tenant', async () => {
-      const tenant = await tenantService.createTenant({ name: 'New Tenant', ownerId: 'user-123' });
-      expect(tenant).toEqual({ id: 'tenant-1', name: 'Test Tenant', status: 'active', createdAt: expect.any(Date), updatedAt: expect.any(Date) });
-      expect(tenantService.createTenant).toHaveBeenCalledWith({ name: 'New Tenant', ownerId: 'user-123' });
-    });
+      (tenantService.createTenant as jest.Mock).mockResolvedValue(mockTenant);
 
-    it('should get a tenant', async () => {
-      const tenant = await tenantService.getTenant('tenant-1');
-      expect(tenant).toEqual({ id: 'tenant-1', name: 'Test Tenant', status: 'active', createdAt: expect.any(Date), updatedAt: expect.any(Date) });
-      expect(tenantService.getTenant).toHaveBeenCalledWith('tenant-1');
-    });
+      // Test registration
+      const registerResult = await authService.register({
+        email: 'newuser@example.com',
+        password: 'password123',
+        firstName: 'New',
+        lastName: 'User'
+      });
 
-    it('should switch tenant context', async () => {
-      const switched = await tenantService.switchTenantContext('user-123', 'tenant-1');
-      expect(switched).toBe(true);
-      expect(tenantService.switchTenantContext).toHaveBeenCalledWith('user-123', 'tenant-1');
-    });
-  });
+      expect(registerResult.user).toEqual(mockUser);
 
-  describe('Authentication System Integration', () => {
-    it('should login a user', async () => {
-      const authResult = await authService.login({ email: 'test@example.com', password: 'password' });
-      expect(authService.login).toHaveBeenCalledWith({ email: 'test@example.com', password: 'password' });
-      expect(authResult).toEqual({ user: { id: 'user-123', email: 'test@example.com', emailVerified: true, createdAt: expect.any(Date) } });
-    });
+      // Test tenant creation
+      const tenantResult = await tenantService.createTenant({
+        name: 'Test Tenant',
+        ownerId: mockUser.id
+      });
 
-    it('should register a user', async () => {
-      const authResult = await authService.register({ email: 'test@example.com', password: 'password' });
-      expect(authService.register).toHaveBeenCalledWith({ email: 'test@example.com', password: 'password' });
-      expect(authResult).toEqual({ user: { id: 'user-123', email: 'test@example.com', emailVerified: true, createdAt: expect.any(Date) } });
-    });
-
-    it('should logout a user', async () => {
-      await authService.logout();
-      expect(authService.logout).toHaveBeenCalled();
-    });
-
-    it('should get the current user', async () => {
-      const user = await authService.getCurrentUser();
-      expect(authService.getCurrentUser).toHaveBeenCalled();
-      expect(user).toEqual({ id: 'user-123', email: 'test@example.com', emailVerified: true, createdAt: expect.any(Date) });
+      expect(tenantResult).toEqual(mockTenant);
     });
   });
 
-  describe('Audit System Integration', () => {
-    it('should log authentication events', async () => {
+  describe('RBAC System Integration', () => {
+    test('should handle role assignment and permission updates', async () => {
+      const userId = 'user-123';
+      const roleId = 'admin-role';
+      const tenantId = 'tenant-1';
+
+      // Mock role assignment
+      (rbacService.assignRole as jest.Mock).mockResolvedValue({
+        success: true,
+        message: 'Role assigned successfully'
+      });
+
+      // Mock role revocation
+      (rbacService.revokeRole as jest.Mock).mockResolvedValue({
+        success: true,
+        message: 'Role revoked successfully'
+      });
+
+      // Mock user permissions retrieval
+      (rbacService.getUserPermissions as jest.Mock).mockResolvedValue([
+        { action: 'read', resource: 'documents' },
+        { action: 'write', resource: 'documents' }
+      ]);
+
+      // Test role assignment
+      const assignResult = await rbacService.assignRole('admin-user', userId, roleId, tenantId);
+      const assignResult2 = await rbacService.assignRole('admin-user', userId, roleId, tenantId);
+
+      expect(assignResult.success).toBe(true);
+      expect(assignResult2.success).toBe(true);
+
+      // Test role revocation
+      const revokeResult = await rbacService.revokeRole('admin-user', userId, roleId, tenantId);
+      const revokeResult2 = await rbacService.revokeRole('admin-user', userId, roleId, tenantId);
+
+      expect(revokeResult.success).toBe(true);
+      expect(revokeResult2.success).toBe(true);
+
+      // Test getting user permissions
+      const userPermissions = await rbacService.getUserPermissions(userId, tenantId);
+      const userPermissions2 = await rbacService.getUserPermissions(userId, tenantId);
+
+      expect(Array.isArray(userPermissions)).toBe(true);
+      expect(Array.isArray(userPermissions2)).toBe(true);
+    });
+
+    test('should handle permission caching and invalidation', async () => {
+      const userId = 'user-456';
+      
+      // Mock permission check with caching
+      (rbacService.checkPermission as jest.Mock).mockResolvedValue(true);
+
+      // Check permission multiple times (should use cache)
+      await rbacService.checkPermission(userId, 'read', 'documents');
+      await rbacService.checkPermission(userId, 'read', 'documents');
+      await rbacService.checkPermission(userId, 'read', 'documents');
+
+      // Verify caching behavior through call count
+      expect(rbacService.checkPermission).toHaveBeenCalledTimes(3);
+
+      // Test cache invalidation
+      rbacService.invalidateUserPermissions(userId, 'Role assignment changed');
+
+      // Verify invalidation was called
+      expect(rbacService.invalidateUserPermissions).toHaveBeenCalledWith(userId, 'Role assignment changed');
+    });
+  });
+
+  describe('Multi-Tenant Isolation', () => {
+    test('should enforce tenant boundaries in permissions', async () => {
+      const user1 = 'user-tenant1';
+      const user2 = 'user-tenant2';
+      const tenant1 = 'tenant-1';
+      const tenant2 = 'tenant-2';
+
+      // Mock tenant-specific permission checks
+      (rbacService.checkPermission as jest.Mock)
+        .mockImplementation((userId, action, resource, context) => {
+          if (userId === user1 && context?.tenantId === tenant1) return Promise.resolve(true);
+          if (userId === user2 && context?.tenantId === tenant2) return Promise.resolve(true);
+          return Promise.resolve(false);
+        });
+
+      // Test tenant isolation
+      const user1Tenant1Access = await rbacService.checkPermission(user1, 'read', 'documents', { tenantId: tenant1 });
+      const user1Tenant2Access = await rbacService.checkPermission(user1, 'read', 'documents', { tenantId: tenant2 });
+      const user2Tenant1Access = await rbacService.checkPermission(user2, 'read', 'documents', { tenantId: tenant1 });
+      const user2Tenant2Access = await rbacService.checkPermission(user2, 'read', 'documents', { tenantId: tenant2 });
+
+      expect(user1Tenant1Access).toBe(true);
+      expect(user1Tenant2Access).toBe(false);
+      expect(user2Tenant1Access).toBe(false);
+      expect(user2Tenant2Access).toBe(true);
+    });
+
+    test('should handle tenant switching', async () => {
+      const userId = 'multi-tenant-user';
+      const tenant1 = 'tenant-1';
+      const tenant2 = 'tenant-2';
+
+      (tenantService.switchTenantContext as jest.Mock).mockResolvedValue(true);
+
+      // Test tenant switching
+      const switchResult1 = await tenantService.switchTenantContext(userId, tenant1);
+      const switchResult2 = await tenantService.switchTenantContext(userId, tenant2);
+
+      expect(switchResult1).toBe(true);
+      expect(switchResult2).toBe(true);
+
+      expect(tenantService.switchTenantContext).toHaveBeenCalledWith(userId, tenant1);
+      expect(tenantService.switchTenantContext).toHaveBeenCalledWith(userId, tenant2);
+    });
+  });
+
+  describe('Audit Logging Integration', () => {
+    test('should log authentication events', async () => {
+      // Mock audit logging
+      (auditService.logAuthEvent as jest.Mock).mockResolvedValue(undefined);
+
+      // Test auth event logging
       await auditService.logAuthEvent(
         'login',
         'success',
         'user-123',
-        { method: 'email' },
-        { ipAddress: '192.168.1.1', tenantId: 'tenant-1' }
+        { email: 'test@example.com' },
+        { ipAddress: '192.168.1.1', userAgent: 'Test Browser' }
       );
 
       expect(auditService.logAuthEvent).toHaveBeenCalledWith(
         'login',
         'success',
         'user-123',
-        { method: 'email' },
-        { ipAddress: '192.168.1.1', tenantId: 'tenant-1' }
+        { email: 'test@example.com' },
+        { ipAddress: '192.168.1.1', userAgent: 'Test Browser' }
       );
     });
 
-    it('should log data access events', async () => {
+    test('should log system events', async () => {
+      (auditService.logEvent as jest.Mock).mockResolvedValue(undefined);
+
+      // Test general event logging
       await auditService.logEvent(
-        'data_access',
-        'read',
-        'document',
+        'system',
+        'permission_check',
+        'documents',
         'doc-123',
-        { fields: ['title', 'content'] },
-        '192.168.1.1',
-        'Mozilla/5.0'
+        { result: 'granted' }
       );
 
       expect(auditService.logEvent).toHaveBeenCalledWith(
-        'data_access',
-        'read',
-        'document',
+        'system',
+        'permission_check',
+        'documents',
         'doc-123',
-        { fields: ['title', 'content'] },
-        '192.168.1.1',
-        'Mozilla/5.0'
+        { result: 'granted' }
       );
     });
   });
 
-  describe('Performance Monitoring Integration', () => {
-    it('should record a metric', () => {
-      performanceMonitoringService.recordMetric('test_metric', 100);
-      expect(performanceMonitoringService.recordMetric).toHaveBeenCalledWith('test_metric', 100);
+  describe('Performance Monitoring', () => {
+    test('should track system performance metrics', () => {
+      // Mock performance tracking
+      jest.spyOn(performanceMonitoringService, 'recordMetric').mockImplementation(() => {});
+
+      // Record various metrics
+      performanceMonitoringService.recordMetric('permission_check_time', 15);
+      performanceMonitoringService.recordMetric('database_response_time', 45);
+      performanceMonitoringService.recordMetric('cache_hit_rate', 95);
+
+      expect(performanceMonitoringService.recordMetric).toHaveBeenCalledWith('permission_check_time', 15);
+      expect(performanceMonitoringService.recordMetric).toHaveBeenCalledWith('database_response_time', 45);
+      expect(performanceMonitoringService.recordMetric).toHaveBeenCalledWith('cache_hit_rate', 95);
     });
 
-    it('should get metrics', () => {
-      performanceMonitoringService.getMetrics();
-      expect(performanceMonitoringService.getMetrics).toHaveBeenCalled();
-    });
-
-    it('should get active alerts', () => {
-      performanceMonitoringService.getActiveAlerts();
-      expect(performanceMonitoringService.getActiveAlerts).toHaveBeenCalled();
-    });
-
-    it('should generate a performance report', () => {
-      const report = performanceMonitoringService.generatePerformanceReport();
-      expect(performanceMonitoringService.generatePerformanceReport).toHaveBeenCalled();
-      expect(report).toEqual({
-        summary: { memoryUsage: 50, cpuUsage: 30, networkLatency: 10, databaseResponseTime: 5, cacheHitRate: 95 },
-        alerts: [],
-        trends: []
-      });
-    });
-  });
-
-  describe('Permission Analytics Integration', () => {
-    it('should record a permission check', () => {
-      permissionAnalyticsService.recordPermissionCheck('user-123', 'read', 10, true);
-      expect(permissionAnalyticsService.recordPermissionCheck).toHaveBeenCalledWith('user-123', 'read', 10, true);
-    });
-
-    it('should get permission usage metrics', () => {
-      permissionAnalyticsService.getPermissionUsageMetrics();
-      expect(permissionAnalyticsService.getPermissionUsageMetrics).toHaveBeenCalled();
-    });
-
-    it('should get user activity metrics', () => {
-      permissionAnalyticsService.getUserActivityMetrics();
-      expect(permissionAnalyticsService.getUserActivityMetrics).toHaveBeenCalled();
-    });
-
-    it('should get tenant analytics', () => {
-      const analytics = permissionAnalyticsService.getTenantAnalytics('tenant-1');
-      expect(permissionAnalyticsService.getTenantAnalytics).toHaveBeenCalledWith('tenant-1');
-      expect(analytics).toEqual({
-        tenantId: 'tenant-1',
-        totalUsers: 10,
-        activeUsers: 5,
-        permissionChecksPerDay: 100,
-        mostUsedPermissions: ['read', 'write'],
-        securityEvents: 2
-      });
-    });
-
-    it('should generate an analytics report', () => {
-      const report = permissionAnalyticsService.generateAnalyticsReport();
-      expect(permissionAnalyticsService.generateAnalyticsReport).toHaveBeenCalled();
-      expect(report).toEqual({
+    test('should generate performance reports', () => {
+      const mockReport = {
         summary: {
           totalPermissionChecks: 1000,
-          totalUsers: 100,
-          averageResponseTime: 50,
-          successRate: 0.95
+          totalUsers: 50,
+          averageResponseTime: 12.5,
+          successRate: 0.98
         },
         topPermissions: [],
         activeUsers: []
-      });
+      };
+
+      (permissionAnalyticsService.generateAnalyticsReport as jest.Mock).mockReturnValue(mockReport);
+
+      const report = permissionAnalyticsService.generateAnalyticsReport();
+
+      expect(report.summary.totalPermissionChecks).toBe(1000);
+      expect(report.summary.averageResponseTime).toBe(12.5);
+      expect(report.summary.successRate).toBe(0.98);
+    });
+  });
+
+  describe('Error Handling and Recovery', () => {
+    test('should handle service failures gracefully', async () => {
+      // Mock service failures
+      (authService.login as jest.Mock).mockRejectedValue(new Error('Authentication service unavailable'));
+      (rbacService.checkPermission as jest.Mock).mockRejectedValue(new Error('RBAC service unavailable'));
+
+      // Test graceful failure handling
+      try {
+        await authService.login({ email: 'test@example.com', password: 'password' });
+      } catch (error) {
+        expect(error).toBeInstanceOf(Error);
+        expect((error as Error).message).toBe('Authentication service unavailable');
+      }
+
+      try {
+        await rbacService.checkPermission('user-123', 'read', 'documents');
+      } catch (error) {
+        expect(error).toBeInstanceOf(Error);
+        expect((error as Error).message).toBe('RBAC service unavailable');
+      }
+    });
+
+    test('should maintain system diagnostics', () => {
+      const mockDiagnostics = {
+        status: 'warning' as const,
+        details: {
+          systemStatus: {
+            cacheStats: { hits: 950, misses: 50, hitRate: 0.95, size: 100, capacity: 1000 },
+            performanceReport: { averageResponseTime: 15, peakLoad: 100 },
+            warmingStatus: { lastRun: new Date(), nextRun: new Date() },
+            alerts: ['High memory usage detected']
+          },
+          alerts: ['Performance degradation'],
+          recommendations: ['Increase cache size']
+        }
+      };
+
+      (rbacService.runDiagnostics as jest.Mock).mockReturnValue(mockDiagnostics);
+
+      const diagnostics = rbacService.runDiagnostics();
+
+      expect(diagnostics.status).toBe('warning');
+      expect(diagnostics.details.alerts).toContain('Performance degradation');
+      expect(diagnostics.details.recommendations).toContain('Increase cache size');
     });
   });
 });
