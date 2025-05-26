@@ -1,7 +1,8 @@
 
 // Phase 2.3 Enhanced Audit Logging - Validation Tests
 
-import { describe, it, expect, beforeEach, vi } from '@testing-library/jest-dom';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+import '@testing-library/jest-dom';
 import { standardizedAuditLogger } from '../../services/audit/StandardizedAuditLogger';
 import { realTimeAuditMonitor } from '../../services/audit/RealTimeAuditMonitor';
 
