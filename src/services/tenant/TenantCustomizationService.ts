@@ -1,3 +1,4 @@
+
 import { supabase } from '../database/connection';
 
 export interface TenantCustomization {
@@ -24,12 +25,23 @@ export class TenantCustomizationService {
     return TenantCustomizationService.instance;
   }
 
+  private validateTenantId(tenantId: string): boolean {
+    // Check if tenantId is a valid UUID format
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    return uuidRegex.test(tenantId);
+  }
+
   async getConfiguration(
     tenantId: string,
     configType: string,
     configKey: string
   ): Promise<any> {
     try {
+      if (!this.validateTenantId(tenantId)) {
+        console.warn('Invalid tenant ID provided, returning null configuration');
+        return null;
+      }
+
       const { data, error } = await supabase.rpc('get_tenant_configuration', {
         p_tenant_id: tenantId,
         p_config_type: configType,
@@ -52,6 +64,10 @@ export class TenantCustomizationService {
     validationSchema?: any
   ): Promise<TenantCustomization> {
     try {
+      if (!this.validateTenantId(tenantId)) {
+        throw new Error('Invalid tenant ID provided');
+      }
+
       const { data, error } = await supabase
         .from('tenant_customizations')
         .upsert({
@@ -78,6 +94,11 @@ export class TenantCustomizationService {
     customizationType?: string
   ): Promise<TenantCustomization[]> {
     try {
+      if (!this.validateTenantId(tenantId)) {
+        console.warn('Invalid tenant ID provided, returning empty customizations');
+        return [];
+      }
+
       let query = supabase
         .from('tenant_customizations')
         .select('*')
@@ -99,6 +120,17 @@ export class TenantCustomizationService {
 
   async getBrandingConfiguration(tenantId: string): Promise<any> {
     try {
+      if (!this.validateTenantId(tenantId)) {
+        console.warn('Invalid tenant ID provided, returning default branding configuration');
+        return {
+          logo: '',
+          primaryColor: '#3b82f6',
+          secondaryColor: '#64748b',
+          companyName: '',
+          favicon: ''
+        };
+      }
+
       const customizations = await this.getCustomizations(tenantId, 'branding');
       
       const brandingConfig: any = {};
@@ -135,6 +167,10 @@ export class TenantCustomizationService {
     }
   ): Promise<void> {
     try {
+      if (!this.validateTenantId(tenantId)) {
+        throw new Error('Invalid tenant ID provided');
+      }
+
       const promises = Object.entries(branding).map(([key, value]) =>
         this.setCustomization(tenantId, 'branding', key, value)
       );
@@ -148,6 +184,10 @@ export class TenantCustomizationService {
 
   async deleteCustomization(tenantId: string, customizationType: string, customizationKey: string): Promise<void> {
     try {
+      if (!this.validateTenantId(tenantId)) {
+        throw new Error('Invalid tenant ID provided');
+      }
+
       const { error } = await supabase
         .from('tenant_customizations')
         .delete()

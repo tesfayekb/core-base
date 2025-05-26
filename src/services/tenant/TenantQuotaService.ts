@@ -1,3 +1,4 @@
+
 import { supabase } from '../database/connection';
 
 export interface QuotaValidationResult {
@@ -42,6 +43,12 @@ export class TenantQuotaService {
     return TenantQuotaService.instance;
   }
 
+  private validateTenantId(tenantId: string): boolean {
+    // Check if tenantId is a valid UUID format
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    return uuidRegex.test(tenantId);
+  }
+
   async validateQuota(
     tenantId: string,
     resourceType: string,
@@ -49,6 +56,18 @@ export class TenantQuotaService {
     checkOnly: boolean = false
   ): Promise<QuotaValidationResult> {
     try {
+      if (!this.validateTenantId(tenantId)) {
+        console.warn('Invalid tenant ID provided, returning default validation result');
+        return {
+          allowed: true,
+          current_usage: 0,
+          quota_limit: null,
+          usage_percentage: 0,
+          warning: false,
+          quota_exceeded: false
+        };
+      }
+
       const { data, error } = await supabase.rpc('validate_and_update_quota', {
         p_tenant_id: tenantId,
         p_resource_type: resourceType,
@@ -70,6 +89,11 @@ export class TenantQuotaService {
 
   async getTenantQuotas(tenantId: string): Promise<ResourceQuota[]> {
     try {
+      if (!this.validateTenantId(tenantId)) {
+        console.warn('Invalid tenant ID provided, returning empty quotas');
+        return [];
+      }
+
       const { data, error } = await supabase
         .from('tenant_resource_quotas')
         .select('*')
@@ -86,6 +110,11 @@ export class TenantQuotaService {
 
   async getTenantUsage(tenantId: string): Promise<ResourceUsage[]> {
     try {
+      if (!this.validateTenantId(tenantId)) {
+        console.warn('Invalid tenant ID provided, returning empty usage');
+        return [];
+      }
+
       const { data, error } = await supabase
         .from('tenant_resource_usage')
         .select('*')
@@ -109,6 +138,10 @@ export class TenantQuotaService {
     resetPeriod: string = 'monthly'
   ): Promise<ResourceQuota> {
     try {
+      if (!this.validateTenantId(tenantId)) {
+        throw new Error('Invalid tenant ID provided');
+      }
+
       const { data, error } = await supabase
         .from('tenant_resource_quotas')
         .upsert({
@@ -133,6 +166,11 @@ export class TenantQuotaService {
 
   async getQuotaUsagePercentage(tenantId: string, resourceType: string): Promise<number> {
     try {
+      if (!this.validateTenantId(tenantId)) {
+        console.warn('Invalid tenant ID provided, returning 0 usage percentage');
+        return 0;
+      }
+
       const [quotas, usage] = await Promise.all([
         this.getTenantQuotas(tenantId),
         this.getTenantUsage(tenantId)

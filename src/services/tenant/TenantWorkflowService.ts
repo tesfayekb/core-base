@@ -1,3 +1,4 @@
+
 import { supabase } from '../database/connection';
 
 export interface TenantWorkflow {
@@ -26,8 +27,19 @@ export class TenantWorkflowService {
     return TenantWorkflowService.instance;
   }
 
+  private validateTenantId(tenantId: string): boolean {
+    // Check if tenantId is a valid UUID format
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    return uuidRegex.test(tenantId);
+  }
+
   async getWorkflows(tenantId: string): Promise<TenantWorkflow[]> {
     try {
+      if (!this.validateTenantId(tenantId)) {
+        console.warn('Invalid tenant ID provided, returning empty workflows');
+        return [];
+      }
+
       const { data, error } = await supabase
         .from('tenant_workflows')
         .select('*')
@@ -44,6 +56,11 @@ export class TenantWorkflowService {
 
   async getWorkflow(tenantId: string, workflowName: string): Promise<TenantWorkflow | null> {
     try {
+      if (!this.validateTenantId(tenantId)) {
+        console.warn('Invalid tenant ID provided, returning null workflow');
+        return null;
+      }
+
       const { data, error } = await supabase
         .from('tenant_workflows')
         .select('*')
@@ -72,6 +89,10 @@ export class TenantWorkflowService {
     conditions: any = {}
   ): Promise<TenantWorkflow> {
     try {
+      if (!this.validateTenantId(tenantId)) {
+        throw new Error('Invalid tenant ID provided');
+      }
+
       const { data, error } = await supabase
         .from('tenant_workflows')
         .insert({
@@ -102,6 +123,10 @@ export class TenantWorkflowService {
     updates: Partial<TenantWorkflow>
   ): Promise<TenantWorkflow> {
     try {
+      if (!this.validateTenantId(tenantId)) {
+        throw new Error('Invalid tenant ID provided');
+      }
+
       const { data, error } = await supabase
         .from('tenant_workflows')
         .update({
@@ -127,6 +152,10 @@ export class TenantWorkflowService {
     triggerData: any = {}
   ): Promise<string> {
     try {
+      if (!this.validateTenantId(tenantId)) {
+        throw new Error('Invalid tenant ID provided');
+      }
+
       const { data, error } = await supabase.rpc('execute_tenant_workflow', {
         p_tenant_id: tenantId,
         p_workflow_name: workflowName,
@@ -147,6 +176,10 @@ export class TenantWorkflowService {
 
   async deleteWorkflow(tenantId: string, workflowId: string): Promise<void> {
     try {
+      if (!this.validateTenantId(tenantId)) {
+        throw new Error('Invalid tenant ID provided');
+      }
+
       const { error } = await supabase
         .from('tenant_workflows')
         .delete()
