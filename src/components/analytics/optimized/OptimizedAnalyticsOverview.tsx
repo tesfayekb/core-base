@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Users, Activity, Shield, TrendingUp, AlertTriangle, Clock } from 'lucide-react';
 import { TenantAnalytics, AnalyticsTimeRange } from '@/services/analytics/UserAnalyticsService';
 import { useAnalyticsData } from '@/hooks/analytics/useAnalyticsData';
-import { AnalyticsErrorBoundary } from './core/AnalyticsErrorBoundary';
+import { AnalyticsErrorBoundary } from '../core/AnalyticsErrorBoundary';
 
 interface OptimizedAnalyticsOverviewProps {
   timeRange?: AnalyticsTimeRange;
@@ -20,7 +20,7 @@ const MetricCard = memo<{
   value: string | number;
   subtitle: string;
   icon: React.ReactNode;
-}>>(({ title, value, subtitle, icon }) => (
+}>(({ title, value, subtitle, icon }) => (
   <Card>
     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
       <CardTitle className="text-sm font-medium">{title}</CardTitle>
