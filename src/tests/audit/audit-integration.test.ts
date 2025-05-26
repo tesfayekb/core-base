@@ -6,6 +6,7 @@ import { describe, it, expect, beforeEach, jest } from '@jest/globals';
 import '@testing-library/jest-dom';
 import { render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import React from 'react';
 import { AuditDashboard } from '../../components/audit/AuditDashboard';
 import { standardizedAuditLogger } from '../../services/audit/StandardizedAuditLogger';
 import { realTimeAuditMonitor } from '../../services/audit/RealTimeAuditMonitor';
@@ -60,9 +61,7 @@ describe('Audit System Integration Tests', () => {
 
   const renderWithProviders = (component: React.ReactElement) => {
     return render(
-      <QueryClientProvider client={queryClient}>
-        {component}
-      </QueryClientProvider>
+      React.createElement(QueryClientProvider, { client: queryClient }, component)
     );
   };
 
@@ -88,7 +87,7 @@ describe('Audit System Integration Tests', () => {
     });
 
     it('should display real-time audit data in dashboard', async () => {
-      renderWithProviders(<AuditDashboard />);
+      renderWithProviders(React.createElement(AuditDashboard));
 
       // Wait for dashboard to load
       await waitFor(() => {
@@ -127,7 +126,7 @@ describe('Audit System Integration Tests', () => {
       jest.spyOn(realTimeAuditMonitor, 'getAuditMetrics')
         .mockResolvedValue(mockMetrics);
 
-      renderWithProviders(<AuditDashboard />);
+      renderWithProviders(React.createElement(AuditDashboard));
 
       await waitFor(() => {
         expect(screen.getByText('5')).toBeInTheDocument(); // Total events
