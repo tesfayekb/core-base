@@ -210,6 +210,260 @@ export type Database = {
           },
         ]
       }
+      tenant_configuration_history: {
+        Row: {
+          change_description: string | null
+          change_type: string
+          configuration_snapshot: Json
+          configuration_type: string
+          created_at: string | null
+          created_by: string | null
+          id: string
+          previous_values: Json | null
+          related_audit_log_id: string | null
+          tenant_id: string
+        }
+        Insert: {
+          change_description?: string | null
+          change_type: string
+          configuration_snapshot: Json
+          configuration_type: string
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          previous_values?: Json | null
+          related_audit_log_id?: string | null
+          tenant_id: string
+        }
+        Update: {
+          change_description?: string | null
+          change_type?: string
+          configuration_snapshot?: Json
+          configuration_type?: string
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          previous_values?: Json | null
+          related_audit_log_id?: string | null
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_configuration_history_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tenant_customizations: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          customization_key: string
+          customization_type: string
+          customization_value: Json
+          id: string
+          inheritance_source: string | null
+          is_inherited: boolean | null
+          priority: number | null
+          tenant_id: string
+          updated_at: string | null
+          validation_schema: Json | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          customization_key: string
+          customization_type: string
+          customization_value: Json
+          id?: string
+          inheritance_source?: string | null
+          is_inherited?: boolean | null
+          priority?: number | null
+          tenant_id: string
+          updated_at?: string | null
+          validation_schema?: Json | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          customization_key?: string
+          customization_type?: string
+          customization_value?: Json
+          id?: string
+          inheritance_source?: string | null
+          is_inherited?: boolean | null
+          priority?: number | null
+          tenant_id?: string
+          updated_at?: string | null
+          validation_schema?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_customizations_inheritance_source_fkey"
+            columns: ["inheritance_source"]
+            isOneToOne: false
+            referencedRelation: "tenant_customizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenant_customizations_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tenant_resource_quotas: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          effective_from: string | null
+          effective_until: string | null
+          hard_limit: boolean | null
+          id: string
+          quota_limit: number
+          reset_period: string | null
+          resource_type: string
+          tenant_id: string
+          warning_threshold: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          effective_from?: string | null
+          effective_until?: string | null
+          hard_limit?: boolean | null
+          id?: string
+          quota_limit: number
+          reset_period?: string | null
+          resource_type: string
+          tenant_id: string
+          warning_threshold?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          effective_from?: string | null
+          effective_until?: string | null
+          hard_limit?: boolean | null
+          id?: string
+          quota_limit?: number
+          reset_period?: string | null
+          resource_type?: string
+          tenant_id?: string
+          warning_threshold?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_resource_quotas_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tenant_resource_usage: {
+        Row: {
+          current_usage: number | null
+          id: string
+          last_updated: string | null
+          metadata: Json | null
+          period_end: string | null
+          period_start: string | null
+          resource_type: string
+          tenant_id: string
+        }
+        Insert: {
+          current_usage?: number | null
+          id?: string
+          last_updated?: string | null
+          metadata?: Json | null
+          period_end?: string | null
+          period_start?: string | null
+          resource_type: string
+          tenant_id: string
+        }
+        Update: {
+          current_usage?: number | null
+          id?: string
+          last_updated?: string | null
+          metadata?: Json | null
+          period_end?: string | null
+          period_start?: string | null
+          resource_type?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_resource_usage_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tenant_workflows: {
+        Row: {
+          conditions: Json
+          created_at: string | null
+          created_by: string | null
+          id: string
+          is_active: boolean | null
+          tenant_id: string
+          trigger_events: Json
+          updated_at: string | null
+          version: number | null
+          workflow_config: Json
+          workflow_name: string
+          workflow_steps: Json
+          workflow_type: string
+        }
+        Insert: {
+          conditions?: Json
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          is_active?: boolean | null
+          tenant_id: string
+          trigger_events?: Json
+          updated_at?: string | null
+          version?: number | null
+          workflow_config?: Json
+          workflow_name: string
+          workflow_steps?: Json
+          workflow_type: string
+        }
+        Update: {
+          conditions?: Json
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          is_active?: boolean | null
+          tenant_id?: string
+          trigger_events?: Json
+          updated_at?: string | null
+          version?: number | null
+          workflow_config?: Json
+          workflow_name?: string
+          workflow_steps?: Json
+          workflow_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_workflows_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tenants: {
         Row: {
           created_at: string | null
@@ -527,6 +781,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      backup_tenant_configuration: {
+        Args: { p_tenant_id: string; p_backup_description?: string }
+        Returns: string
+      }
       check_user_permission: {
         Args: {
           p_user_id: string
@@ -543,6 +801,22 @@ export type Database = {
       current_user_id: {
         Args: Record<PropertyKey, never>
         Returns: string
+      }
+      execute_tenant_workflow: {
+        Args: {
+          p_tenant_id: string
+          p_workflow_name: string
+          p_trigger_data?: Json
+        }
+        Returns: string
+      }
+      get_tenant_configuration: {
+        Args: {
+          p_tenant_id: string
+          p_config_type: string
+          p_config_key: string
+        }
+        Returns: Json
       }
       get_user_permissions: {
         Args: { p_user_id: string }
@@ -587,6 +861,15 @@ export type Database = {
           p_evidence?: Json
         }
         Returns: string
+      }
+      validate_and_update_quota: {
+        Args: {
+          p_tenant_id: string
+          p_resource_type: string
+          p_increment?: number
+          p_check_only?: boolean
+        }
+        Returns: Json
       }
       validate_tenant_access: {
         Args: { p_user_id: string; p_tenant_id: string }

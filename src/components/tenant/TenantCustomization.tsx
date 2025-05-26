@@ -6,65 +6,81 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
-import { Save, Palette, Upload } from 'lucide-react';
-import { tenantManagementService, TenantConfig } from '@/services/tenant/TenantManagementService';
+import { Save, Palette, Upload, Download, RotateCcw } from 'lucide-react';
+import { tenantCustomizationService } from '@/services/tenant/TenantCustomizationService';
+import { tenantConfigurationService } from '@/services/tenant/TenantConfigurationService';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
 
 export function TenantCustomization() {
   const { tenantId } = useAuth();
   const { toast } = useToast();
-  const [tenant, setTenant] = useState<TenantConfig | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [formData, setFormData] = useState({
-    customBranding: {
-      logo: '',
-      primaryColor: '#3b82f6',
-      secondaryColor: '#64748b'
-    },
-    features: [] as string[]
+  const [branding, setBranding] = useState({
+    logo: '',
+    primaryColor: '#3b82f6',
+    secondaryColor: '#64748b',
+    companyName: '',
+    favicon: ''
   });
+  const [features, setFeatures] = useState<string[]>([]);
 
   useEffect(() => {
-    const loadTenant = async () => {
-      if (!tenantId) return;
-
-      try {
-        const tenantData = await tenantManagementService.getTenant(tenantId);
-        if (tenantData) {
-          setTenant(tenantData);
-          setFormData({
-            customBranding: {
-              logo: tenantData.settings.customBranding?.logo || '',
-              primaryColor: tenantData.settings.customBranding?.primaryColor || '#3b82f6',
-              secondaryColor: tenantData.settings.customBranding?.secondaryColor || '#64748b'
-            },
-            features: tenantData.settings.features || []
-          });
-        }
-      } catch (error) {
-        console.error('Failed to load tenant:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadTenant();
+    loadCustomizations();
   }, [tenantId]);
+
+  const loadCustomizations = async () => {
+    if (!tenantId) return;
+
+    try {
+      const [brandingConfig, featureCustomizations] = await Promise.all([
+        tenantCustomizationService.getBrandingConfiguration(tenantId),
+        tenantCustomizationService.getCustomizations(tenantId, 'feature_toggle')
+      ]);
+
+      setBranding(brandingConfig);
+      setFeatures(featureCustomizations.map(f => f.customization_key));
+    } catch (error) {
+      console.error('Failed to load customizations:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load tenant customizations.",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSave = async () => {
     if (!tenantId) return;
 
     setSaving(true);
     try {
-      await tenantManagementService.updateTenantConfiguration(tenantId, {
-        settings: {
-          ...tenant?.settings,
-          customBranding: formData.customBranding,
-          features: formData.features
-        }
-      });
+      // Save branding configuration
+      await tenantCustomizationService.setBrandingConfiguration(tenantId, branding);
+
+      // Save feature toggles
+      const availableFeatures = [
+        'advanced-analytics', 'custom-branding', 'api-access',
+        'sso', 'audit-logs', 'data-export'
+      ];
+
+      // Remove all existing feature toggles
+      for (const feature of availableFeatures) {
+        await tenantCustomizationService.deleteCustomization(tenantId, 'feature_toggle', feature);
+      }
+
+      // Add enabled features
+      for (const feature of features) {
+        await tenantCustomizationService.setCustomization(
+          tenantId,
+          'feature_toggle',
+          feature,
+          true
+        );
+      }
 
       toast({
         title: "Customization saved",
@@ -82,13 +98,62 @@ export function TenantCustomization() {
     }
   };
 
+  const handleExportConfiguration = async () => {
+    if (!tenantId) return;
+
+    try {
+      const config = await tenantConfigurationService.exportConfiguration(tenantId);
+      const blob = new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `tenant-config-${tenantId}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+
+      toast({
+        title: "Configuration exported",
+        description: "Tenant configuration has been exported successfully."
+      });
+    } catch (error) {
+      console.error('Failed to export configuration:', error);
+      toast({
+        title: "Error",
+        description: "Failed to export tenant configuration.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleBackupConfiguration = async () => {
+    if (!tenantId) return;
+
+    try {
+      await tenantConfigurationService.backupConfiguration(
+        tenantId,
+        `Manual backup - ${new Date().toISOString()}`
+      );
+
+      toast({
+        title: "Backup created",
+        description: "Configuration backup has been created successfully."
+      });
+    } catch (error) {
+      console.error('Failed to create backup:', error);
+      toast({
+        title: "Error",
+        description: "Failed to create configuration backup.",
+        variant: "destructive"
+      });
+    }
+  };
+
   const toggleFeature = (feature: string) => {
-    setFormData(prev => ({
-      ...prev,
-      features: prev.features.includes(feature)
-        ? prev.features.filter(f => f !== feature)
-        : [...prev.features, feature]
-    }));
+    setFeatures(prev =>
+      prev.includes(feature)
+        ? prev.filter(f => f !== feature)
+        : [...prev, feature]
+    );
   };
 
   const availableFeatures = [
@@ -106,9 +171,21 @@ export function TenantCustomization() {
 
   return (
     <div className="p-6 space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Tenant Customization</h1>
-        <p className="text-muted-foreground">Customize your tenant's appearance and features</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold">Tenant Customization</h1>
+          <p className="text-muted-foreground">Customize your tenant's appearance and features</p>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={handleBackupConfiguration}>
+            <RotateCcw className="h-4 w-4 mr-2" />
+            Backup
+          </Button>
+          <Button variant="outline" onClick={handleExportConfiguration}>
+            <Download className="h-4 w-4 mr-2" />
+            Export
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -121,18 +198,22 @@ export function TenantCustomization() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
+              <Label htmlFor="companyName">Company Name</Label>
+              <Input
+                id="companyName"
+                value={branding.companyName}
+                onChange={(e) => setBranding(prev => ({ ...prev, companyName: e.target.value }))}
+                placeholder="Your Company Name"
+              />
+            </div>
+
+            <div className="space-y-2">
               <Label htmlFor="logo">Logo URL</Label>
               <div className="flex gap-2">
                 <Input
                   id="logo"
-                  value={formData.customBranding.logo}
-                  onChange={(e) => setFormData(prev => ({
-                    ...prev,
-                    customBranding: {
-                      ...prev.customBranding,
-                      logo: e.target.value
-                    }
-                  }))}
+                  value={branding.logo}
+                  onChange={(e) => setBranding(prev => ({ ...prev, logo: e.target.value }))}
                   placeholder="https://example.com/logo.png"
                 />
                 <Button variant="outline" size="sm">
@@ -142,30 +223,28 @@ export function TenantCustomization() {
             </div>
 
             <div className="space-y-2">
+              <Label htmlFor="favicon">Favicon URL</Label>
+              <Input
+                id="favicon"
+                value={branding.favicon}
+                onChange={(e) => setBranding(prev => ({ ...prev, favicon: e.target.value }))}
+                placeholder="https://example.com/favicon.ico"
+              />
+            </div>
+
+            <div className="space-y-2">
               <Label htmlFor="primaryColor">Primary Color</Label>
               <div className="flex gap-2">
                 <Input
                   id="primaryColor"
                   type="color"
-                  value={formData.customBranding.primaryColor}
-                  onChange={(e) => setFormData(prev => ({
-                    ...prev,
-                    customBranding: {
-                      ...prev.customBranding,
-                      primaryColor: e.target.value
-                    }
-                  }))}
+                  value={branding.primaryColor}
+                  onChange={(e) => setBranding(prev => ({ ...prev, primaryColor: e.target.value }))}
                   className="w-20"
                 />
                 <Input
-                  value={formData.customBranding.primaryColor}
-                  onChange={(e) => setFormData(prev => ({
-                    ...prev,
-                    customBranding: {
-                      ...prev.customBranding,
-                      primaryColor: e.target.value
-                    }
-                  }))}
+                  value={branding.primaryColor}
+                  onChange={(e) => setBranding(prev => ({ ...prev, primaryColor: e.target.value }))}
                   placeholder="#3b82f6"
                 />
               </div>
@@ -177,25 +256,13 @@ export function TenantCustomization() {
                 <Input
                   id="secondaryColor"
                   type="color"
-                  value={formData.customBranding.secondaryColor}
-                  onChange={(e) => setFormData(prev => ({
-                    ...prev,
-                    customBranding: {
-                      ...prev.customBranding,
-                      secondaryColor: e.target.value
-                    }
-                  }))}
+                  value={branding.secondaryColor}
+                  onChange={(e) => setBranding(prev => ({ ...prev, secondaryColor: e.target.value }))}
                   className="w-20"
                 />
                 <Input
-                  value={formData.customBranding.secondaryColor}
-                  onChange={(e) => setFormData(prev => ({
-                    ...prev,
-                    customBranding: {
-                      ...prev.customBranding,
-                      secondaryColor: e.target.value
-                    }
-                  }))}
+                  value={branding.secondaryColor}
+                  onChange={(e) => setBranding(prev => ({ ...prev, secondaryColor: e.target.value }))}
                   placeholder="#64748b"
                 />
               </div>
@@ -215,7 +282,7 @@ export function TenantCustomization() {
                 </div>
                 <Switch
                   id={feature.key}
-                  checked={formData.features.includes(feature.key)}
+                  checked={features.includes(feature.key)}
                   onCheckedChange={() => toggleFeature(feature.key)}
                 />
               </div>
@@ -230,7 +297,7 @@ export function TenantCustomization() {
         </CardHeader>
         <CardContent>
           <div className="flex flex-wrap gap-2">
-            {formData.features.map((feature) => {
+            {features.map((feature) => {
               const featureInfo = availableFeatures.find(f => f.key === feature);
               return (
                 <Badge key={feature} variant="secondary">
@@ -238,7 +305,7 @@ export function TenantCustomization() {
                 </Badge>
               );
             })}
-            {formData.features.length === 0 && (
+            {features.length === 0 && (
               <p className="text-muted-foreground">No features enabled</p>
             )}
           </div>
