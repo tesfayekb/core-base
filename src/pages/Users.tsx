@@ -1,4 +1,3 @@
-
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PermissionBoundary } from "@/components/rbac/PermissionBoundary";
@@ -7,7 +6,7 @@ import { PermissionMatrix } from "@/components/rbac/PermissionMatrix";
 import { UserDirectory } from "@/components/user/UserDirectory";
 import { PermissionDebug } from "@/components/debug/PermissionDebug";
 import { Users as UsersIcon, Shield, Grid } from "lucide-react";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/components/auth/AuthProvider";
 
 export default function Users() {
   const { user } = useAuth();
@@ -41,6 +40,8 @@ export default function Users() {
         <p className="text-muted-foreground">Manage users, roles, and permissions</p>
       </div>
       
+      {/* User Management Interface */}
+
       <Tabs defaultValue="users" className="space-y-6">
         <TabsList>
           <TabsTrigger value="users" className="flex items-center gap-2">

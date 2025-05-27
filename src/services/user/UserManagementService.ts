@@ -1,5 +1,5 @@
-import { supabase } from '@/integrations/supabase/client';
 import { auditLogger } from '../audit/AuditLogger';
+import { supabase } from '../database/connection';
 
 export interface UserRole {
   id: string;
@@ -65,82 +65,175 @@ export interface Permission {
 class UserManagementService {
   async getUsers(tenantId: string, page: number = 1, pageSize: number = 10): Promise<PaginatedResult<UserWithRoles>> {
     try {
+      // Log key parameters for audit/monitoring
+      await auditLogger.logEvent({
+        eventType: 'data_access',
+        action: 'users.list',
+        resourceType: 'users',
+        tenantId,
+        details: { page, pageSize }
+      });
+      
+      if (!tenantId) {
+        throw new Error('Tenant ID is required');
+      }
+      
       const start = (page - 1) * pageSize;
       const end = start + pageSize - 1;
 
-      // Get users with their roles
-      const { data: users, error: usersError, count } = await supabase
-        .from('users')
+      // Get users associated with this tenant through user_tenants
+      // First get count for pagination
+      const { count: totalCount, error: countError } = await supabase
+        .from('user_tenants')
+        .select('*', { count: 'exact', head: true })
+        .eq('tenant_id', tenantId);
+
+      if (countError) {
+        await auditLogger.logEvent({
+          eventType: 'error',
+          action: 'users.count',
+          resourceType: 'users',
+          tenantId,
+          details: { error: countError }
+        });
+        throw countError;
+      }
+
+      // Total count retrieved successfully - continue with user data retrieval
+
+      // Now get the actual user data with joins
+      // Use a simpler query to avoid relationship ambiguity
+      const { data: userTenantData, error: usersError } = await supabase
+        .from('user_tenants')
         .select(`
-          id,
-          email,
-          first_name,
-          last_name,
-          status,
-          created_at,
-          last_login_at,
-          failed_login_attempts,
-          email_verified_at,
-          user_roles!inner (
-            id,
-            role_id,
-            assigned_at,
-            assigned_by,
-            roles!inner (
-              id,
-              name,
-              description,
-              is_system_role
-            )
-          )
-        `, { count: 'exact' })
+          user_id,
+          users:users(id, email, first_name, last_name, status, created_at, last_login_at, failed_login_attempts, email_verified_at)
+        `)
         .eq('tenant_id', tenantId)
         .range(start, end)
-        .order('created_at', { ascending: false });
+        .order('joined_at', { ascending: false });
 
       if (usersError) {
+        await auditLogger.logEvent({
+          eventType: 'error',
+          action: 'users.fetch',
+          resourceType: 'users',
+          tenantId,
+          details: { error: usersError, range: { start, end } }
+        });
         throw usersError;
       }
 
+      // User data successfully retrieved from database
+
       // Transform the data to match our interface
-      const transformedUsers: UserWithRoles[] = (users || []).map(user => ({
-        id: user.id,
-        email: user.email,
-        first_name: user.first_name,
-        last_name: user.last_name,
-        status: user.status,
-        created_at: user.created_at,
-        last_login_at: user.last_login_at,
-        failed_login_attempts: user.failed_login_attempts,
-        email_verified_at: user.email_verified_at,
-        roles: (user.user_roles || []).map((userRole: any) => ({
-          id: userRole.id,
-          role_id: userRole.role_id,
-          role: {
-            id: userRole.roles.id,
-            name: userRole.roles.name,
-            description: userRole.roles.description,
-            is_system_role: userRole.roles.is_system_role
-          },
-          assigned_at: userRole.assigned_at,
-          assigned_by: userRole.assigned_by
-        }))
-      }));
+      const transformedUsers: UserWithRoles[] = (userTenantData || [])
+        .filter((ut: any) => ut.users) // Filter out any entries where users is null
+        .map((ut: any) => {
+          const user = ut.users;
+          return {
+            id: user.id || ut.user_id, // Fallback to user_id from user_tenants
+            email: user.email || 'user@example.com', // Fallback value
+            first_name: user.first_name || 'User', // Fallback value
+            last_name: user.last_name || '', // Fallback value
+            status: user.status || 'pending_setup', // Fallback value
+            created_at: user.created_at || new Date().toISOString(),
+            last_login_at: user.last_login_at,
+            failed_login_attempts: user.failed_login_attempts || 0,
+            email_verified_at: user.email_verified_at,
+            // Since we no longer query for roles, provide an empty array
+            roles: []
+          };
+        });
+        
+      // If we have users but no roles, we'll fetch roles separately
+      if (transformedUsers.length > 0) {
+        try {
+          // Get all user IDs
+          const userIds = transformedUsers.map(user => user.id);
+          
+          // Fetch roles for these users
+          const { data: roleData, error: roleError } = await supabase
+            .from('user_roles')
+            .select(`
+              id,
+              user_id,
+              role_id,
+              assigned_at,
+              assigned_by,
+              roles:roles(id, name, description, is_system_role)
+            `)
+            .in('user_id', userIds)
+            .eq('tenant_id', tenantId);
+            
+          if (!roleError && roleData) {
+            // Map roles to users
+            for (const userRole of roleData) {
+              const user = transformedUsers.find(u => u.id === userRole.user_id);
+              if (user) {
+                // Create role object with proper type handling
+                const roleData = userRole.roles as any;
+                const role = {
+                  id: userRole.id,
+                  role_id: userRole.role_id,
+                  role: {
+                    id: roleData ? roleData.id : 'unknown',
+                    name: roleData ? roleData.name : 'Unknown Role',
+                    description: roleData ? roleData.description : '',
+                    is_system_role: roleData ? roleData.is_system_role : false
+                  },
+                  assigned_at: userRole.assigned_at,
+                  assigned_by: userRole.assigned_by
+                };
+                
+                // Add to user's roles
+                user.roles.push(role);
+              }
+            }
+          } else if (roleError) {
+            await auditLogger.logEvent({
+              eventType: 'warning',
+              action: 'users.roles.fetch',
+              resourceType: 'roles',
+              tenantId,
+              details: { error: roleError }
+            });
+          }
+        } catch (error) {
+          await auditLogger.logEvent({
+            eventType: 'warning',
+            action: 'users.roles.process',
+            resourceType: 'roles',
+            tenantId,
+            details: { error }
+          });
+        }
+      }
+
+      // Log success for audit trail
+      await auditLogger.logEvent({
+        eventType: 'data_access',
+        action: 'users.list',
+        resourceType: 'users',
+        tenantId,
+        details: { count: transformedUsers.length, page, pageSize }
+      });
 
       return {
         data: transformedUsers,
-        total: count || 0,
+        total: totalCount || 0,
         page,
         pageSize
       };
     } catch (error) {
-      console.error('Error fetching users:', error);
-      return {
-        data: [],
-        total: 0,
-        page,
-        pageSize
-      };
+      await auditLogger.logEvent({
+        eventType: 'error',
+        action: 'users.list',
+        resourceType: 'users',
+        tenantId,
+        details: { error }
+      });
+      throw error;
     }
   }
 

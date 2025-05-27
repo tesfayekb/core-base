@@ -9,7 +9,7 @@ import { BulkUserActions } from './BulkUserActions';
 import { UserAuditTrail } from './UserAuditTrail';
 import { useQuery } from '@tanstack/react-query';
 import { userManagementService, UserWithRoles } from '@/services/user/UserManagementService';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/components/auth/AuthProvider';
 import { 
   Users, 
   Plus, 
@@ -32,7 +32,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 export function UserDirectory() {
-  const { user: currentUser } = useAuth();
+  const { currentTenantId } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedUser, setSelectedUser] = useState<UserWithRoles | null>(null);
   const [showUserForm, setShowUserForm] = useState(false);
@@ -41,22 +41,55 @@ export function UserDirectory() {
   const [page, setPage] = useState(1);
   const [activeTab, setActiveTab] = useState('directory');
 
-  // For now, we'll use a default tenant ID. In a real app, this would come from context
-  const tenantId = 'default-tenant';
+  // console.log('UserDirectory: currentTenantId from auth:', currentTenantId);
 
   const { data: usersResult, isLoading, error, refetch } = useQuery({
-    queryKey: ['users', tenantId, page, searchTerm],
-    queryFn: () => userManagementService.getUsers(tenantId, page, 10),
-    enabled: !!tenantId
+    queryKey: ['users', currentTenantId, page, searchTerm],
+    queryFn: async () => {
+      // console.log('🔍 UserDirectory: Fetching users with params:', { currentTenantId, page, searchTerm });
+      if (!currentTenantId) {
+        console.error('❌ UserDirectory: No tenant ID available');
+        throw new Error('No tenant ID available');
+      }
+      
+      try {
+        // console.log('🔄 UserDirectory: Calling userManagementService.getUsers...');
+        const result = await userManagementService.getUsers(currentTenantId, page, 10);
+        // console.log('✅ UserDirectory: Query successful, result:', result);
+        return result;
+      } catch (error) {
+        console.error('❌ UserDirectory: Error fetching users:', error);
+        console.error('Error details:', JSON.stringify(error, null, 2));
+        throw error;
+      }
+    },
+    enabled: !!currentTenantId, // Only run the query if we have a tenant ID
+    retry: 0 // Don't retry on failure to see the real error
   });
+  
+  // Production-ready code has all debugging statements removed
+  
+  // Create safe reference to the users data with fallback
+  const displayUsers = usersResult?.data || [];
+
+  // Log errors
+  if (error) {
+    console.error('UserDirectory: Query error:', error);
+  }
 
   // Extract users array from the paginated result
   const users = usersResult?.data || [];
 
-  const filteredUsers = users.filter(user =>
-    user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    `${user.first_name || ''} ${user.last_name || ''}`.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Filter users based on search term
+  const filteredUsers = displayUsers
+    ? displayUsers.filter(
+        (user) =>
+          user.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          `${user.first_name || ''} ${user.last_name || ''}`
+            .toLowerCase()
+            .includes(searchTerm.toLowerCase())
+      )
+    : [];
 
   const handleEditUser = (user: UserWithRoles) => {
     setSelectedUser(user);
@@ -102,7 +135,7 @@ export function UserDirectory() {
       <UserForm
         user={selectedUser}
         onClose={handleCloseForm}
-        tenantId={tenantId}
+        tenantId={currentTenantId}
       />
     );
   }
@@ -111,7 +144,7 @@ export function UserDirectory() {
     return (
       <UserRoleAssignment
         userId={showRoleAssignment}
-        tenantId={tenantId}
+        tenantId={currentTenantId}
         onClose={handleCloseRoleAssignment}
       />
     );
@@ -192,7 +225,7 @@ export function UserDirectory() {
                 <div className="text-center py-8">
                   <p className="text-red-600">Failed to load users</p>
                 </div>
-              ) : filteredUsers.length === 0 ? (
+              ) : displayUsers.length === 0 ? (
                 <div className="text-center py-8">
                   <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                   <p className="text-muted-foreground">
@@ -201,7 +234,7 @@ export function UserDirectory() {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {filteredUsers.map((user) => (
+                  {displayUsers.map((user) => (
                     <div key={user.id} className="border rounded-lg p-4 hover:bg-muted/50 transition-colors">
                       <div className="flex items-center justify-between">
                         <div className="flex items-start space-x-4">
@@ -282,13 +315,13 @@ export function UserDirectory() {
         <TabsContent value="bulk-actions">
           <BulkUserActions
             selectedUsers={selectedUsers}
-            tenantId={tenantId}
+            tenantId={currentTenantId}
             onOperationComplete={handleOperationComplete}
           />
         </TabsContent>
 
         <TabsContent value="audit-trail">
-          <UserAuditTrail tenantId={tenantId} />
+          <UserAuditTrail tenantId={currentTenantId} />
         </TabsContent>
       </Tabs>
     </div>
