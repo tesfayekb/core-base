@@ -61,22 +61,7 @@ export default function Users() {
           <PermissionBoundary 
             action="read" 
             resource="users"
-            fallback={
-              <div className="space-y-4">
-                <AccessFallback 
-                  title="User Directory Access" 
-                  description="Checking permissions to view users..."
-                />
-                {/* Show UserDirectory anyway for superadmin testing */}
-                <div className="border-2 border-dashed border-yellow-300 bg-yellow-50 p-4 rounded-lg">
-                  <p className="text-sm text-yellow-800 mb-4">
-                    <strong>Debug Mode:</strong> Showing UserDirectory for troubleshooting. 
-                    If you can see user data below, the permission system needs configuration.
-                  </p>
-                  <UserDirectory />
-                </div>
-              </div>
-            }
+            fallback={<AccessFallback title="User Directory Access Restricted" description="You don't have permission to view users" />}
           >
             <UserDirectory />
           </PermissionBoundary>
@@ -84,14 +69,9 @@ export default function Users() {
 
         <TabsContent value="roles">
           <PermissionBoundary 
-            action="Manage" 
+            action="manage" 
             resource="roles"
-            fallback={
-              <AccessFallback 
-                title="Role Management Access Restricted" 
-                description="You don't have permission to manage roles"
-              />
-            }
+            fallback={<AccessFallback title="Role Management Access Restricted" description="You don't have permission to manage roles" />}
           >
             <RoleManagement />
           </PermissionBoundary>
@@ -99,14 +79,9 @@ export default function Users() {
 
         <TabsContent value="permissions">
           <PermissionBoundary 
-            action="Read" 
+            action="read" 
             resource="permissions"
-            fallback={
-              <AccessFallback 
-                title="Permission Matrix Access Restricted" 
-                description="You don't have permission to view permissions"
-              />
-            }
+            fallback={<AccessFallback title="Permission Matrix Access Restricted" description="You don't have permission to view permissions" />}
           >
             <PermissionMatrix />
           </PermissionBoundary>
