@@ -72,36 +72,6 @@ export type Database = {
           },
         ]
       }
-      migrations: {
-        Row: {
-          applied_at: string | null
-          applied_by: string | null
-          hash: string
-          id: string
-          name: string
-          script: string
-          version: string
-        }
-        Insert: {
-          applied_at?: string | null
-          applied_by?: string | null
-          hash: string
-          id?: string
-          name: string
-          script: string
-          version: string
-        }
-        Update: {
-          applied_at?: string | null
-          applied_by?: string | null
-          hash?: string
-          id?: string
-          name?: string
-          script?: string
-          version?: string
-        }
-        Relationships: []
-      }
       permissions: {
         Row: {
           action: Database["public"]["Enums"]["permission_action"]
