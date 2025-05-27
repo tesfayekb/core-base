@@ -15,5 +15,7 @@ export const createMockAuthContext = (overrides = {}) => ({
   resetPassword: jest.fn(),
   updatePassword: jest.fn(),
   clearAuthError: jest.fn(),
+  switchTenant: jest.fn(),
+  isAuthenticated: true,
   ...overrides
 });

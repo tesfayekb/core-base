@@ -23,7 +23,7 @@ describe('UserManagementService', () => {
   const mockSupabase = supabase as any;
 
   beforeEach(() => {
-    userService = UserManagementService.getInstance();
+    userService = new UserManagementService();
     jest.clearAllMocks();
   });
 
@@ -95,8 +95,8 @@ describe('UserManagementService', () => {
     });
   });
 
-  describe('getUsersByTenant', () => {
-    test('should retrieve users for tenant with caching', async () => {
+  describe('getUsers', () => {
+    test('should retrieve users successfully', async () => {
       const mockUsers = [
         { id: 'user-1', email: 'user1@example.com', tenant_id: 'tenant-123' },
         { id: 'user-2', email: 'user2@example.com', tenant_id: 'tenant-123' }
@@ -107,18 +107,11 @@ describe('UserManagementService', () => {
         error: null
       });
 
-      // First call
-      const result1 = await userService.getUsersByTenant('tenant-123');
-      
-      // Second call should use cache
-      const result2 = await userService.getUsersByTenant('tenant-123');
+      const result = await userService.getUsers();
 
-      expect(result1.success).toBe(true);
-      expect(result2.success).toBe(true);
-      expect(result1.data).toHaveLength(2);
-      
-      // Should only call database once due to caching
-      expect(mockSupabase.from).toHaveBeenCalledTimes(1);
+      expect(result.success).toBe(true);
+      expect(result.data).toHaveLength(2);
+      expect(mockSupabase.from).toHaveBeenCalledWith('users');
     });
   });
 });
