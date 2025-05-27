@@ -4,13 +4,12 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { userManagementService, CreateUserRequest, UpdateUserRequest } from '@/services/user/UserManagementService';
 import { userCacheService } from '@/services/user/UserCacheService';
 import { useAuth } from '@/contexts/AuthContext';
-import { optimizedPerformanceMeasurement } from '@/services/performance/OptimizedPerformanceMeasurement';
 
 export function useUserManagement(tenantId: string) {
   const { user: currentUser } = useAuth();
   const queryClient = useQueryClient();
 
-  // Optimized user listing with caching and performance measurement
+  // Optimized user listing with caching
   const {
     data: users = [],
     isLoading: usersLoading,
@@ -19,32 +18,27 @@ export function useUserManagement(tenantId: string) {
   } = useQuery({
     queryKey: ['users', tenantId],
     queryFn: async () => {
-      return optimizedPerformanceMeasurement.measureOperation(
-        'database_query',
-        async () => {
-          // Check cache first
-          const cacheKey = `users_${tenantId}`;
-          const cached = userCacheService.getCachedQuery(cacheKey);
-          if (cached) {
-            return cached;
-          }
+      // Check cache first
+      const cacheKey = `users_${tenantId}`;
+      const cached = userCacheService.getCachedQuery(cacheKey);
+      if (cached) {
+        return cached;
+      }
 
-          // Fetch from service
-          const result = await userManagementService.getUsersByTenant(tenantId);
-          
-          if (result.success && result.data) {
-            // Cache the result
-            userCacheService.setCachedQuery(cacheKey, result.data);
-            return result.data;
-          }
-          
-          throw new Error(result.error || 'Failed to fetch users');
-        }
-      );
+      // Fetch from service - using correct method name
+      const result = await userManagementService.getUsers(tenantId);
+      
+      if (result.success && result.data) {
+        // Cache the result
+        userCacheService.setCachedQuery(cacheKey, result.data);
+        return result.data;
+      }
+      
+      throw new Error(result.error || 'Failed to fetch users');
     },
     enabled: !!tenantId,
     staleTime: 2 * 60 * 1000, // Consider fresh for 2 minutes
-    cacheTime: 10 * 60 * 1000, // Keep in cache for 10 minutes
+    gcTime: 10 * 60 * 1000, // Keep in cache for 10 minutes (updated from cacheTime)
     refetchOnWindowFocus: false
   });
 
@@ -53,10 +47,7 @@ export function useUserManagement(tenantId: string) {
     mutationFn: async (createRequest: CreateUserRequest) => {
       if (!currentUser?.id) throw new Error('User not authenticated');
       
-      return optimizedPerformanceMeasurement.measureOperation(
-        'api_call',
-        () => userManagementService.createUser(createRequest, currentUser.id)
-      );
+      return userManagementService.createUser(createRequest, currentUser.id);
     },
     onSuccess: (result) => {
       if (result.success) {
@@ -79,10 +70,7 @@ export function useUserManagement(tenantId: string) {
     mutationFn: async ({ userId, updateRequest }: { userId: string; updateRequest: UpdateUserRequest }) => {
       if (!currentUser?.id) throw new Error('User not authenticated');
       
-      return optimizedPerformanceMeasurement.measureOperation(
-        'api_call',
-        () => userManagementService.updateUser(userId, updateRequest, currentUser.id)
-      );
+      return userManagementService.updateUser(userId, updateRequest, currentUser.id);
     },
     onSuccess: (result, { userId }) => {
       if (result.success) {
@@ -105,10 +93,7 @@ export function useUserManagement(tenantId: string) {
     mutationFn: async (userId: string) => {
       if (!currentUser?.id) throw new Error('User not authenticated');
       
-      return optimizedPerformanceMeasurement.measureOperation(
-        'api_call',
-        () => userManagementService.deleteUser(userId, currentUser.id)
-      );
+      return userManagementService.deleteUser(userId, currentUser.id);
     },
     onSuccess: (result, userId) => {
       if (result.success) {
@@ -127,10 +112,7 @@ export function useUserManagement(tenantId: string) {
     mutationFn: async ({ userId, roleId }: { userId: string; roleId: string }) => {
       if (!currentUser?.id) throw new Error('User not authenticated');
       
-      return optimizedPerformanceMeasurement.measureOperation(
-        'api_call',
-        () => userManagementService.assignRole(userId, roleId, tenantId, currentUser.id)
-      );
+      return userManagementService.assignRole(userId, roleId, tenantId, currentUser.id);
     },
     onSuccess: (result, { userId }) => {
       if (result.success) {
