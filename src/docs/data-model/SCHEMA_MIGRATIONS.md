@@ -1,4 +1,3 @@
-
 # Schema Migrations Documentation
 
 > **Version**: 1.2.0  
@@ -196,6 +195,75 @@ Migrations that affect permission structures or tenant boundaries require specia
 - Modifying tenant boundary validations
 
 For detailed guidance on security boundary migrations, see [PERMISSION_TENANT_MIGRATIONS.md](PERMISSION_TENANT_MIGRATIONS.md).
+
+### 5. RLS Policy Migrations
+
+Migrations that modify Row-Level Security (RLS) policies:
+
+- Creating or updating RLS policies for tables
+- Modifying RLS policy definitions
+- Adding or removing RLS policy exceptions
+
+Example of an RLS policy migration:
+
+### Migration 006: Create Utility Functions
+**Date**: 2025-01-27  
+**Purpose**: Add database utility functions for permission checking and common operations
+
+**Functions Added**:
+1. **check_user_permission()**:
+   - Checks if user has specific permission on a resource
+   - Considers both direct user permissions and role-based permissions
+   - Validates against current tenant context
+
+2. **get_user_roles()**:
+   - Returns all roles for a user in current tenant
+   - Includes role metadata and system role flag
+
+3. **ensure_superadmin_exists()**:
+   - Creates SuperAdmin role if it doesn't exist
+   - Ensures at least one user has SuperAdmin role
+   - Used during initial tenant setup
+
+4. **get_tenant_users()**:
+   - Returns all users in a tenant with their roles
+   - Includes user status and last login information
+
+**Migration File**: `src/services/migrations/migrations/006_create_utility_functions.ts`
+
+### Migration 007: Fix RLS Policies for Initial Setup
+**Date**: 2025-01-27  
+**Purpose**: Resolve RLS policy conflicts that prevent initial tenant creation
+
+**Problem Addressed**:
+- New users were unable to create initial tenants due to restrictive RLS policies
+- Error: "new row violates row-level security policy for table 'tenants'"
+- Chicken-and-egg problem: users need tenant membership to create tenants
+
+**Changes Made**:
+1. **Tenants Table**:
+   - Added policy allowing authenticated users to create tenants
+   - Maintained view/update restrictions to tenant members only
+
+2. **User_tenants Table**:
+   - Allowed users to create their own memberships
+   - Restricted viewing to own memberships only
+
+3. **Users Table**:
+   - Allowed users to insert their own profile
+   - Simplified view policy for initial setup
+   - Maintained self-update restriction
+
+4. **Roles and User_roles Tables**:
+   - Temporarily relaxed policies for initial setup
+   - Should be refined for production use
+
+**Important Notes**:
+- These policies are simplified for development/initial setup
+- Production deployments should implement more restrictive policies
+- Consider implementing a proper onboarding flow that creates initial data server-side
+
+**Migration File**: `src/services/migrations/migrations/007_fix_rls_policies_for_initial_setup.ts`
 
 ## Migration Best Practices
 

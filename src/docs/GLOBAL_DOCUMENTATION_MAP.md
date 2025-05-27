@@ -1,8 +1,7 @@
-
 # Global Documentation Map
 
-> **Version**: 4.4.0  
-> **Last Updated**: 2025-05-23
+> **Version**: 4.5.0  
+> **Last Updated**: 2025-05-27
 
 ## AI Context Management
 
@@ -135,6 +134,31 @@ Phase-specific, actionable instructions organized by implementation phase with v
 ### 3. Reference Documents
 Detailed specifications, standards, and component-specific documentation.
 
+## Database Documentation
+
+### Core Schema and Migrations
+- **[data-model/DATABASE_SCHEMA.md](data-model/DATABASE_SCHEMA.md)**: Current database schema reference
+- **[data-model/SCHEMA_MIGRATIONS.md](data-model/SCHEMA_MIGRATIONS.md)**: Detailed migration descriptions
+- **[data-model/MIGRATION_HISTORY.md](data-model/MIGRATION_HISTORY.md)**: Migration status and tracking
+- **[data-model/RUNNING_MIGRATIONS.md](data-model/RUNNING_MIGRATIONS.md)**: How to run migrations
+- **[data-model/MIGRATION_PATTERNS.md](data-model/MIGRATION_PATTERNS.md)**: Advanced migration patterns
+- **[data-model/ENHANCED_MIGRATION_SYSTEM.md](data-model/ENHANCED_MIGRATION_SYSTEM.md)**: Enhanced migration features
+
+### Entity Relationships
+- **[data-model/entity-relationships/README.md](data-model/entity-relationships/README.md)**: Entity relationship overview
+- **[data-model/entity-relationships/USER_IDENTITY_MODEL.md](data-model/entity-relationships/USER_IDENTITY_MODEL.md)**: User identity system
+- **[data-model/entity-relationships/RBAC_MODEL.md](data-model/entity-relationships/RBAC_MODEL.md)**: RBAC relationships
+- **[data-model/entity-relationships/MULTI_TENANT_MODEL.md](data-model/entity-relationships/MULTI_TENANT_MODEL.md)**: Multi-tenant architecture
+- **[data-model/entity-relationships/SESSION_CONTEXT_MODEL.md](data-model/entity-relationships/SESSION_CONTEXT_MODEL.md)**: Session management
+- **[data-model/entity-relationships/CROSS_ENTITY_RELATIONSHIPS.md](data-model/entity-relationships/CROSS_ENTITY_RELATIONSHIPS.md)**: Cross-entity relationships
+- **[data-model/entity-relationships/QUERY_PATTERNS.md](data-model/entity-relationships/QUERY_PATTERNS.md)**: Common query patterns
+- **[data-model/entity-relationships/DATABASE_IMPLEMENTATION.md](data-model/entity-relationships/DATABASE_IMPLEMENTATION.md)**: Implementation details
+
+### Migration Files
+- **Location**: `src/services/migrations/migrations/`
+- **Current Version**: 007 (fix_rls_policies_for_initial_setup)
+- **Debugging Scripts**: `sql-scripts/debugging/`
+
 ## Canonical References
 
 These are the definitive specifications for key subsystems:
@@ -143,6 +167,9 @@ These are the definitive specifications for key subsystems:
 - **[integration/EVENT_CORE_PATTERNS.md](integration/EVENT_CORE_PATTERNS.md)**: Event patterns
 - **[rbac/ROLE_ARCHITECTURE.md](rbac/ROLE_ARCHITECTURE.md)**: RBAC architecture
 - **[data-model/DATABASE_SCHEMA.md](data-model/DATABASE_SCHEMA.md)**: Database schema
+- **[data-model/SCHEMA_MIGRATIONS.md](data-model/SCHEMA_MIGRATIONS.md)**: Migration specifications
+- **[data-model/MIGRATION_HISTORY.md](data-model/MIGRATION_HISTORY.md)**: Applied migrations tracking
+- **[data-model/entity-relationships/README.md](data-model/entity-relationships/README.md)**: Entity relationship models
 - **[implementation/AUDIT_INTEGRATION_CHECKLIST.md](implementation/AUDIT_INTEGRATION_CHECKLIST.md)**: Audit requirements
 - **[ui/DESIGN_SYSTEM.md](ui/DESIGN_SYSTEM.md)**: UI design system
 - **[multitenancy/DATA_ISOLATION.md](multitenancy/DATA_ISOLATION.md)**: Multi-tenant isolation
@@ -198,6 +225,7 @@ When implementing features:
 
 ## Version History
 
+- **4.5.0**: Added comprehensive database documentation section with migrations and entity relationships (2025-05-27)
 - **4.4.0**: Added enhanced documentation maps with visual diagrams and improved testing integration (2025-05-23)
 - **4.3.0**: Added AI Context Management rules and comprehensive testing integration (2025-05-23)
 - **4.2.0**: Added tiered documentation approach for optimal AI context management (2025-05-23)

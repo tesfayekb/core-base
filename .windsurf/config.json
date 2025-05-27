@@ -39,6 +39,33 @@
     "ui": "shadcn/ui components",
     "testing": "Vitest + React Testing Library"
   },
+  "database": {
+    "migrations": {
+      "location": "src/services/migrations/migrations/",
+      "documentation": "src/docs/data-model/",
+      "currentVersion": "007",
+      "appliedMigrations": [
+        "000_migration_infrastructure",
+        "001_create_core_schema", 
+        "002_create_rbac_tables",
+        "003_create_audit_session_tables",
+        "003_create_database_functions",
+        "004_create_indexes",
+        "005_enable_rls_policies",
+        "006_create_utility_functions",
+        "007_fix_rls_policies_for_initial_setup"
+      ],
+      "migrationDocs": {
+        "history": "src/docs/data-model/MIGRATION_HISTORY.md",
+        "running": "src/docs/data-model/RUNNING_MIGRATIONS.md",
+        "patterns": "src/docs/data-model/MIGRATION_PATTERNS.md",
+        "schemas": "src/docs/data-model/SCHEMA_MIGRATIONS.md"
+      }
+    },
+    "entityRelationships": "src/docs/data-model/entity-relationships/",
+    "schema": "src/docs/data-model/DATABASE_SCHEMA.md",
+    "debuggingScripts": "sql-scripts/debugging/"
+  },
   "phases": {
     "phase1": {
       "name": "Foundation",

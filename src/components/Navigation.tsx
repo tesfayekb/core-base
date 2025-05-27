@@ -1,4 +1,3 @@
-
 import { NavLink } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -28,7 +27,7 @@ export default function Navigation() {
                 <NavigationMenuItem>
                   <NavigationMenuLink asChild>
                     <NavLink 
-                      to="/dashboard" 
+                      to="/" 
                       className={({ isActive }) =>
                         `px-3 py-2 rounded-md text-sm font-medium transition-colors ${
                           isActive 

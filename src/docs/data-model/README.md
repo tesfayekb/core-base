@@ -1,4 +1,3 @@
-
 # Data Model Documentation
 
 > **Version**: 1.0.0  
@@ -14,6 +13,13 @@ This directory contains documentation related to the system data model, providin
 - **[DATABASE_SCHEMA.md](DATABASE_SCHEMA.md)**: Schema definitions and table structures
 - **[SCHEMA_MIGRATIONS.md](SCHEMA_MIGRATIONS.md)**: Migration guidelines and version control
 - **[DATA_INTEGRITY.md](DATA_INTEGRITY.md)**: Integrity constraints and validation rules
+
+### Migration Documentation
+
+- **[MIGRATION_HISTORY.md](MIGRATION_HISTORY.md)**: Complete migration tracking and status
+- **[RUNNING_MIGRATIONS.md](RUNNING_MIGRATIONS.md)**: Step-by-step guide to running migrations
+- **[MIGRATION_PATTERNS.md](MIGRATION_PATTERNS.md)**: Best practices for creating migrations
+- **[ZERO_DOWNTIME_MIGRATIONS.md](ZERO_DOWNTIME_MIGRATIONS.md)**: Production migration strategies
 
 ## Integration With Other Components
 

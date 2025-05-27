@@ -446,3 +446,97 @@ test(users): add integration tests for user service
 ---
 
 **Remember**: These rules are derived from the comprehensive documentation in `src/docs/`. When in doubt, refer to the source documentation for detailed implementation guidance.
+
+## 🗄️ Database Conventions
+
+### Naming Standards
+- Tables: lowercase, plural (e.g., `users`, `permissions`)
+- Columns: lowercase, snake_case (e.g., `created_at`)
+- Foreign keys: `table_id` (e.g., `user_id`)
+- Indexes: `idx_table_column` (e.g., `idx_users_email`)
+
+### Query Patterns
+- Always include tenant context
+- Use parameterized queries
+- Implement proper pagination
+- Follow patterns in `src/docs/multitenancy/DATABASE_QUERY_PATTERNS.md`
+
+## 📊 Database Migration Standards
+
+### Migration File Structure
+```typescript
+import { Migration } from '../migrationRunner';
+
+const migration: Migration = {
+  version: 'XXX', // Zero-padded number (e.g., '008')
+  name: 'descriptive_name', // Snake case description
+  script: `
+    -- Migration Title
+    -- Version: X.X.X
+    -- Phase X.X: Component Name
+    
+    -- SQL statements here
+  `
+};
+
+export default migration;
+```
+
+### Migration Naming Convention
+- Format: `XXX_descriptive_name.ts` where XXX is zero-padded version
+- Examples:
+  - `008_add_user_preferences_table.ts`
+  - `009_create_notification_system.ts`
+
+### Migration Requirements
+1. **Idempotency**: All migrations must be safe to run multiple times
+2. **Rollback Plan**: Document rollback procedure in comments
+3. **Performance Impact**: Note expected impact in migration comments
+4. **Dependencies**: List required prior migrations
+5. **Testing**: Include test scenarios in comments
+
+### Migration Documentation
+Every migration must update:
+1. `src/docs/data-model/SCHEMA_MIGRATIONS.md` - Detailed description
+2. `src/docs/data-model/MIGRATION_HISTORY.md` - Status tracking
+3. Add SQL debugging scripts to `sql-scripts/debugging/` if needed
+
+### Migration Best Practices
+```sql
+-- DO: Use IF NOT EXISTS/IF EXISTS
+CREATE TABLE IF NOT EXISTS new_table (...);
+CREATE INDEX IF NOT EXISTS idx_name ON table(column);
+
+-- DO: Use transactions for complex changes
+BEGIN;
+  ALTER TABLE users ADD COLUMN IF NOT EXISTS new_field VARCHAR(100);
+  UPDATE users SET new_field = 'default' WHERE new_field IS NULL;
+COMMIT;
+
+-- DO: Add helpful comments
+-- This index improves query performance for user lookups by email
+CREATE INDEX idx_users_email ON users(email);
+
+-- DON'T: Drop data without backup plan
+-- DON'T: Make breaking changes without feature flags
+-- DON'T: Ignore RLS policies
+```
+
+### RLS Policy Migrations
+When modifying RLS policies:
+1. Test with multiple tenant contexts
+2. Verify no data leakage between tenants
+3. Ensure initial setup scenarios work
+4. Document security implications
+
+### Migration Testing Checklist
+- [ ] Migration runs successfully on clean database
+- [ ] Migration is idempotent (can run multiple times)
+- [ ] RLS policies maintain tenant isolation
+- [ ] Performance impact is acceptable
+- [ ] Rollback procedure is documented and tested
+- [ ] Documentation is updated
+
+## 🔒 Security Patterns
+
+{{ ... }}
