@@ -27,6 +27,6 @@ describe('useUserManagement', () => {
     expect(result.current.createUser).toBeDefined();
     expect(result.current.updateUser).toBeDefined();
     expect(result.current.deleteUser).toBeDefined();
-    expect(result.current.assignRole).toBeDefined();
+    expect(result.current.assignRoles).toBeDefined();
   });
 });
