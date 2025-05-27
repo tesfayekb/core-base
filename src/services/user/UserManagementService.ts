@@ -144,6 +144,77 @@ class UserManagementService {
     }
   }
 
+  async getUser(userId: string, tenantId: string): Promise<UserWithRoles | null> {
+    try {
+      const { data: users, error } = await supabase
+        .from('users')
+        .select(`
+          id,
+          email,
+          first_name,
+          last_name,
+          status,
+          created_at,
+          last_login_at,
+          failed_login_attempts,
+          email_verified_at,
+          user_roles (
+            id,
+            role_id,
+            assigned_at,
+            assigned_by,
+            roles!inner (
+              id,
+              name,
+              description,
+              is_system_role
+            )
+          )
+        `)
+        .eq('id', userId)
+        .single();
+
+      if (error) {
+        console.error('Error fetching user:', error);
+        return null;
+      }
+
+      if (!users) {
+        return null;
+      }
+
+      // Transform the data to match our interface
+      const transformedUser: UserWithRoles = {
+        id: users.id,
+        email: users.email,
+        first_name: users.first_name,
+        last_name: users.last_name,
+        status: users.status,
+        created_at: users.created_at,
+        last_login_at: users.last_login_at,
+        failed_login_attempts: users.failed_login_attempts,
+        email_verified_at: users.email_verified_at,
+        roles: (users.user_roles || []).map((userRole: any) => ({
+          id: userRole.id,
+          role_id: userRole.role_id,
+          role: {
+            id: userRole.roles.id,
+            name: userRole.roles.name,
+            description: userRole.roles.description,
+            is_system_role: userRole.roles.is_system_role
+          },
+          assigned_at: userRole.assigned_at,
+          assigned_by: userRole.assigned_by
+        }))
+      };
+
+      return transformedUser;
+    } catch (error) {
+      console.error('Error fetching user:', error);
+      return null;
+    }
+  }
+
   async getUserRoles(userId: string, tenantId: string): Promise<UserRole[]> {
     try {
       const { data, error } = await supabase
@@ -417,3 +488,4 @@ class UserManagementService {
 }
 
 export const userManagementService = new UserManagementService();
+export { UserManagementService };

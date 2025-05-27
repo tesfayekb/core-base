@@ -1,9 +1,8 @@
-
 // Performance-optimized user management hook with caching
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { userManagementService, CreateUserRequest, UpdateUserRequest } from '@/services/user/UserManagementService';
 import { userCacheService } from '@/services/user/UserCacheService';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '../../contexts/AuthContext';
 import { optimizedPerformanceMeasurement } from '@/services/performance/OptimizedPerformanceMeasurement';
 
 export function useUserManagement(tenantId: string) {
@@ -20,7 +19,7 @@ export function useUserManagement(tenantId: string) {
     queryKey: ['users', tenantId],
     queryFn: async () => {
       return optimizedPerformanceMeasurement.measureOperation(
-        'database_query',
+        'complexQuery',
         async () => {
           // Check cache first
           const cacheKey = `users_${tenantId}`;
@@ -30,166 +29,207 @@ export function useUserManagement(tenantId: string) {
           }
 
           // Fetch from service
-          const result = await userManagementService.getUsersByTenant(tenantId);
+          const result = await userManagementService.getUsers(tenantId);
           
-          if (result.success && result.data) {
-            // Cache the result
-            userCacheService.setCachedQuery(cacheKey, result.data);
-            return result.data;
-          }
-          
-          throw new Error(result.error || 'Failed to fetch users');
+          // Cache the result
+          userCacheService.setCachedQuery(cacheKey, result.data);
+          return result.data;
         }
       );
     },
     enabled: !!tenantId,
     staleTime: 2 * 60 * 1000, // Consider fresh for 2 minutes
-    cacheTime: 10 * 60 * 1000, // Keep in cache for 10 minutes
+    gcTime: 10 * 60 * 1000, // Keep in cache for 10 minutes
     refetchOnWindowFocus: false
   });
 
   // Create user mutation with cache invalidation
   const createUserMutation = useMutation({
-    mutationFn: async (createRequest: CreateUserRequest) => {
-      if (!currentUser?.id) throw new Error('User not authenticated');
-      
+    mutationFn: async (data: CreateUserRequest) => {
       return optimizedPerformanceMeasurement.measureOperation(
-        'api_call',
-        () => userManagementService.createUser(createRequest, currentUser.id)
+        'complexQuery',
+        async () => {
+          const result = await userManagementService.createUser(data, tenantId);
+          
+          if (!result || !result.data) {
+            throw new Error('Failed to create user');
+          }
+          
+          // Invalidate caches
+          userCacheService.invalidateUser(result.data.id);
+          queryClient.invalidateQueries({ queryKey: ['users', tenantId] });
+          
+          // Add to cache
+          userCacheService.setCachedUser(result.data.id, result.data);
+          
+          return result.data;
+        }
       );
     },
     onSuccess: (result) => {
-      if (result.success) {
-        // Invalidate and refetch users list
-        queryClient.invalidateQueries({ queryKey: ['users', tenantId] });
-        
-        // Clear related caches
-        userCacheService.invalidateQuery(`users_${tenantId}`);
-        
-        // Cache the new user
-        if (result.data) {
-          userCacheService.setCachedUser(result.data.id, result.data);
-        }
-      }
+      // Additional actions on success if needed
     }
   });
 
-  // Update user mutation with cache invalidation
+  // Update user mutation with optimistic updates
   const updateUserMutation = useMutation({
-    mutationFn: async ({ userId, updateRequest }: { userId: string; updateRequest: UpdateUserRequest }) => {
-      if (!currentUser?.id) throw new Error('User not authenticated');
-      
+    mutationFn: async ({ userId, data }: { userId: string; data: UpdateUserRequest }) => {
       return optimizedPerformanceMeasurement.measureOperation(
-        'api_call',
-        () => userManagementService.updateUser(userId, updateRequest, currentUser.id)
+        'complexQuery',
+        async () => {
+          const result = await userManagementService.updateUser(userId, data, tenantId);
+          
+          if (!result || !result.data) {
+            throw new Error('Failed to update user');
+          }
+          
+          // Update caches
+          userCacheService.setCachedUser(userId, result.data);
+          userCacheService.invalidateUser(userId);
+          queryClient.invalidateQueries({ queryKey: ['users', tenantId] });
+          queryClient.invalidateQueries({ queryKey: ['user', userId] });
+          
+          return result.data;
+        }
       );
     },
-    onSuccess: (result, { userId }) => {
-      if (result.success) {
-        // Invalidate and refetch users list
-        queryClient.invalidateQueries({ queryKey: ['users', tenantId] });
-        
-        // Update cached user
-        if (result.data) {
-          userCacheService.setCachedUser(userId, result.data);
-        }
-        
-        // Clear query cache
-        userCacheService.invalidateQuery(`users_${tenantId}`);
+    onMutate: async ({ userId, data }) => {
+      // Cancel in-flight queries
+      await queryClient.cancelQueries({ queryKey: ['users', tenantId] });
+      
+      // Snapshot current state
+      const previousUsers = queryClient.getQueryData(['users', tenantId]);
+      
+      // Optimistically update
+      queryClient.setQueryData(['users', tenantId], (old: any[]) => {
+        return old?.map(user => 
+          user.id === userId ? { ...user, ...data } : user
+        );
+      });
+      
+      return { previousUsers };
+    },
+    onError: (err, _, context) => {
+      // Rollback on error
+      if (context?.previousUsers) {
+        queryClient.setQueryData(['users', tenantId], context.previousUsers);
       }
     }
   });
 
-  // Delete user mutation with cache invalidation
+  // Assign roles mutation
+  const assignRolesMutation = useMutation({
+    mutationFn: async ({ userId, roleIds }: { userId: string; roleIds: string[] }) => {
+      return optimizedPerformanceMeasurement.measureOperation(
+        'permissionCheck',
+        async () => {
+          // Use assignRole for each role (no batch method available)
+          const results = await Promise.all(
+            roleIds.map(roleId => 
+              userManagementService.assignRole(
+                userId,
+                roleId,
+                tenantId,
+                currentUser?.id || ''
+              )
+            )
+          );
+          
+          const failed = results.find(r => !r.success);
+          if (failed) {
+            throw new Error(failed.error || 'Failed to assign roles');
+          }
+          
+          // Invalidate caches
+          userCacheService.invalidateUser(userId);
+          queryClient.invalidateQueries({ queryKey: ['users', tenantId] });
+          queryClient.invalidateQueries({ queryKey: ['user', userId] });
+          
+          return { success: true };
+        }
+      );
+    }
+  });
+
+  // Delete user mutation
   const deleteUserMutation = useMutation({
     mutationFn: async (userId: string) => {
-      if (!currentUser?.id) throw new Error('User not authenticated');
-      
       return optimizedPerformanceMeasurement.measureOperation(
-        'api_call',
-        () => userManagementService.deleteUser(userId, currentUser.id)
+        'complexQuery',
+        async () => {
+          const result = await userManagementService.deleteUser(userId, tenantId);
+          
+          if (!result || !result.success) {
+            throw new Error(result?.error || 'Failed to delete user');
+          }
+          
+          // Remove from cache
+          userCacheService.invalidateUser(userId);
+          queryClient.invalidateQueries({ queryKey: ['users', tenantId] });
+          
+          return result;
+        }
       );
-    },
-    onSuccess: (result, userId) => {
-      if (result.success) {
-        // Invalidate and refetch users list
-        queryClient.invalidateQueries({ queryKey: ['users', tenantId] });
-        
-        // Remove from cache
-        userCacheService.invalidateUser(userId);
-        userCacheService.invalidateQuery(`users_${tenantId}`);
-      }
     }
   });
 
-  // Role assignment mutation with cache management
-  const assignRoleMutation = useMutation({
-    mutationFn: async ({ userId, roleId }: { userId: string; roleId: string }) => {
-      if (!currentUser?.id) throw new Error('User not authenticated');
-      
-      return optimizedPerformanceMeasurement.measureOperation(
-        'api_call',
-        () => userManagementService.assignRole(userId, roleId, tenantId, currentUser.id)
-      );
-    },
-    onSuccess: (result, { userId }) => {
-      if (result.success) {
-        // Invalidate user and users list
-        queryClient.invalidateQueries({ queryKey: ['users', tenantId] });
-        queryClient.invalidateQueries({ queryKey: ['user', userId] });
+  // Batch update utility
+  const batchUpdateUsers = async (updates: { userId: string; data: UpdateUserRequest }[]) => {
+    return optimizedPerformanceMeasurement.measureOperation(
+      'complexQuery',
+      async () => {
+        const results = await Promise.all(
+          updates.map(({ userId, data }) => 
+            updateUserMutation.mutateAsync({ userId, data })
+          )
+        );
         
-        // Clear caches
-        userCacheService.invalidateUser(userId);
+        // Clear query cache after batch update
         userCacheService.invalidateQuery(`users_${tenantId}`);
+        
+        return results;
       }
-    }
-  });
+    );
+  };
 
-  // Batch operations for performance
-  const batchUpdateUsers = async (updates: Array<{ userId: string; updateRequest: UpdateUserRequest }>) => {
-    const startTime = performance.now();
-    
-    try {
-      const promises = updates.map(({ userId, updateRequest }) => 
-        updateUserMutation.mutateAsync({ userId, updateRequest })
-      );
-      
-      const results = await Promise.allSettled(promises);
-      const successful = results.filter(r => r.status === 'fulfilled').length;
-      
-      console.log(`Batch update completed: ${successful}/${updates.length} successful in ${performance.now() - startTime}ms`);
-      
-      return { successful, total: updates.length };
-    } catch (error) {
-      console.error('Batch update failed:', error);
-      throw error;
-    }
+  // Prefetch user data
+  const prefetchUser = async (userId: string) => {
+    return queryClient.prefetchQuery({
+      queryKey: ['user', userId],
+      queryFn: () => userManagementService.getUser(userId, tenantId)
+    });
   };
 
   return {
     // Data
     users,
-    usersLoading,
-    usersError,
     
-    // Actions
+    // Loading states
+    isLoading: usersLoading,
+    error: usersError,
+    
+    // Mutations
     createUser: createUserMutation.mutateAsync,
     updateUser: updateUserMutation.mutateAsync,
     deleteUser: deleteUserMutation.mutateAsync,
-    assignRole: assignRoleMutation.mutateAsync,
+    assignRoles: assignRolesMutation.mutateAsync,
     batchUpdateUsers,
     
     // Utilities
     refetchUsers,
-    
-    // Loading states
+    prefetchUser,
     isCreating: createUserMutation.isPending,
     isUpdating: updateUserMutation.isPending,
     isDeleting: deleteUserMutation.isPending,
-    isAssigningRole: assignRoleMutation.isPending,
+    isAssigningRoles: assignRolesMutation.isPending,
     
     // Cache management
     clearCache: () => userCacheService.invalidateQuery(`users_${tenantId}`),
-    getCacheStats: () => userCacheService.getCacheStats()
+    
+    // Performance metrics
+    getPerformanceMetrics: () => ({
+      cacheStats: userCacheService.getCacheStats(),
+      queryPerformance: 'optimized'
+    })
   };
 }
