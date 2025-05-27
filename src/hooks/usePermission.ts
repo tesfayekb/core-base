@@ -34,25 +34,15 @@ export function usePermission(action: string, resource: string, resourceId?: str
           return;
         }
 
-        // Get user permissions and check for specific permission or "manage:all"
-        const userPermissions = await rbacService.getUserPermissions(user.id, currentTenantId);
-        
-        // Check for exact permission match
-        const hasExactPermission = userPermissions.some(perm => 
-          perm.action === action && perm.resource === resource
+        // Check specific permission
+        const hasSpecificPermission = await rbacService.checkPermission(
+          user.id,
+          action,
+          resource,
+          resourceId
         );
 
-        // Check for "manage:all" permission which grants everything
-        const hasManageAll = userPermissions.some(perm => 
-          perm.action === 'manage' && perm.resource === 'all'
-        );
-
-        // Check for Administrator role which should have all permissions
-        const isAdministrator = userRoles.some(role => 
-          role.name === 'Administrator' || role.name === 'Admin'
-        );
-
-        setHasPermission(hasExactPermission || hasManageAll || isAdministrator);
+        setHasPermission(hasSpecificPermission);
       } catch (err) {
         console.error('Permission check failed:', err);
         setError(err instanceof Error ? err.message : 'Permission check failed');
