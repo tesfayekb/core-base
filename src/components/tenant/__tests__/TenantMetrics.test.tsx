@@ -4,17 +4,9 @@ import { render, screen, waitFor } from '@testing-library/react';
 import { TenantMetrics } from '../TenantMetrics';
 import { AuthContext } from '@/contexts/AuthContext';
 import { BrowserRouter } from 'react-router-dom';
+import { createMockAuthContext } from './shared/MockAuthContext';
 
-const mockAuthContext = {
-  user: { id: 'user-1', email: 'test@example.com' },
-  tenantId: 'tenant-1',
-  login: jest.fn(),
-  signIn: jest.fn(),
-  signOut: jest.fn(),
-  logout: jest.fn(),
-  isLoading: false,
-  loading: false
-};
+const mockAuthContext = createMockAuthContext();
 
 const renderWithContext = (component: React.ReactElement) => {
   return render(

@@ -4,6 +4,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { UserForm } from '../UserForm';
 import { AuthContext } from '@/contexts/AuthContext';
+import { createMockAuthContext } from '../../tenant/__tests__/shared/MockAuthContext';
 
 // Mock the services
 jest.mock('@/services/user/UserManagementService');
@@ -14,13 +15,10 @@ const mockAuthUser = {
   email: 'admin@example.com'
 };
 
-const mockAuthContext = {
+const mockAuthContext = createMockAuthContext({
   user: mockAuthUser,
-  tenantId: 'tenant-123',
-  login: jest.fn(),
-  logout: jest.fn(),
-  loading: false
-};
+  tenantId: 'tenant-123'
+});
 
 const TestWrapper = ({ children }: { children: React.ReactNode }) => {
   const queryClient = new QueryClient({

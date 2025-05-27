@@ -5,6 +5,7 @@ import userEvent from '@testing-library/user-event';
 import { TenantQuotaManagement } from '../TenantQuotaManagement';
 import { AuthContext } from '@/contexts/AuthContext';
 import { BrowserRouter } from 'react-router-dom';
+import { createMockAuthContext } from './shared/MockAuthContext';
 
 // Mock the toast hook
 jest.mock('@/components/ui/use-toast', () => ({
@@ -36,16 +37,7 @@ jest.mock('@/services/tenant/TenantQuotaService', () => ({
   }
 }));
 
-const mockAuthContext = {
-  user: { id: 'user-1', email: 'test@example.com' },
-  tenantId: 'tenant-1',
-  login: jest.fn(),
-  signIn: jest.fn(),
-  signOut: jest.fn(),
-  logout: jest.fn(),
-  isLoading: false,
-  loading: false
-};
+const mockAuthContext = createMockAuthContext();
 
 const renderWithContext = (component: React.ReactElement) => {
   return render(
