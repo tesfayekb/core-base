@@ -1,4 +1,3 @@
-
 // Migration Test Runner Component
 // For manual testing and validation of migration system
 
@@ -56,14 +55,14 @@ export function MigrationTestRunner() {
         <button
           onClick={runTests}
           disabled={isRunning}
-          className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 disabled:opacity-50"
+          className="bg-primary text-primary-foreground px-4 py-2 rounded hover:bg-primary/90 disabled:opacity-50"
         >
           {isRunning ? 'Running Tests...' : 'Run Migration Tests'}
         </button>
       </div>
 
       {error && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-6">
+        <div className="bg-destructive/10 border border-destructive text-destructive px-4 py-3 rounded mb-6">
           <strong>Error:</strong> {error}
         </div>
       )}
@@ -74,23 +73,23 @@ export function MigrationTestRunner() {
             <div className="flex items-center justify-between">
               <h3 className="font-semibold">{test.name}</h3>
               <span className={`px-2 py-1 rounded text-sm ${
-                test.status === 'passed' ? 'bg-green-100 text-green-800' :
-                test.status === 'failed' ? 'bg-red-100 text-red-800' :
-                test.status === 'running' ? 'bg-yellow-100 text-yellow-800' :
-                'bg-gray-100 text-gray-800'
+                test.status === 'passed' ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400' :
+                test.status === 'failed' ? 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-400' :
+                test.status === 'running' ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-400' :
+                'bg-secondary text-secondary-foreground'
               }`}>
                 {test.status}
               </span>
             </div>
             {test.message && (
-              <p className="text-sm text-gray-600 mt-2">{test.message}</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">{test.message}</p>
             )}
           </div>
         ))}
       </div>
 
       {isComplete && (
-        <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mt-6">
+        <div className="bg-green-100 dark:bg-green-900/30 border border-green-400 dark:border-green-600 text-green-800 dark:text-green-400 px-4 py-3 rounded mt-6">
           ✅ All migrations completed successfully! Database foundation is ready.
         </div>
       )}
