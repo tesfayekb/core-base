@@ -1,4 +1,3 @@
-
 import { LRUCache } from 'lru-cache';
 
 export interface PermissionContext {
@@ -149,6 +148,34 @@ export class RBACService {
 
     this.roleCache.set(roleId, role);
     return role;
+  }
+
+  async getRoles(tenantId?: string): Promise<Role[]> {
+    // Simulate fetching all roles for a tenant from a database
+    const roles: Role[] = [
+      {
+        id: 'admin',
+        name: 'Administrator',
+        permissions: [{ action: 'manage', resource: 'all' }]
+      },
+      {
+        id: 'editor',
+        name: 'Editor',
+        permissions: [{ action: 'edit', resource: 'documents' }]
+      },
+      {
+        id: 'viewer',
+        name: 'Viewer',
+        permissions: [{ action: 'view', resource: 'documents' }]
+      }
+    ];
+
+    // Cache each role
+    roles.forEach(role => {
+      this.roleCache.set(role.id, role);
+    });
+
+    return roles;
   }
 
   async getUserPermissions(userId: string, tenantId?: string): Promise<Permission[]> {
