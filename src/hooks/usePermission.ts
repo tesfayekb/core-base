@@ -21,14 +21,29 @@ export function usePermission(action: string, resource: string, resourceId?: str
       setError(null);
 
       try {
-        // Check if user is superadmin first
+        // Check if user is superadmin or administrator first
         const userRoles = await rbacService.getUserRoles(user.id, currentTenantId);
-        const isSuperAdmin = userRoles.some(role => 
-          role.name === 'SuperAdmin' || role.name === 'superadmin' || role.name === 'admin'
+        const isAdminUser = userRoles.some(role => 
+          role.name === 'SuperAdmin' || 
+          role.name === 'superadmin' || 
+          role.name === 'Administrator' || 
+          role.name === 'admin'
         );
 
-        // SuperAdmin has access to everything
-        if (isSuperAdmin) {
+        // Admin users have access to everything
+        if (isAdminUser) {
+          setHasPermission(true);
+          setIsLoading(false);
+          return;
+        }
+
+        // Check for manage:all permission (covers all actions)
+        const userPermissions = await rbacService.getUserPermissions(user.id, currentTenantId);
+        const hasManageAll = userPermissions.some(perm => 
+          perm.action === 'manage' && perm.resource === 'all'
+        );
+
+        if (hasManageAll) {
           setHasPermission(true);
           setIsLoading(false);
           return;
