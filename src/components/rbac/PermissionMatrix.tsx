@@ -15,21 +15,21 @@ interface PermissionMatrixData {
 }
 
 export function PermissionMatrix() {
-  const { user, currentTenantId } = useAuth();
+  const { user, tenantId } = useAuth();
   const [permissions, setPermissions] = useState<Permission[]>([]);
   const [matrixData, setMatrixData] = useState<PermissionMatrixData[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     loadUserPermissions();
-  }, [user, currentTenantId]);
+  }, [user, tenantId]);
 
   const loadUserPermissions = async () => {
     if (!user) return;
 
     setIsLoading(true);
     try {
-      const userPermissions = await rbacService.getUserPermissions(user.id, currentTenantId || undefined);
+      const userPermissions = await rbacService.getUserPermissions(user.id, tenantId || undefined);
       setPermissions(userPermissions);
       
       // Transform permissions into matrix format

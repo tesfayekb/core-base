@@ -1,256 +1,189 @@
 
 import React, { useState, useEffect } from 'react';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
-import { useQuery } from '@tanstack/react-query';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Checkbox } from '@/components/ui/checkbox';
-import { useToast } from '@/hooks/use-toast';
-import { userManagementService, CreateUserRequest, UpdateUserRequest } from '@/services/user/UserManagementService';
-import { rbacService, Role } from '@/services/rbac/rbacService';
-import { User, Mail, Shield, Save, X } from 'lucide-react';
-
-const userFormSchema = z.object({
-  firstName: z.string().min(1, 'First name is required'),
-  lastName: z.string().min(1, 'Last name is required'),
-  email: z.string().email('Valid email is required'),
-  status: z.enum(['active', 'inactive', 'suspended', 'pending_verification']),
-  roleIds: z.array(z.string()).optional()
-});
-
-type UserFormData = z.infer<typeof userFormSchema>;
+import { Button } from '@/components/ui/button';
+import { X, User } from 'lucide-react';
+import { UserFormFields } from './forms/UserFormFields';
+import { RoleSelection } from './forms/RoleSelection';
+import { UserFormActions } from './forms/UserFormActions';
+import { userManagementService, UserWithRoles, CreateUserRequest, UpdateUserRequest } from '@/services/user/UserManagementService';
+import { useAuth } from '@/contexts/AuthContext';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 
 interface UserFormProps {
-  userId?: string;
+  user?: UserWithRoles | null;
+  onClose: () => void;
   tenantId: string;
-  onSubmit: (data: CreateUserRequest | UpdateUserRequest) => Promise<void>;
-  onCancel: () => void;
-  isLoading?: boolean;
 }
 
-export function UserForm({ userId, tenantId, onSubmit, onCancel, isLoading }: UserFormProps) {
-  const { toast } = useToast();
-  const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
+interface Role {
+  id: string;
+  name: string;
+  description?: string;
+}
 
-  const form = useForm<UserFormData>({
-    resolver: zodResolver(userFormSchema),
-    defaultValues: {
-      firstName: '',
-      lastName: '',
-      email: '',
-      status: 'active',
-      roleIds: []
-    }
+export function UserForm({ user, onClose, tenantId }: UserFormProps) {
+  const { user: currentUser } = useAuth();
+  const [formData, setFormData] = useState({
+    email: '',
+    firstName: '',
+    lastName: '',
+    status: 'active' as const,
+    roleIds: [] as string[]
   });
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Load available roles
-  const { data: roles = [], isLoading: rolesLoading } = useQuery({
+  // Fetch available roles with caching
+  const { data: roles = [] } = useQuery({
     queryKey: ['roles', tenantId],
     queryFn: async () => {
-      const result = await rbacService.getRoles(tenantId);
-      return result || [];
+      const { data, error } = await supabase
+        .from('roles')
+        .select('id, name, description')
+        .eq('tenant_id', tenantId)
+        .order('name');
+      
+      if (error) throw error;
+      return data as Role[];
     },
     enabled: !!tenantId,
-    staleTime: 5 * 60 * 1000,
-    gcTime: 10 * 60 * 1000 // Updated from cacheTime
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+    cacheTime: 10 * 60 * 1000 // Keep in cache for 10 minutes
   });
 
-  // Load user data if editing
   useEffect(() => {
-    if (userId && tenantId) {
-      loadUserData();
+    if (user) {
+      setFormData({
+        email: user.email,
+        firstName: user.first_name || '',
+        lastName: user.last_name || '',
+        status: user.status as any,
+        roleIds: user.roles?.map(r => r.id) || []
+      });
     }
-  }, [userId, tenantId]);
+  }, [user]);
 
-  const loadUserData = async () => {
-    if (!userId) return;
+  const validateForm = (): boolean => {
+    const newErrors: Record<string, string> = {};
+
+    if (!formData.email.trim()) {
+      newErrors.email = 'Email is required';
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      newErrors.email = 'Please enter a valid email address';
+    }
+
+    if (!user && !formData.firstName.trim()) {
+      newErrors.firstName = 'First name is required for new users';
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleFieldChange = (field: string, value: string) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+    // Clear field error when user starts typing
+    if (errors[field]) {
+      setErrors(prev => ({ ...prev, [field]: '' }));
+    }
+  };
+
+  const handleRoleToggle = (roleId: string) => {
+    setFormData(prev => ({
+      ...prev,
+      roleIds: prev.roleIds.includes(roleId)
+        ? prev.roleIds.filter(id => id !== roleId)
+        : [...prev.roleIds, roleId]
+    }));
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!validateForm() || !currentUser?.id) return;
+
+    setIsSubmitting(true);
 
     try {
-      const result = await userManagementService.getUser(userId);
-      if (result.success && result.data) {
-        const user = result.data;
-        form.reset({
-          firstName: user.first_name || '',
-          lastName: user.last_name || '',
-          email: user.email,
-          status: user.status,
-          roleIds: user.roles?.map(r => r.role.id) || []
-        });
-        setSelectedRoles(user.roles?.map(r => r.role.id) || []);
+      if (user) {
+        // Update existing user
+        const updateRequest: UpdateUserRequest = {
+          firstName: formData.firstName || undefined,
+          lastName: formData.lastName || undefined,
+          status: formData.status
+        };
+
+        const result = await userManagementService.updateUser(user.id, updateRequest, currentUser.id);
+        
+        if (result.success) {
+          onClose();
+        } else {
+          setErrors({ submit: result.error || 'Failed to update user' });
+        }
+      } else {
+        // Create new user
+        const createRequest: CreateUserRequest = {
+          email: formData.email,
+          firstName: formData.firstName || undefined,
+          lastName: formData.lastName || undefined,
+          tenantId,
+          roleIds: formData.roleIds.length > 0 ? formData.roleIds : undefined
+        };
+
+        const result = await userManagementService.createUser(createRequest, currentUser.id);
+        
+        if (result.success) {
+          onClose();
+        } else {
+          setErrors({ submit: result.error || 'Failed to create user' });
+        }
       }
     } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to load user data',
-        variant: 'destructive'
-      });
-    }
-  };
-
-  const handleSubmit = async (data: UserFormData) => {
-    try {
-      const submitData = {
-        firstName: data.firstName,
-        lastName: data.lastName,
-        email: data.email,
-        status: data.status,
-        tenantId,
-        roleIds: selectedRoles
-      };
-
-      await onSubmit(submitData);
-      
-      toast({
-        title: 'Success',
-        description: userId ? 'User updated successfully' : 'User created successfully'
-      });
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description: error instanceof Error ? error.message : 'Operation failed',
-        variant: 'destructive'
-      });
-    }
-  };
-
-  const handleRoleToggle = (roleId: string, checked: boolean) => {
-    if (checked) {
-      setSelectedRoles(prev => [...prev, roleId]);
-    } else {
-      setSelectedRoles(prev => prev.filter(id => id !== roleId));
+      console.error('Form submission error:', error);
+      setErrors({ submit: 'An unexpected error occurred' });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   return (
-    <Card className="w-full max-w-2xl">
-      <CardHeader>
-        <CardTitle className="flex items-center space-x-2">
-          <User className="h-5 w-5" />
-          <span>{userId ? 'Edit User' : 'Create New User'}</span>
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
-            {/* Basic Information */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="firstName"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>First Name</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Enter first name" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="lastName"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Last Name</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Enter last name" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-
-            <FormField
-              control={form.control}
-              name="email"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="flex items-center space-x-1">
-                    <Mail className="h-4 w-4" />
-                    <span>Email</span>
-                  </FormLabel>
-                  <FormControl>
-                    <Input type="email" placeholder="Enter email address" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <Card className="w-full max-w-md max-h-[90vh] overflow-y-auto">
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+          <CardTitle className="flex items-center space-x-2">
+            <User className="h-5 w-5" />
+            <span>{user ? 'Edit User' : 'Create User'}</span>
+          </CardTitle>
+          <Button variant="ghost" size="sm" onClick={onClose}>
+            <X className="h-4 w-4" />
+          </Button>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <UserFormFields
+              formData={formData}
+              errors={errors}
+              isEditMode={!!user}
+              onFieldChange={handleFieldChange}
             />
 
-            <FormField
-              control={form.control}
-              name="status"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Status</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select status" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="active">Active</SelectItem>
-                      <SelectItem value="inactive">Inactive</SelectItem>
-                      <SelectItem value="suspended">Suspended</SelectItem>
-                      <SelectItem value="pending_verification">Pending Verification</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
+            <RoleSelection
+              roles={roles}
+              selectedRoleIds={formData.roleIds}
+              onRoleToggle={handleRoleToggle}
             />
 
-            {/* Role Assignment */}
-            <div className="space-y-3">
-              <label className="text-sm font-medium flex items-center space-x-1">
-                <Shield className="h-4 w-4" />
-                <span>Roles</span>
-              </label>
-              {rolesLoading ? (
-                <div className="text-sm text-gray-500">Loading roles...</div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {roles.map((role) => (
-                    <div key={role.id} className="flex items-center space-x-2">
-                      <Checkbox
-                        id={role.id}
-                        checked={selectedRoles.includes(role.id)}
-                        onCheckedChange={(checked) => handleRoleToggle(role.id, !!checked)}
-                      />
-                      <label
-                        htmlFor={role.id}
-                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                      >
-                        {role.name}
-                      </label>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Form Actions */}
-            <div className="flex space-x-3 pt-6">
-              <Button type="submit" disabled={isLoading} className="flex-1">
-                <Save className="h-4 w-4 mr-2" />
-                {isLoading ? 'Saving...' : (userId ? 'Update User' : 'Create User')}
-              </Button>
-              <Button type="button" variant="outline" onClick={onCancel}>
-                <X className="h-4 w-4 mr-2" />
-                Cancel
-              </Button>
-            </div>
+            <UserFormActions
+              isSubmitting={isSubmitting}
+              isEditMode={!!user}
+              onCancel={onClose}
+              submitError={errors.submit}
+            />
           </form>
-        </Form>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+    </div>
   );
 }
