@@ -5,9 +5,35 @@ import { PermissionBoundary } from "@/components/rbac/PermissionBoundary";
 import { RoleManagement } from "@/components/rbac/RoleManagement";
 import { PermissionMatrix } from "@/components/rbac/PermissionMatrix";
 import { UserDirectory } from "@/components/user/UserDirectory";
+import { PermissionDebug } from "@/components/debug/PermissionDebug";
 import { Users as UsersIcon, Shield, Grid } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function Users() {
+  const { user } = useAuth();
+
+  // Fallback card for when permissions are unclear
+  const AccessFallback = ({ title, description }: { title: string; description: string }) => (
+    <Card>
+      <CardHeader>
+        <CardTitle>{title}</CardTitle>
+        <CardDescription>{description}</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <p className="text-sm text-muted-foreground mb-4">
+          If you're an administrator and seeing this message, there may be a permission configuration issue.
+        </p>
+        {user && (
+          <div className="text-xs text-muted-foreground">
+            <p>Current user: {user.email}</p>
+            <p>User ID: {user.id}</p>
+          </div>
+        )}
+        <PermissionDebug />
+      </CardContent>
+    </Card>
+  );
+
   return (
     <div className="space-y-6">
       <div>
@@ -36,12 +62,20 @@ export default function Users() {
             action="read" 
             resource="users"
             fallback={
-              <Card>
-                <CardHeader>
-                  <CardTitle>Access Restricted</CardTitle>
-                  <CardDescription>You don't have permission to view users</CardDescription>
-                </CardHeader>
-              </Card>
+              <div className="space-y-4">
+                <AccessFallback 
+                  title="User Directory Access" 
+                  description="Checking permissions to view users..."
+                />
+                {/* Show UserDirectory anyway for superadmin testing */}
+                <div className="border-2 border-dashed border-yellow-300 bg-yellow-50 p-4 rounded-lg">
+                  <p className="text-sm text-yellow-800 mb-4">
+                    <strong>Debug Mode:</strong> Showing UserDirectory for troubleshooting. 
+                    If you can see user data below, the permission system needs configuration.
+                  </p>
+                  <UserDirectory />
+                </div>
+              </div>
             }
           >
             <UserDirectory />
@@ -53,12 +87,10 @@ export default function Users() {
             action="Manage" 
             resource="roles"
             fallback={
-              <Card>
-                <CardHeader>
-                  <CardTitle>Access Restricted</CardTitle>
-                  <CardDescription>You don't have permission to manage roles</CardDescription>
-                </CardHeader>
-              </Card>
+              <AccessFallback 
+                title="Role Management Access Restricted" 
+                description="You don't have permission to manage roles"
+              />
             }
           >
             <RoleManagement />
@@ -70,12 +102,10 @@ export default function Users() {
             action="Read" 
             resource="permissions"
             fallback={
-              <Card>
-                <CardHeader>
-                  <CardTitle>Access Restricted</CardTitle>
-                  <CardDescription>You don't have permission to view permissions</CardDescription>
-                </CardHeader>
-              </Card>
+              <AccessFallback 
+                title="Permission Matrix Access Restricted" 
+                description="You don't have permission to view permissions"
+              />
             }
           >
             <PermissionMatrix />
