@@ -38,7 +38,7 @@ export function UserForm({ user, onClose, tenantId }: UserFormProps) {
   // Fetch available roles with caching
   const { data: roles = [] } = useQuery({
     queryKey: ['roles', tenantId],
-    queryFn: async (): Promise<Role[]> => {
+    queryFn: async () => {
       const { data, error } = await supabase
         .from('roles')
         .select('id, name, description')
@@ -50,7 +50,7 @@ export function UserForm({ user, onClose, tenantId }: UserFormProps) {
     },
     enabled: !!tenantId,
     staleTime: 5 * 60 * 1000, // Cache for 5 minutes
-    gcTime: 10 * 60 * 1000 // Keep in cache for 10 minutes
+    cacheTime: 10 * 60 * 1000 // Keep in cache for 10 minutes
   });
 
   useEffect(() => {

@@ -117,20 +117,20 @@ describe('Complete User Journey Integration', () => {
   describe('Permission Hook Integration', () => {
     test('should integrate permission hooks with real workflows', async () => {
       const TestPermissionComponent = () => {
-        const { hasPermission, isLoading, error } = usePermission(
+        const { hasPermission, isLoading, refetch } = usePermission(
           'manage',
           'users',
           'test-tenant'
         );
 
-        return { hasPermission, isLoading, error };
+        return { hasPermission, isLoading, refetch };
       };
 
       const component = TestPermissionComponent();
       
-      // Test permission check result
-      expect(typeof component.hasPermission).toBe('boolean');
-      expect(typeof component.isLoading).toBe('boolean');
+      // Test permission refetch
+      const refetchResult = await component.refetch();
+      expect(typeof refetchResult).toBe('boolean');
     });
   });
 

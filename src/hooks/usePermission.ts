@@ -49,15 +49,12 @@ export function usePermission(action: string, resource: string, resourceId?: str
           return;
         }
 
-        // Check specific permission with proper context object
+        // Check specific permission
         const hasSpecificPermission = await rbacService.checkPermission(
           user.id,
           action,
           resource,
-          {
-            tenantId: currentTenantId,
-            resourceId
-          }
+          resourceId
         );
 
         setHasPermission(hasSpecificPermission);
