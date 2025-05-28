@@ -10,11 +10,44 @@ export interface UserWithRoles {
   tenant_id: string;
   created_at: string;
   updated_at: string;
+  last_login_at?: string;
+  email_verified_at?: string;
+  failed_login_attempts?: number;
   roles?: Array<{
     id: string;
     name: string;
     description?: string;
+    assigned_at?: string;
+    role: {
+      id: string;
+      name: string;
+      description?: string;
+      is_system_role?: boolean;
+    };
   }>;
+}
+
+export interface UserRole {
+  id: string;
+  role_id: string;
+  user_id: string;
+  tenant_id: string;
+  assigned_at: string;
+  assigned_by?: string;
+  role: {
+    id: string;
+    name: string;
+    description?: string;
+    is_system_role?: boolean;
+  };
+}
+
+export interface Permission {
+  id: string;
+  name: string;
+  action: string;
+  resource: string;
+  description?: string;
 }
 
 export interface CreateUserRequest {
@@ -130,6 +163,85 @@ export class UserManagementService {
     }
   }
 
+  async getUsers(tenantId: string): Promise<ServiceResult<UserWithRoles[]>> {
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select(`
+          *,
+          roles:user_roles(
+            id,
+            assigned_at,
+            role:roles(
+              id,
+              name,
+              description,
+              is_system_role
+            )
+          )
+        `)
+        .eq('tenant_id', tenantId)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        return {
+          success: false,
+          error: error.message
+        };
+      }
+
+      return {
+        success: true,
+        data: data as UserWithRoles[]
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to fetch users'
+      };
+    }
+  }
+
+  async getUser(userId: string, tenantId: string): Promise<ServiceResult<UserWithRoles>> {
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select(`
+          *,
+          roles:user_roles(
+            id,
+            assigned_at,
+            role:roles(
+              id,
+              name,
+              description,
+              is_system_role
+            )
+          )
+        `)
+        .eq('id', userId)
+        .eq('tenant_id', tenantId)
+        .single();
+
+      if (error) {
+        return {
+          success: false,
+          error: error.message
+        };
+      }
+
+      return {
+        success: true,
+        data: data as UserWithRoles
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to fetch user'
+      };
+    }
+  }
+
   async getUsersByTenant(tenantId: string, page: number = 1, pageSize: number = 10): Promise<PaginatedResult<UserWithRoles>> {
     try {
       const offset = (page - 1) * pageSize;
@@ -159,6 +271,159 @@ export class UserManagementService {
         totalCount: 0,
         page,
         pageSize
+      };
+    }
+  }
+
+  async getUserRoles(userId: string, tenantId: string): Promise<ServiceResult<UserRole[]>> {
+    try {
+      const { data, error } = await supabase
+        .from('user_roles')
+        .select(`
+          *,
+          role:roles(
+            id,
+            name,
+            description,
+            is_system_role
+          )
+        `)
+        .eq('user_id', userId)
+        .eq('tenant_id', tenantId);
+
+      if (error) {
+        return {
+          success: false,
+          error: error.message
+        };
+      }
+
+      return {
+        success: true,
+        data: data as UserRole[]
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to fetch user roles'
+      };
+    }
+  }
+
+  async getRolePermissions(roleId: string): Promise<ServiceResult<Permission[]>> {
+    try {
+      const { data, error } = await supabase
+        .from('role_permissions')
+        .select(`
+          permission:permissions(
+            id,
+            name,
+            action,
+            resource,
+            description
+          )
+        `)
+        .eq('role_id', roleId);
+
+      if (error) {
+        return {
+          success: false,
+          error: error.message
+        };
+      }
+
+      const permissions = data.map(item => item.permission).filter(Boolean) as Permission[];
+
+      return {
+        success: true,
+        data: permissions
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to fetch role permissions'
+      };
+    }
+  }
+
+  async assignRole(userId: string, roleId: string, tenantId: string, assignedBy: string): Promise<ServiceResult<void>> {
+    try {
+      const { error } = await supabase
+        .from('user_roles')
+        .insert({
+          user_id: userId,
+          role_id: roleId,
+          tenant_id: tenantId,
+          assigned_by: assignedBy
+        });
+
+      if (error) {
+        return {
+          success: false,
+          error: error.message
+        };
+      }
+
+      return {
+        success: true
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to assign role'
+      };
+    }
+  }
+
+  async removeRole(userId: string, roleId: string, tenantId: string): Promise<ServiceResult<void>> {
+    try {
+      const { error } = await supabase
+        .from('user_roles')
+        .delete()
+        .eq('user_id', userId)
+        .eq('role_id', roleId)
+        .eq('tenant_id', tenantId);
+
+      if (error) {
+        return {
+          success: false,
+          error: error.message
+        };
+      }
+
+      return {
+        success: true
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to remove role'
+      };
+    }
+  }
+
+  async deleteUser(userId: string, tenantId: string): Promise<ServiceResult<void>> {
+    try {
+      const { error } = await supabase
+        .from('users')
+        .delete()
+        .eq('id', userId)
+        .eq('tenant_id', tenantId);
+
+      if (error) {
+        return {
+          success: false,
+          error: error.message
+        };
+      }
+
+      return {
+        success: true
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to delete user'
       };
     }
   }
