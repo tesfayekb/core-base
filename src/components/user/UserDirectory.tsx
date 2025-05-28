@@ -1,329 +1,179 @@
-import React, { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { UserForm } from './UserForm';
-import { UserRoleAssignment } from './UserRoleAssignment';
-import { BulkUserActions } from './BulkUserActions';
-import { UserAuditTrail } from './UserAuditTrail';
-import { useQuery } from '@tanstack/react-query';
-import { userManagementService, UserWithRoles } from '@/services/user/UserManagementService';
-import { useAuth } from '@/components/auth/AuthProvider';
-import { 
-  Users, 
-  Plus, 
-  Search, 
-  Edit, 
-  Shield,
-  Mail,
-  Calendar,
-  MoreVertical,
-  History,
-  Settings
-} from 'lucide-react';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+
+import React, { useState, useMemo } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { UserDirectorySearch } from './directory/UserDirectorySearch';
+import { UserDirectoryFilters } from './directory/UserDirectoryFilters';
+import { UserDirectoryTable } from './directory/UserDirectoryTable';
+import { UserDirectoryBulkActions } from './directory/UserDirectoryBulkActions';
+import { useUserManagement } from '@/hooks/user/useUserManagement';
+import { useAuth } from '@/contexts/AuthContext';
+import { Users, Filter, Download } from 'lucide-react';
 
 export function UserDirectory() {
-  const { currentTenantId } = useAuth();
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedUser, setSelectedUser] = useState<UserWithRoles | null>(null);
-  const [showUserForm, setShowUserForm] = useState(false);
-  const [showRoleAssignment, setShowRoleAssignment] = useState<string | null>(null);
+  const { user, currentTenantId } = useAuth();
+  const { users, isLoading, error } = useUserManagement();
+  
+  // State for search and filters
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [roleFilter, setRoleFilter] = useState<string>('all');
+  const [sortField, setSortField] = useState<string>('created_at');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
-  const [page, setPage] = useState(1);
-  const [activeTab, setActiveTab] = useState('directory');
-
-  // console.log('UserDirectory: currentTenantId from auth:', currentTenantId);
-
-  const { data: usersResult, isLoading, error, refetch } = useQuery({
-    queryKey: ['users', currentTenantId, page, searchTerm],
-    queryFn: async () => {
-      // console.log('🔍 UserDirectory: Fetching users with params:', { currentTenantId, page, searchTerm });
-      if (!currentTenantId) {
-        console.error('❌ UserDirectory: No tenant ID available');
-        throw new Error('No tenant ID available');
-      }
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  
+  // Filter and sort users
+  const filteredAndSortedUsers = useMemo(() => {
+    if (!users) return [];
+    
+    let filtered = users.filter(user => {
+      const matchesSearch = searchQuery === '' || 
+        user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        `${user.first_name} ${user.last_name}`.toLowerCase().includes(searchQuery.toLowerCase());
       
-      try {
-        // console.log('🔄 UserDirectory: Calling userManagementService.getUsers...');
-        const result = await userManagementService.getUsers(currentTenantId, page, 10);
-        // console.log('✅ UserDirectory: Query successful, result:', result);
-        return result;
-      } catch (error) {
-        console.error('❌ UserDirectory: Error fetching users:', error);
-        console.error('Error details:', JSON.stringify(error, null, 2));
-        throw error;
-      }
-    },
-    enabled: !!currentTenantId, // Only run the query if we have a tenant ID
-    retry: 0 // Don't retry on failure to see the real error
-  });
+      const matchesStatus = statusFilter === 'all' || user.status === statusFilter;
+      
+      // Role filtering would need role data - simplified for now
+      const matchesRole = roleFilter === 'all';
+      
+      return matchesSearch && matchesStatus && matchesRole;
+    });
+    
+    // Sort users
+    filtered.sort((a, b) => {
+      let aValue = a[sortField as keyof typeof a];
+      let bValue = b[sortField as keyof typeof b];
+      
+      if (typeof aValue === 'string') aValue = aValue.toLowerCase();
+      if (typeof bValue === 'string') bValue = bValue.toLowerCase();
+      
+      if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
+      if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
+    
+    return filtered;
+  }, [users, searchQuery, statusFilter, roleFilter, sortField, sortDirection]);
   
-  // Production-ready code has all debugging statements removed
+  // Paginate users
+  const paginatedUsers = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredAndSortedUsers.slice(start, start + pageSize);
+  }, [filteredAndSortedUsers, currentPage, pageSize]);
   
-  // Create safe reference to the users data with fallback
-  const displayUsers = usersResult?.data || [];
-
-  // Log errors
-  if (error) {
-    console.error('UserDirectory: Query error:', error);
-  }
-
-  // Extract users array from the paginated result
-  const users = usersResult?.data || [];
-
-  // Filter users based on search term
-  const filteredUsers = displayUsers
-    ? displayUsers.filter(
-        (user) =>
-          user.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          `${user.first_name || ''} ${user.last_name || ''}`
-            .toLowerCase()
-            .includes(searchTerm.toLowerCase())
-      )
-    : [];
-
-  const handleEditUser = (user: UserWithRoles) => {
-    setSelectedUser(user);
-    setShowUserForm(true);
-  };
-
-  const handleManageRoles = (userId: string) => {
-    setShowRoleAssignment(userId);
-  };
-
-  const handleCloseForm = () => {
-    setShowUserForm(false);
-    setSelectedUser(null);
-  };
-
-  const handleCloseRoleAssignment = () => {
-    setShowRoleAssignment(null);
-  };
-
-  const handleSelectUser = (userId: string, checked: boolean) => {
-    if (checked) {
-      setSelectedUsers(prev => [...prev, userId]);
-    } else {
-      setSelectedUsers(prev => prev.filter(id => id !== userId));
-    }
-  };
-
-  const handleSelectAll = (checked: boolean) => {
-    if (checked) {
-      setSelectedUsers(filteredUsers.map(user => user.id));
-    } else {
+  const totalPages = Math.ceil(filteredAndSortedUsers.length / pageSize);
+  
+  // Bulk selection handlers
+  const handleSelectAll = () => {
+    if (selectedUsers.length === paginatedUsers.length) {
       setSelectedUsers([]);
+    } else {
+      setSelectedUsers(paginatedUsers.map(user => user.id));
     }
   };
-
-  const handleOperationComplete = () => {
-    refetch();
-    setSelectedUsers([]);
+  
+  const handleSelectUser = (userId: string) => {
+    setSelectedUsers(prev => 
+      prev.includes(userId) 
+        ? prev.filter(id => id !== userId)
+        : [...prev, userId]
+    );
   };
-
-  if (showUserForm) {
+  
+  if (error) {
     return (
-      <UserForm
-        user={selectedUser}
-        onClose={handleCloseForm}
-        tenantId={currentTenantId}
-      />
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-red-600">Error Loading Users</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p>Failed to load user directory: {error}</p>
+        </CardContent>
+      </Card>
     );
   }
-
-  if (showRoleAssignment) {
-    return (
-      <UserRoleAssignment
-        userId={showRoleAssignment}
-        tenantId={currentTenantId}
-        onClose={handleCloseRoleAssignment}
-      />
-    );
-  }
-
+  
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-2">
-          <Users className="h-5 w-5" />
-          <h2 className="text-2xl font-bold">User Management</h2>
+        <div>
+          <h2 className="text-2xl font-bold tracking-tight flex items-center gap-2">
+            <Users className="h-6 w-6" />
+            User Directory
+          </h2>
+          <p className="text-muted-foreground">
+            Manage and monitor user accounts across your organization
+          </p>
         </div>
-        <Button onClick={() => setShowUserForm(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          Add User
-        </Button>
+        
+        <div className="flex items-center gap-2">
+          <Badge variant="secondary">
+            {filteredAndSortedUsers.length} users
+          </Badge>
+          <Button variant="outline" size="sm">
+            <Download className="h-4 w-4 mr-2" />
+            Export
+          </Button>
+        </div>
       </div>
-
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList>
-          <TabsTrigger value="directory" className="flex items-center gap-2">
-            <Users className="h-4 w-4" />
-            Directory
-          </TabsTrigger>
-          <TabsTrigger value="bulk-actions" className="flex items-center gap-2">
-            <Settings className="h-4 w-4" />
-            Bulk Actions
-          </TabsTrigger>
-          <TabsTrigger value="audit-trail" className="flex items-center gap-2">
-            <History className="h-4 w-4" />
-            Audit Trail
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="directory" className="space-y-6">
-          {/* Search and Filters */}
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center space-x-4">
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-                  <Input
-                    placeholder="Search users by email or name..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10"
-                  />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Users List */}
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle>Users ({filteredUsers.length})</CardTitle>
-                {filteredUsers.length > 0 && (
-                  <div className="flex items-center space-x-2">
-                    <Checkbox
-                      checked={selectedUsers.length === filteredUsers.length}
-                      onCheckedChange={handleSelectAll}
-                    />
-                    <span className="text-sm text-muted-foreground">
-                      Select All ({selectedUsers.length} selected)
-                    </span>
-                  </div>
-                )}
-              </div>
-            </CardHeader>
-            <CardContent>
-              {isLoading ? (
-                <div className="text-center py-8">
-                  <p className="text-muted-foreground">Loading users...</p>
-                </div>
-              ) : error ? (
-                <div className="text-center py-8">
-                  <p className="text-red-600">Failed to load users</p>
-                </div>
-              ) : displayUsers.length === 0 ? (
-                <div className="text-center py-8">
-                  <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                  <p className="text-muted-foreground">
-                    {searchTerm ? 'No users found matching your search' : 'No users found'}
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {displayUsers.map((user) => (
-                    <div key={user.id} className="border rounded-lg p-4 hover:bg-muted/50 transition-colors">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-start space-x-4">
-                          <Checkbox
-                            checked={selectedUsers.includes(user.id)}
-                            onCheckedChange={(checked) => handleSelectUser(user.id, checked as boolean)}
-                          />
-                          <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
-                            <Users className="h-5 w-5 text-primary" />
-                          </div>
-                          <div className="flex-1">
-                            
-                            <div className="flex items-center space-x-2 mb-1">
-                              <h3 className="font-semibold">
-                                {user.first_name || user.last_name 
-                                  ? `${user.first_name || ''} ${user.last_name || ''}`.trim()
-                                  : 'No name set'
-                                }
-                              </h3>
-                              <Badge variant={user.status === 'active' ? 'default' : 'secondary'}>
-                                {user.status}
-                              </Badge>
-                            </div>
-                            <div className="flex items-center space-x-4 text-sm text-muted-foreground">
-                              <div className="flex items-center space-x-1">
-                                <Mail className="h-3 w-3" />
-                                <span>{user.email}</span>
-                              </div>
-                              <div className="flex items-center space-x-1">
-                                <Calendar className="h-3 w-3" />
-                                <span>Joined {new Date(user.created_at).toLocaleDateString()}</span>
-                              </div>
-                            </div>
-                            {user.roles && user.roles.length > 0 && (
-                              <div className="flex items-center space-x-2 mt-2">
-                                <Shield className="h-3 w-3 text-muted-foreground" />
-                                <div className="flex flex-wrap gap-1">
-                                  {user.roles.map((userRole) => (
-                                    <Badge 
-                                      key={userRole.id} 
-                                      variant="outline" 
-                                      className="text-xs"
-                                    >
-                                      {userRole.role.name}
-                                    </Badge>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="sm">
-                              <MoreVertical className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => handleEditUser(user)}>
-                              <Edit className="h-4 w-4 mr-2" />
-                              Edit User
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleManageRoles(user.id)}>
-                              <Shield className="h-4 w-4 mr-2" />
-                              Manage Roles
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="bulk-actions">
-          <BulkUserActions
-            selectedUsers={selectedUsers}
-            tenantId={currentTenantId}
-            onOperationComplete={handleOperationComplete}
-          />
-        </TabsContent>
-
-        <TabsContent value="audit-trail">
-          <UserAuditTrail tenantId={currentTenantId} />
-        </TabsContent>
-      </Tabs>
+      
+      {/* Search and Filters */}
+      <Card>
+        <CardContent className="p-6">
+          <div className="space-y-4">
+            <UserDirectorySearch 
+              value={searchQuery}
+              onChange={setSearchQuery}
+            />
+            
+            <UserDirectoryFilters
+              statusFilter={statusFilter}
+              onStatusFilterChange={setStatusFilter}
+              roleFilter={roleFilter}
+              onRoleFilterChange={setRoleFilter}
+            />
+          </div>
+        </CardContent>
+      </Card>
+      
+      {/* Bulk Actions */}
+      {selectedUsers.length > 0 && (
+        <UserDirectoryBulkActions
+          selectedCount={selectedUsers.length}
+          onClearSelection={() => setSelectedUsers([])}
+        />
+      )}
+      
+      {/* User Table */}
+      <UserDirectoryTable
+        users={paginatedUsers}
+        isLoading={isLoading}
+        selectedUsers={selectedUsers}
+        onSelectAll={handleSelectAll}
+        onSelectUser={handleSelectUser}
+        sortField={sortField}
+        sortDirection={sortDirection}
+        onSort={(field) => {
+          if (sortField === field) {
+            setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+          } else {
+            setSortField(field);
+            setSortDirection('asc');
+          }
+        }}
+        currentPage={currentPage}
+        totalPages={totalPages}
+        pageSize={pageSize}
+        onPageChange={setCurrentPage}
+        onPageSizeChange={setPageSize}
+        totalUsers={filteredAndSortedUsers.length}
+      />
     </div>
   );
 }
