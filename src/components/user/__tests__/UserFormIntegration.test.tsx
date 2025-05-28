@@ -16,10 +16,20 @@ const mockAuthUser = {
 
 const mockAuthContext = {
   user: mockAuthUser,
+  session: null,
   tenantId: 'tenant-123',
+  currentTenantId: 'tenant-123',
+  loading: false,
+  signUp: jest.fn(),
+  signIn: jest.fn(),
+  signOut: jest.fn(),
   login: jest.fn(),
   logout: jest.fn(),
-  loading: false
+  isLoading: false,
+  resetPassword: jest.fn(),
+  updatePassword: jest.fn(),
+  authError: null,
+  clearAuthError: jest.fn()
 };
 
 const TestWrapper = ({ children }: { children: React.ReactNode }) => {

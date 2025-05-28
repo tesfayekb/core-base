@@ -37,13 +37,20 @@ jest.mock('@/services/tenant/TenantManagementService', () => ({
 
 const mockAuthContext = {
   user: { id: 'admin-1', email: 'admin@example.com' },
+  session: null,
   tenantId: 'system-admin',
-  login: jest.fn(),
+  currentTenantId: 'system-admin',
+  loading: false,
+  signUp: jest.fn(),
   signIn: jest.fn(),
   signOut: jest.fn(),
+  login: jest.fn(),
   logout: jest.fn(),
   isLoading: false,
-  loading: false
+  resetPassword: jest.fn(),
+  updatePassword: jest.fn(),
+  authError: null,
+  clearAuthError: jest.fn()
 };
 
 const renderWithContext = (component: React.ReactElement) => {

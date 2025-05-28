@@ -23,7 +23,7 @@ describe('UserManagementService', () => {
   const mockSupabase = supabase as any;
 
   beforeEach(() => {
-    userService = UserManagementService.getInstance();
+    userService = new UserManagementService();
     jest.clearAllMocks();
   });
 
@@ -95,7 +95,7 @@ describe('UserManagementService', () => {
     });
   });
 
-  describe('getUsersByTenant', () => {
+  describe('getUsers', () => {
     test('should retrieve users for tenant with caching', async () => {
       const mockUsers = [
         { id: 'user-1', email: 'user1@example.com', tenant_id: 'tenant-123' },
@@ -108,10 +108,10 @@ describe('UserManagementService', () => {
       });
 
       // First call
-      const result1 = await userService.getUsersByTenant('tenant-123');
+      const result1 = await userService.getUsers('tenant-123');
       
       // Second call should use cache
-      const result2 = await userService.getUsersByTenant('tenant-123');
+      const result2 = await userService.getUsers('tenant-123');
 
       expect(result1.success).toBe(true);
       expect(result2.success).toBe(true);

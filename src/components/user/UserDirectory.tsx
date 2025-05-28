@@ -13,7 +13,7 @@ import { Users, Filter, Download } from 'lucide-react';
 
 export function UserDirectory() {
   const { user, currentTenantId } = useAuth();
-  const { users, isLoading, error } = useUserManagement();
+  const { users, isLoading, error } = useUserManagement(currentTenantId || '');
   
   // State for search and filters
   const [searchQuery, setSearchQuery] = useState('');
@@ -29,7 +29,7 @@ export function UserDirectory() {
   
   // Filter and sort users
   const filteredAndSortedUsers = useMemo(() => {
-    if (!users) return [];
+    if (!users || !Array.isArray(users)) return [];
     
     let filtered = users.filter(user => {
       const matchesSearch = searchQuery === '' || 
@@ -92,7 +92,7 @@ export function UserDirectory() {
           <CardTitle className="text-red-600">Error Loading Users</CardTitle>
         </CardHeader>
         <CardContent>
-          <p>Failed to load user directory: {error}</p>
+          <p>Failed to load user directory: {typeof error === 'string' ? error : 'Unknown error occurred'}</p>
         </CardContent>
       </Card>
     );
