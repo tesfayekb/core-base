@@ -12,8 +12,7 @@ jest.mock('@/integrations/supabase/client', () => ({
       delete: jest.fn().mockReturnThis(),
       eq: jest.fn().mockReturnThis(),
       single: jest.fn(),
-      order: jest.fn().mockReturnThis(),
-      range: jest.fn().mockReturnThis()
+      order: jest.fn().mockReturnThis()
     })),
     rpc: jest.fn()
   }
@@ -97,7 +96,7 @@ describe('UserManagementService', () => {
   });
 
   describe('getUsersByTenant', () => {
-    test('should retrieve users for tenant with pagination', async () => {
+    test('should retrieve users for tenant with caching', async () => {
       const mockUsers = [
         { id: 'user-1', email: 'user1@example.com', tenant_id: 'tenant-123' },
         { id: 'user-2', email: 'user2@example.com', tenant_id: 'tenant-123' }
@@ -105,16 +104,21 @@ describe('UserManagementService', () => {
 
       mockSupabase.from().mockResolvedValue({
         data: mockUsers,
-        error: null,
-        count: 2
+        error: null
       });
 
-      const result = await userService.getUsersByTenant('tenant-123', 1, 10);
+      // First call
+      const result1 = await userService.getUsersByTenant('tenant-123');
       
-      expect(result.data).toHaveLength(2);
-      expect(result.totalCount).toBe(2);
-      expect(result.page).toBe(1);
-      expect(result.pageSize).toBe(10);
+      // Second call should use cache
+      const result2 = await userService.getUsersByTenant('tenant-123');
+
+      expect(result1.success).toBe(true);
+      expect(result2.success).toBe(true);
+      expect(result1.data).toHaveLength(2);
+      
+      // Should only call database once due to caching
+      expect(mockSupabase.from).toHaveBeenCalledTimes(1);
     });
   });
 });

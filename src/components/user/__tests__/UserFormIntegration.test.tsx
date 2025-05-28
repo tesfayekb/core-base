@@ -4,46 +4,22 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { UserForm } from '../UserForm';
 import { AuthContext } from '@/contexts/AuthContext';
-import type { User, Session } from '@supabase/supabase-js';
 
 // Mock the services
 jest.mock('@/services/user/UserManagementService');
 jest.mock('@/integrations/supabase/client');
 
-const mockUser: User = {
+const mockAuthUser = {
   id: 'auth-user-123',
-  email: 'admin@example.com',
-  app_metadata: {},
-  user_metadata: {},
-  aud: 'authenticated',
-  created_at: '2023-01-01T00:00:00Z'
-};
-
-const mockSession: Session = {
-  access_token: 'mock-token',
-  refresh_token: 'mock-refresh',
-  expires_in: 3600,
-  token_type: 'bearer',
-  user: mockUser
+  email: 'admin@example.com'
 };
 
 const mockAuthContext = {
-  user: mockUser,
-  session: mockSession,
+  user: mockAuthUser,
   tenantId: 'tenant-123',
-  currentTenantId: 'tenant-123',
-  loading: false,
-  isLoading: false,
-  authError: null,
-  signUp: jest.fn(),
-  signIn: jest.fn(),
-  signOut: jest.fn(),
+  login: jest.fn(),
   logout: jest.fn(),
-  resetPassword: jest.fn(),
-  updatePassword: jest.fn(),
-  switchTenant: jest.fn(),
-  isAuthenticated: true,
-  clearAuthError: jest.fn()
+  loading: false
 };
 
 const TestWrapper = ({ children }: { children: React.ReactNode }) => {
@@ -155,7 +131,7 @@ describe('UserForm Integration Tests', () => {
           lastName: 'User',
           tenantId: 'tenant-123'
         }),
-        mockUser.id
+        mockAuthUser.id
       );
     });
   });

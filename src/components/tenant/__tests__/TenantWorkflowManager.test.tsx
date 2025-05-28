@@ -5,7 +5,6 @@ import userEvent from '@testing-library/user-event';
 import { TenantWorkflowManager } from '../TenantWorkflowManager';
 import { AuthContext } from '@/contexts/AuthContext';
 import { BrowserRouter } from 'react-router-dom';
-import type { User, Session } from '@supabase/supabase-js';
 
 // Mock the toast hook
 jest.mock('@/components/ui/use-toast', () => ({
@@ -17,53 +16,32 @@ jest.mock('@/components/ui/use-toast', () => ({
 // Mock the tenant workflow service
 jest.mock('@/services/tenant/TenantWorkflowService', () => ({
   tenantWorkflowService: {
-    getTenantWorkflows: jest.fn().mockResolvedValue([
+    getWorkflows: jest.fn().mockResolvedValue([
       {
-        id: '1',
-        workflow_name: 'user_onboarding',
-        workflow_type: 'automated',
-        is_active: true
+        id: 'workflow-1',
+        tenant_id: 'tenant-1',
+        workflow_name: 'User Onboarding',
+        workflow_type: 'automation',
+        is_active: true,
+        version: 1,
+        created_at: '2024-01-15T10:00:00Z'
       }
     ]),
-    createTenantWorkflow: jest.fn().mockResolvedValue({}),
-    updateTenantWorkflow: jest.fn().mockResolvedValue({})
+    createWorkflow: jest.fn().mockResolvedValue({}),
+    toggleWorkflow: jest.fn().mockResolvedValue({}),
+    deleteWorkflow: jest.fn().mockResolvedValue({})
   }
 }));
 
-const mockUser: User = {
-  id: 'user-1',
-  email: 'test@example.com',
-  app_metadata: {},
-  user_metadata: {},
-  aud: 'authenticated',
-  created_at: '2023-01-01T00:00:00Z'
-};
-
-const mockSession: Session = {
-  access_token: 'mock-token',
-  refresh_token: 'mock-refresh',
-  expires_in: 3600,
-  token_type: 'bearer',
-  user: mockUser
-};
-
 const mockAuthContext = {
-  user: mockUser,
-  session: mockSession,
+  user: { id: 'user-1', email: 'test@example.com' },
   tenantId: 'tenant-1',
-  currentTenantId: 'tenant-1',
-  loading: false,
-  isLoading: false,
-  authError: null,
-  signUp: jest.fn(),
+  login: jest.fn(),
   signIn: jest.fn(),
   signOut: jest.fn(),
   logout: jest.fn(),
-  resetPassword: jest.fn(),
-  updatePassword: jest.fn(),
-  switchTenant: jest.fn(),
-  isAuthenticated: true,
-  clearAuthError: jest.fn()
+  isLoading: false,
+  loading: false
 };
 
 const renderWithContext = (component: React.ReactElement) => {
@@ -81,46 +59,92 @@ describe('TenantWorkflowManager', () => {
     jest.clearAllMocks();
   });
 
-  it('renders workflow management interface', async () => {
+  it('renders workflow manager interface', async () => {
     renderWithContext(<TenantWorkflowManager />);
     
-    expect(screen.getByText('Workflow Management')).toBeInTheDocument();
-    expect(screen.getByText('Manage automated workflows for your tenant')).toBeInTheDocument();
+    expect(screen.getByText('Workflow Manager')).toBeInTheDocument();
+    expect(screen.getByText('Manage automated workflows and processes')).toBeInTheDocument();
+  });
+
+  it('displays create workflow form', async () => {
+    renderWithContext(<TenantWorkflowManager />);
+    
+    expect(screen.getByText('Create New Workflow')).toBeInTheDocument();
+    expect(screen.getByLabelText('Workflow Name')).toBeInTheDocument();
+    expect(screen.getByLabelText('Workflow Type')).toBeInTheDocument();
+    expect(screen.getByLabelText('Description')).toBeInTheDocument();
+  });
+
+  it('allows creating a new workflow', async () => {
+    const user = userEvent.setup();
+    renderWithContext(<TenantWorkflowManager />);
+    
+    await user.type(screen.getByLabelText('Workflow Name'), 'Test Workflow');
+    await user.type(screen.getByLabelText('Workflow Type'), 'automation');
+    await user.type(screen.getByLabelText('Description'), 'Test description');
+    
+    const createButton = screen.getByRole('button', { name: /create workflow/i });
+    await user.click(createButton);
+
+    const { tenantWorkflowService } = require('@/services/tenant/TenantWorkflowService');
+    expect(tenantWorkflowService.createWorkflow).toHaveBeenCalledWith(
+      'tenant-1',
+      'Test Workflow',
+      'automation',
+      { description: 'Test description' },
+      [],
+      []
+    );
   });
 
   it('displays existing workflows', async () => {
     renderWithContext(<TenantWorkflowManager />);
     
     await waitFor(() => {
-      expect(screen.getByText('Active Workflows')).toBeInTheDocument();
-      expect(screen.getByText('user_onboarding')).toBeInTheDocument();
+      expect(screen.getByText('User Onboarding')).toBeInTheDocument();
+      expect(screen.getByText('Active')).toBeInTheDocument();
+      expect(screen.getByText('automation')).toBeInTheDocument();
     });
   });
 
-  it('allows creating new workflows', async () => {
+  it('allows toggling workflow status', async () => {
     const user = userEvent.setup();
     renderWithContext(<TenantWorkflowManager />);
     
     await waitFor(() => {
-      expect(screen.getByLabelText('Workflow Name')).toBeInTheDocument();
+      expect(screen.getByText('User Onboarding')).toBeInTheDocument();
     });
 
-    await user.type(screen.getByLabelText('Workflow Name'), 'new_workflow');
-    await user.selectOptions(screen.getByLabelText('Workflow Type'), 'manual');
-    
-    const createButton = screen.getByRole('button', { name: /create workflow/i });
-    await user.click(createButton);
+    const toggleSwitch = screen.getByRole('switch');
+    await user.click(toggleSwitch);
 
     const { tenantWorkflowService } = require('@/services/tenant/TenantWorkflowService');
-    expect(tenantWorkflowService.createTenantWorkflow).toHaveBeenCalled();
+    expect(tenantWorkflowService.toggleWorkflow).toHaveBeenCalledWith('tenant-1', 'workflow-1', false);
   });
 
-  it('shows workflow status toggles', async () => {
+  it('allows deleting workflows', async () => {
+    const user = userEvent.setup();
     renderWithContext(<TenantWorkflowManager />);
     
     await waitFor(() => {
-      const toggles = screen.getAllByRole('switch');
-      expect(toggles.length).toBeGreaterThan(0);
+      expect(screen.getByText('User Onboarding')).toBeInTheDocument();
+    });
+
+    const deleteButton = screen.getByRole('button', { name: '' }); // Trash icon button
+    await user.click(deleteButton);
+
+    const { tenantWorkflowService } = require('@/services/tenant/TenantWorkflowService');
+    expect(tenantWorkflowService.deleteWorkflow).toHaveBeenCalledWith('tenant-1', 'workflow-1');
+  });
+
+  it('shows empty state when no workflows exist', async () => {
+    const { tenantWorkflowService } = require('@/services/tenant/TenantWorkflowService');
+    tenantWorkflowService.getWorkflows.mockResolvedValueOnce([]);
+    
+    renderWithContext(<TenantWorkflowManager />);
+    
+    await waitFor(() => {
+      expect(screen.getByText('No workflows configured. Create your first workflow above.')).toBeInTheDocument();
     });
   });
 });
