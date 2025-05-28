@@ -5,6 +5,7 @@ import userEvent from '@testing-library/user-event';
 import { TenantCustomization } from '../TenantCustomization';
 import { AuthContext } from '@/contexts/AuthContext';
 import { BrowserRouter } from 'react-router-dom';
+import type { User, Session } from '@supabase/supabase-js';
 
 // Mock the toast hook
 jest.mock('@/components/ui/use-toast', () => ({
@@ -13,36 +14,55 @@ jest.mock('@/components/ui/use-toast', () => ({
   })
 }));
 
-// Mock the tenant customization service
+// Mock the tenant service
 jest.mock('@/services/tenant/TenantCustomizationService', () => ({
   tenantCustomizationService: {
-    getCustomizations: jest.fn().mockResolvedValue([
+    getTenantCustomizations: jest.fn().mockResolvedValue([
       {
         id: '1',
-        customization_type: 'branding',
-        customization_key: 'primaryColor',
-        customization_value: '#3b82f6'
+        customization_type: 'theme',
+        customization_key: 'primary_color',
+        customization_value: { color: '#3b82f6' }
       }
     ]),
-    getBrandingConfiguration: jest.fn().mockResolvedValue({
-      logo: '',
-      primaryColor: '#3b82f6',
-      secondaryColor: '#64748b',
-      companyName: 'Test Company'
-    }),
-    setBrandingConfiguration: jest.fn().mockResolvedValue({})
+    setTenantCustomization: jest.fn().mockResolvedValue({})
   }
 }));
 
+const mockUser: User = {
+  id: 'user-1',
+  email: 'test@example.com',
+  app_metadata: {},
+  user_metadata: {},
+  aud: 'authenticated',
+  created_at: '2023-01-01T00:00:00Z'
+};
+
+const mockSession: Session = {
+  access_token: 'mock-token',
+  refresh_token: 'mock-refresh',
+  expires_in: 3600,
+  token_type: 'bearer',
+  user: mockUser
+};
+
 const mockAuthContext = {
-  user: { id: 'user-1', email: 'test@example.com' },
+  user: mockUser,
+  session: mockSession,
   tenantId: 'tenant-1',
-  login: jest.fn(),
+  currentTenantId: 'tenant-1',
+  loading: false,
+  isLoading: false,
+  authError: null,
+  signUp: jest.fn(),
   signIn: jest.fn(),
   signOut: jest.fn(),
   logout: jest.fn(),
-  isLoading: false,
-  loading: false
+  resetPassword: jest.fn(),
+  updatePassword: jest.fn(),
+  switchTenant: jest.fn(),
+  isAuthenticated: true,
+  clearAuthError: jest.fn()
 };
 
 const renderWithContext = (component: React.ReactElement) => {
@@ -64,59 +84,32 @@ describe('TenantCustomization', () => {
     renderWithContext(<TenantCustomization />);
     
     expect(screen.getByText('Tenant Customization')).toBeInTheDocument();
-    expect(screen.getByText('Customize your tenant\'s appearance and behavior')).toBeInTheDocument();
-  });
-
-  it('displays branding configuration form', async () => {
-    renderWithContext(<TenantCustomization />);
-    
-    await waitFor(() => {
-      expect(screen.getByText('Branding')).toBeInTheDocument();
-      expect(screen.getByLabelText('Company Name')).toBeInTheDocument();
-      expect(screen.getByLabelText('Primary Color')).toBeInTheDocument();
-    });
-  });
-
-  it('allows updating branding settings', async () => {
-    const user = userEvent.setup();
-    renderWithContext(<TenantCustomization />);
-    
-    await waitFor(() => {
-      expect(screen.getByLabelText('Company Name')).toBeInTheDocument();
-    });
-
-    const companyNameInput = screen.getByLabelText('Company Name');
-    await user.clear(companyNameInput);
-    await user.type(companyNameInput, 'Updated Company');
-
-    const saveButton = screen.getByRole('button', { name: /save branding/i });
-    await user.click(saveButton);
-
-    const { tenantCustomizationService } = require('@/services/tenant/TenantCustomizationService');
-    expect(tenantCustomizationService.setBrandingConfiguration).toHaveBeenCalled();
+    expect(screen.getByText('Customize your tenant settings')).toBeInTheDocument();
   });
 
   it('displays existing customizations', async () => {
     renderWithContext(<TenantCustomization />);
     
     await waitFor(() => {
-      expect(screen.getByText('All Customizations')).toBeInTheDocument();
-      expect(screen.getByText('Branding')).toBeInTheDocument();
+      expect(screen.getByText('Current Customizations')).toBeInTheDocument();
     });
   });
 
-  it('handles color picker changes', async () => {
+  it('allows creating new customizations', async () => {
     const user = userEvent.setup();
     renderWithContext(<TenantCustomization />);
     
     await waitFor(() => {
-      expect(screen.getByLabelText('Primary Color')).toBeInTheDocument();
+      expect(screen.getByLabelText('Customization Type')).toBeInTheDocument();
     });
 
-    const colorInput = screen.getByDisplayValue('#3b82f6');
-    await user.clear(colorInput);
-    await user.type(colorInput, '#ff0000');
+    await user.type(screen.getByLabelText('Customization Type'), 'theme');
+    await user.type(screen.getByLabelText('Customization Key'), 'secondary_color');
+    
+    const saveButton = screen.getByRole('button', { name: /save/i });
+    await user.click(saveButton);
 
-    expect(colorInput).toHaveValue('#ff0000');
+    const { tenantCustomizationService } = require('@/services/tenant/TenantCustomizationService');
+    expect(tenantCustomizationService.setTenantCustomization).toHaveBeenCalled();
   });
 });

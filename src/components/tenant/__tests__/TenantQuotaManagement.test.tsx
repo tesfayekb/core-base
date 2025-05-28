@@ -5,6 +5,7 @@ import userEvent from '@testing-library/user-event';
 import { TenantQuotaManagement } from '../TenantQuotaManagement';
 import { AuthContext } from '@/contexts/AuthContext';
 import { BrowserRouter } from 'react-router-dom';
+import type { User, Session } from '@supabase/supabase-js';
 
 // Mock the toast hook
 jest.mock('@/components/ui/use-toast', () => ({
@@ -36,15 +37,40 @@ jest.mock('@/services/tenant/TenantQuotaService', () => ({
   }
 }));
 
+const mockUser: User = {
+  id: 'user-1',
+  email: 'test@example.com',
+  app_metadata: {},
+  user_metadata: {},
+  aud: 'authenticated',
+  created_at: '2023-01-01T00:00:00Z'
+};
+
+const mockSession: Session = {
+  access_token: 'mock-token',
+  refresh_token: 'mock-refresh',
+  expires_in: 3600,
+  token_type: 'bearer',
+  user: mockUser
+};
+
 const mockAuthContext = {
-  user: { id: 'user-1', email: 'test@example.com' },
+  user: mockUser,
+  session: mockSession,
   tenantId: 'tenant-1',
-  login: jest.fn(),
+  currentTenantId: 'tenant-1',
+  loading: false,
+  isLoading: false,
+  authError: null,
+  signUp: jest.fn(),
   signIn: jest.fn(),
   signOut: jest.fn(),
   logout: jest.fn(),
-  isLoading: false,
-  loading: false
+  resetPassword: jest.fn(),
+  updatePassword: jest.fn(),
+  switchTenant: jest.fn(),
+  isAuthenticated: true,
+  clearAuthError: jest.fn()
 };
 
 const renderWithContext = (component: React.ReactElement) => {
@@ -90,7 +116,6 @@ describe('TenantQuotaManagement', () => {
     const createButton = screen.getByRole('button', { name: /create quota/i });
     await user.click(createButton);
 
-    // Verify the service was called
     const { tenantQuotaService } = require('@/services/tenant/TenantQuotaService');
     expect(tenantQuotaService.setTenantQuota).toHaveBeenCalled();
   });
