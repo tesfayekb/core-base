@@ -56,24 +56,33 @@ export function UserDirectoryTable({
   };
 
   const formatDisplayName = (user: User) => {
-    // Display first name and last name together
-    if (user.first_name || user.last_name) {
-      return `${user.first_name || ''} ${user.last_name || ''}`.trim();
+    // Build full name from first_name and last_name from database
+    const firstName = user.first_name || '';
+    const lastName = user.last_name || '';
+    const fullName = `${firstName} ${lastName}`.trim();
+    
+    // If we have a name, use it, otherwise fall back to email username
+    if (fullName) {
+      return fullName;
     }
-    // Fallback to email username if no names are provided
+    
     return user.email.split('@')[0];
   };
 
   const formatDate = (dateString?: string) => {
     if (!dateString) return 'Never';
+    
     try {
       const date = new Date(dateString);
+      // Check if date is valid
+      if (isNaN(date.getTime())) {
+        return 'Invalid date';
+      }
+      
       return date.toLocaleDateString('en-US', {
         year: 'numeric',
         month: 'short',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
+        day: 'numeric'
       });
     } catch {
       return 'Invalid date';

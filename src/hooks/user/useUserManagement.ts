@@ -1,4 +1,3 @@
-
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -71,15 +70,26 @@ export function useUserManagement(tenantId: string) {
         throw new Error(usersError.message);
       }
       
-      console.log('Users data:', usersData);
+      console.log('Raw users data from database:', usersData);
       
       if (!usersData || usersData.length === 0) {
+        console.log('No users found for tenant:', tenantId);
         return [];
       }
       
       // Fetch roles for each user
       const usersWithRoles = await Promise.all(
         usersData.map(async (user) => {
+          console.log('Processing user:', {
+            id: user.id,
+            email: user.email,
+            first_name: user.first_name,
+            last_name: user.last_name,
+            created_at: user.created_at,
+            last_login_at: user.last_login_at,
+            status: user.status
+          });
+          
           const { data: rolesData, error: rolesError } = await supabase
             .from('user_roles')
             .select(`
@@ -98,14 +108,18 @@ export function useUserManagement(tenantId: string) {
             console.error('Error fetching roles for user:', user.id, rolesError);
           }
           
-          return {
+          const userWithRoles = {
             ...user,
             user_roles: rolesData || []
           };
+          
+          console.log('Final user object:', userWithRoles);
+          
+          return userWithRoles;
         })
       );
       
-      console.log('Users with roles:', usersWithRoles);
+      console.log('All users with roles:', usersWithRoles);
       return usersWithRoles;
     },
     enabled: !!tenantId,
