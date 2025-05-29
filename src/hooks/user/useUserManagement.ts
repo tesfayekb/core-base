@@ -14,6 +14,17 @@ export interface User {
   created_at?: string;
   last_login_at?: string;
   metadata?: Record<string, any>;
+  roles?: UserRole[];
+}
+
+export interface UserRole {
+  id: string;
+  role: {
+    id: string;
+    name: string;
+    description?: string;
+  };
+  assigned_at: string;
 }
 
 export interface CreateUserRequest {
@@ -36,7 +47,7 @@ export function useUserManagement(tenantId: string) {
   const { user: currentUser } = useAuth();
   const queryClient = useQueryClient();
 
-  // Fetch users from Supabase
+  // Fetch users from Supabase with roles
   const {
     data: users = [],
     isLoading,
@@ -49,7 +60,18 @@ export function useUserManagement(tenantId: string) {
       
       const { data, error } = await supabase
         .from('users')
-        .select('*')
+        .select(`
+          *,
+          user_roles (
+            id,
+            assigned_at,
+            role:roles (
+              id,
+              name,
+              description
+            )
+          )
+        `)
         .eq('tenant_id', tenantId);
       
       if (error) {
