@@ -1,3 +1,4 @@
+
 import { render, screen } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter } from 'react-router-dom';
@@ -31,8 +32,7 @@ jest.mock('@/hooks/user/useUserManagement', () => ({
     createUser: jest.fn(),
     updateUser: jest.fn(),
     deleteUser: jest.fn(),
-    assignRole: jest.fn(),
-    getUserRoles: jest.fn(),
+    assignRoles: jest.fn(),
     refetch: jest.fn()
   })
 }));

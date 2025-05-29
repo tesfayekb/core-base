@@ -34,7 +34,7 @@ export function UserDirectory() {
     let filtered = users.filter(user => {
       const matchesSearch = searchQuery === '' || 
         user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        `${user.first_name} ${user.last_name}`.toLowerCase().includes(searchQuery.toLowerCase());
+        `${user.first_name || ''} ${user.last_name || ''}`.toLowerCase().includes(searchQuery.toLowerCase());
       
       const matchesStatus = statusFilter === 'all' || user.status === statusFilter;
       
@@ -92,7 +92,7 @@ export function UserDirectory() {
           <CardTitle className="text-red-600">Error Loading Users</CardTitle>
         </CardHeader>
         <CardContent>
-          <p>Failed to load user directory: {typeof error === 'string' ? error : 'Unknown error occurred'}</p>
+          <p>Failed to load user directory: {String(error)}</p>
         </CardContent>
       </Card>
     );
