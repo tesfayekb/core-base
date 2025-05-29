@@ -56,16 +56,12 @@ export function UserDirectoryTable({
   };
 
   const formatDisplayName = (user: User) => {
-    if (user.first_name && user.last_name) {
-      return `${user.first_name} ${user.last_name}`;
+    // Display first name and last name together
+    if (user.first_name || user.last_name) {
+      return `${user.first_name || ''} ${user.last_name || ''}`.trim();
     }
-    if (user.first_name) {
-      return user.first_name;
-    }
-    if (user.last_name) {
-      return user.last_name;
-    }
-    return user.email.split('@')[0]; // Use part before @ if no name
+    // Fallback to email username if no names are provided
+    return user.email.split('@')[0];
   };
 
   const formatDate = (dateString?: string) => {
@@ -75,7 +71,9 @@ export function UserDirectoryTable({
       return date.toLocaleDateString('en-US', {
         year: 'numeric',
         month: 'short',
-        day: 'numeric'
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
       });
     } catch {
       return 'Invalid date';
