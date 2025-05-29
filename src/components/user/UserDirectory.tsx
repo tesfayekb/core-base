@@ -38,16 +38,25 @@ export function UserDirectory() {
       
       const matchesStatus = statusFilter === 'all' || user.status === statusFilter;
       
-      // Role filtering would need role data - simplified for now
-      const matchesRole = roleFilter === 'all';
+      // Role filtering using actual role data
+      const matchesRole = roleFilter === 'all' || (
+        user.user_roles && user.user_roles.some(userRole => 
+          userRole.role.name.toLowerCase() === roleFilter.toLowerCase()
+        )
+      );
       
       return matchesSearch && matchesStatus && matchesRole;
     });
     
     // Sort users
     filtered.sort((a, b) => {
-      let aValue = a[sortField as keyof typeof a];
-      let bValue = b[sortField as keyof typeof b];
+      let aValue: any = a[sortField as keyof typeof a];
+      let bValue: any = b[sortField as keyof typeof b];
+      
+      // Handle null/undefined values
+      if (!aValue && !bValue) return 0;
+      if (!aValue) return sortDirection === 'asc' ? 1 : -1;
+      if (!bValue) return sortDirection === 'asc' ? -1 : 1;
       
       if (typeof aValue === 'string') aValue = aValue.toLowerCase();
       if (typeof bValue === 'string') bValue = bValue.toLowerCase();

@@ -59,12 +59,27 @@ export function UserDirectoryTable({
     if (user.first_name && user.last_name) {
       return `${user.first_name} ${user.last_name}`;
     }
-    return user.email;
+    if (user.first_name) {
+      return user.first_name;
+    }
+    if (user.last_name) {
+      return user.last_name;
+    }
+    return user.email.split('@')[0]; // Use part before @ if no name
   };
 
   const formatDate = (dateString?: string) => {
     if (!dateString) return 'Never';
-    return new Date(dateString).toLocaleDateString();
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      });
+    } catch {
+      return 'Invalid date';
+    }
   };
 
   if (isLoading) {
@@ -88,14 +103,22 @@ export function UserDirectoryTable({
             </TableHead>
             <TableHead 
               className="cursor-pointer"
+              onClick={() => onSort('first_name')}
+            >
+              <div className="flex items-center gap-2">
+                Name
+                {getSortIcon('first_name')}
+              </div>
+            </TableHead>
+            <TableHead 
+              className="cursor-pointer"
               onClick={() => onSort('email')}
             >
               <div className="flex items-center gap-2">
-                User
+                Email
                 {getSortIcon('email')}
               </div>
             </TableHead>
-            <TableHead>Email</TableHead>
             <TableHead>Roles</TableHead>
             <TableHead 
               className="cursor-pointer"
