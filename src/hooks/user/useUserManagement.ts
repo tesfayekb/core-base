@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 
-// Define User types
+// Define User types based on actual database structure
 export interface User {
   id: string;
   email: string;
@@ -14,7 +14,7 @@ export interface User {
   created_at?: string;
   last_login_at?: string;
   metadata?: Record<string, any>;
-  roles?: UserRole[];
+  user_roles?: UserRole[];
 }
 
 export interface UserRole {
@@ -58,28 +58,55 @@ export function useUserManagement(tenantId: string) {
     queryFn: async () => {
       if (!tenantId) return [];
       
-      const { data, error } = await supabase
+      console.log('Fetching users for tenant:', tenantId);
+      
+      // First fetch users from the users table
+      const { data: usersData, error: usersError } = await supabase
         .from('users')
-        .select(`
-          *,
-          user_roles (
-            id,
-            assigned_at,
-            role:roles (
-              id,
-              name,
-              description
-            )
-          )
-        `)
+        .select('*')
         .eq('tenant_id', tenantId);
       
-      if (error) {
-        console.error('Error fetching users:', error);
-        throw new Error(error.message);
+      if (usersError) {
+        console.error('Error fetching users:', usersError);
+        throw new Error(usersError.message);
       }
       
-      return data || [];
+      console.log('Users data:', usersData);
+      
+      if (!usersData || usersData.length === 0) {
+        return [];
+      }
+      
+      // Fetch roles for each user
+      const usersWithRoles = await Promise.all(
+        usersData.map(async (user) => {
+          const { data: rolesData, error: rolesError } = await supabase
+            .from('user_roles')
+            .select(`
+              id,
+              assigned_at,
+              role:roles (
+                id,
+                name,
+                description
+              )
+            `)
+            .eq('user_id', user.id)
+            .eq('tenant_id', tenantId);
+          
+          if (rolesError) {
+            console.error('Error fetching roles for user:', user.id, rolesError);
+          }
+          
+          return {
+            ...user,
+            user_roles: rolesData || []
+          };
+        })
+      );
+      
+      console.log('Users with roles:', usersWithRoles);
+      return usersWithRoles;
     },
     enabled: !!tenantId,
     staleTime: 2 * 60 * 1000, // 2 minutes
@@ -96,6 +123,7 @@ export function useUserManagement(tenantId: string) {
           last_name: data.lastName,
           status: data.status || 'pending_verification',
           tenant_id: data.tenantId,
+          password_hash: 'temp_hash', // This should be handled by proper auth flow
           created_at: new Date().toISOString()
         }])
         .select()
