@@ -1,18 +1,10 @@
 
 import React from 'react';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { MoreHorizontal, ChevronUp, ChevronDown, Edit, Trash2 } from 'lucide-react';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
+import { MoreHorizontal, ChevronUp, ChevronDown } from 'lucide-react';
 import { User } from '@/hooks/user/useUserManagement';
 
 interface UserDirectoryTableProps {
@@ -48,124 +40,102 @@ export function UserDirectoryTable({
   onPageSizeChange,
   totalUsers
 }: UserDirectoryTableProps) {
-  
-  const getDisplayName = (user: User) => {
-    if (user.first_name || user.last_name) {
-      return `${user.first_name || ''} ${user.last_name || ''}`.trim();
+  const getSortIcon = (field: string) => {
+    if (sortField !== field) return null;
+    return sortDirection === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />;
+  };
+
+  const getStatusBadgeVariant = (status: string) => {
+    switch (status) {
+      case 'active': return 'default';
+      case 'inactive': return 'secondary';
+      case 'suspended': return 'destructive';
+      case 'pending_verification': return 'outline';
+      default: return 'secondary';
+    }
+  };
+
+  const formatDisplayName = (user: User) => {
+    if (user.first_name && user.last_name) {
+      return `${user.first_name} ${user.last_name}`;
     }
     return user.email;
   };
 
-  const getInitials = (user: User) => {
-    if (user.first_name || user.last_name) {
-      const first = user.first_name?.charAt(0) || '';
-      const last = user.last_name?.charAt(0) || '';
-      return (first + last).toUpperCase();
-    }
-    return user.email.charAt(0).toUpperCase();
-  };
-
   const formatDate = (dateString?: string) => {
     if (!dateString) return 'Never';
-    try {
-      return new Date(dateString).toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric'
-      });
-    } catch {
-      return 'Invalid date';
-    }
+    return new Date(dateString).toLocaleDateString();
   };
-
-  const getStatusBadgeVariant = (status?: string) => {
-    switch (status) {
-      case 'active':
-        return 'default';
-      case 'inactive':
-        return 'secondary';
-      case 'suspended':
-        return 'destructive';
-      case 'pending_verification':
-        return 'outline';
-      default:
-        return 'secondary';
-    }
-  };
-
-  const getRolesList = (user: User) => {
-    if (!user.user_roles || user.user_roles.length === 0) {
-      return 'No roles';
-    }
-    return user.user_roles.map(ur => ur.role.name).join(', ');
-  };
-
-  const SortButton = ({ field, children }: { field: string; children: React.ReactNode }) => (
-    <Button
-      variant="ghost"
-      size="sm"
-      className="h-auto p-0 font-medium"
-      onClick={() => onSort(field)}
-    >
-      {children}
-      {sortField === field && (
-        sortDirection === 'asc' ? <ChevronUp className="ml-1 h-3 w-3" /> : <ChevronDown className="ml-1 h-3 w-3" />
-      )}
-    </Button>
-  );
 
   if (isLoading) {
     return (
-      <div className="rounded-md border">
-        <div className="p-8 text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div>
-          <p className="mt-2 text-sm text-muted-foreground">Loading users...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (users.length === 0) {
-    return (
-      <div className="rounded-md border">
-        <div className="p-8 text-center">
-          <p className="text-lg font-medium">No users found</p>
-          <p className="text-sm text-muted-foreground">There are no users matching your current filters.</p>
-        </div>
+      <div className="flex items-center justify-center h-64">
+        <div className="text-muted-foreground">Loading users...</div>
       </div>
     );
   }
 
   return (
     <div className="space-y-4">
-      <div className="rounded-md border">
-        <Table>
-          <TableHeader>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead className="w-12">
+              <Checkbox
+                checked={selectedUsers.length === users.length && users.length > 0}
+                onCheckedChange={onSelectAll}
+              />
+            </TableHead>
+            <TableHead 
+              className="cursor-pointer"
+              onClick={() => onSort('email')}
+            >
+              <div className="flex items-center gap-2">
+                User
+                {getSortIcon('email')}
+              </div>
+            </TableHead>
+            <TableHead>Email</TableHead>
+            <TableHead>Roles</TableHead>
+            <TableHead 
+              className="cursor-pointer"
+              onClick={() => onSort('status')}
+            >
+              <div className="flex items-center gap-2">
+                Status
+                {getSortIcon('status')}
+              </div>
+            </TableHead>
+            <TableHead 
+              className="cursor-pointer"
+              onClick={() => onSort('created_at')}
+            >
+              <div className="flex items-center gap-2">
+                Joined
+                {getSortIcon('created_at')}
+              </div>
+            </TableHead>
+            <TableHead 
+              className="cursor-pointer"
+              onClick={() => onSort('last_login_at')}
+            >
+              <div className="flex items-center gap-2">
+                Last Login
+                {getSortIcon('last_login_at')}
+              </div>
+            </TableHead>
+            <TableHead className="w-12">Actions</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {users.length === 0 ? (
             <TableRow>
-              <TableHead className="w-12">
-                <Checkbox
-                  checked={selectedUsers.length === users.length && users.length > 0}
-                  onCheckedChange={onSelectAll}
-                />
-              </TableHead>
-              <TableHead>
-                <SortButton field="email">User</SortButton>
-              </TableHead>
-              <TableHead>
-                <SortButton field="status">Status</SortButton>
-              </TableHead>
-              <TableHead>Roles</TableHead>
-              <TableHead>
-                <SortButton field="created_at">Joined</SortButton>
-              </TableHead>
-              <TableHead>
-                <SortButton field="last_login_at">Last Login</SortButton>
-              </TableHead>
-              <TableHead className="w-12"></TableHead>
+              <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
+                No users found
+              </TableCell>
             </TableRow>
-          </TableHeader>
-          <TableBody>
-            {users.map((user) => (
+          ) : (
+            users.map((user) => (
               <TableRow key={user.id}>
                 <TableCell>
                   <Checkbox
@@ -174,26 +144,28 @@ export function UserDirectoryTable({
                   />
                 </TableCell>
                 <TableCell>
-                  <div className="flex items-center gap-3">
-                    <Avatar className="h-8 w-8">
-                      <AvatarImage src={undefined} />
-                      <AvatarFallback className="text-xs">
-                        {getInitials(user)}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div>
-                      <div className="font-medium">{getDisplayName(user)}</div>
-                      <div className="text-sm text-muted-foreground">{user.email}</div>
-                    </div>
+                  <div className="font-medium">{formatDisplayName(user)}</div>
+                </TableCell>
+                <TableCell>
+                  <div className="text-sm text-muted-foreground">{user.email}</div>
+                </TableCell>
+                <TableCell>
+                  <div className="flex flex-wrap gap-1">
+                    {user.user_roles && user.user_roles.length > 0 ? (
+                      user.user_roles.map((userRole) => (
+                        <Badge key={userRole.id} variant="outline" className="text-xs">
+                          {userRole.role.name}
+                        </Badge>
+                      ))
+                    ) : (
+                      <span className="text-sm text-muted-foreground">No roles</span>
+                    )}
                   </div>
                 </TableCell>
                 <TableCell>
-                  <Badge variant={getStatusBadgeVariant(user.status)}>
-                    {user.status || 'unknown'}
+                  <Badge variant={getStatusBadgeVariant(user.status || 'pending_verification')}>
+                    {(user.status || 'pending_verification').replace('_', ' ')}
                   </Badge>
-                </TableCell>
-                <TableCell>
-                  <div className="text-sm">{getRolesList(user)}</div>
                 </TableCell>
                 <TableCell>
                   <div className="text-sm">{formatDate(user.created_at)}</div>
@@ -202,38 +174,20 @@ export function UserDirectoryTable({
                   <div className="text-sm">{formatDate(user.last_login_at)}</div>
                 </TableCell>
                 <TableCell>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="sm">
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem>
-                        <Edit className="mr-2 h-4 w-4" />
-                        Edit User
-                      </DropdownMenuItem>
-                      <DropdownMenuItem>
-                        Manage Roles
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem className="text-red-600">
-                        <Trash2 className="mr-2 h-4 w-4" />
-                        Delete User
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                  <Button variant="ghost" size="sm">
+                    <MoreHorizontal className="h-4 w-4" />
+                  </Button>
                 </TableCell>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
+            ))
+          )}
+        </TableBody>
+      </Table>
 
       {/* Pagination */}
       <div className="flex items-center justify-between">
         <div className="text-sm text-muted-foreground">
-          Showing {(currentPage - 1) * pageSize + 1} to {Math.min(currentPage * pageSize, totalUsers)} of {totalUsers} users
+          Showing {((currentPage - 1) * pageSize) + 1} to {Math.min(currentPage * pageSize, totalUsers)} of {totalUsers} users
         </div>
         
         <div className="flex items-center gap-2">
