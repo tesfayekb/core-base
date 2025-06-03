@@ -1,216 +1,208 @@
 
-// User Management Service
-// Handles CRUD operations for users with proper tenant isolation
-
 import { supabase } from '@/integrations/supabase/client';
 
-export interface UserWithRoles {
+export interface User {
   id: string;
   email: string;
   first_name?: string;
   last_name?: string;
   status: string;
   tenant_id: string;
-  created_at: string;
-  updated_at: string;
-  last_login_at?: string;
-  email_verified_at?: string;
-  failed_login_attempts?: number;
-  metadata?: Record<string, any>;
-  user_roles?: Array<{
-    role: {
-      id: string;
-      name: string;
-      description?: string;
-    };
-  }>;
 }
 
-export interface PaginatedResult<T> {
-  data: T[];
-  total: number;
-  page: number;
-  pageSize: number;
-  totalPages: number;
+export interface UserRole {
+  id: string;
+  name: string;
+  description?: string;
 }
 
-export interface UserFilters {
+export interface Permission {
+  id: string;
+  name: string;
+  resource: string;
+  action: string;
+}
+
+export interface UserWithRoles extends User {
+  roles?: UserRole[];
+}
+
+export interface CreateUserRequest {
+  email: string;
+  password: string;
+  first_name?: string;
+  last_name?: string;
+  tenant_id: string;
+}
+
+export interface UpdateUserRequest {
+  first_name?: string;
+  last_name?: string;
   status?: string;
-  role?: string;
-  tenantId?: string;
-  search?: string;
-}
-
-export interface PaginationOptions {
-  page: number;
-  limit: number;
 }
 
 export class UserManagementService {
-  static async getUsers(
-    filters: UserFilters = {},
-    pagination: PaginationOptions = { page: 1, limit: 10 }
-  ): Promise<PaginatedResult<UserWithRoles>> {
-    try {
-      let query = supabase
-        .from('users')
-        .select(`
-          *,
-          user_roles(
-            role:roles(
-              id,
-              name,
-              description
-            )
-          )
-        `, { count: 'exact' });
-
-      // Apply filters
-      if (filters.status) {
-        query = query.eq('status', filters.status);
-      }
-
-      if (filters.tenantId) {
-        query = query.eq('tenant_id', filters.tenantId);
-      }
-
-      if (filters.search) {
-        query = query.or(`email.ilike.%${filters.search}%,first_name.ilike.%${filters.search}%,last_name.ilike.%${filters.search}%`);
-      }
-
-      // Apply pagination
-      const from = (pagination.page - 1) * pagination.limit;
-      const to = from + pagination.limit - 1;
-      query = query.range(from, to);
-
-      const { data, error, count } = await query;
-
-      if (error) {
-        console.error('Error fetching users:', error);
-        throw error;
-      }
-
-      return {
-        data: data || [],
-        total: count || 0,
-        page: pagination.page,
-        pageSize: pagination.limit,
-        totalPages: Math.ceil((count || 0) / pagination.limit)
-      };
-    } catch (error) {
-      console.error('Error fetching users:', error);
-      throw error;
-    }
-  }
-
   static async getAllUsers(): Promise<UserWithRoles[]> {
     try {
-      const { data, error } = await supabase
+      console.log('🔍 UserManagementService.getAllUsers called');
+      
+      const { data: users, error } = await supabase
         .from('users')
         .select(`
-          *,
-          user_roles(
-            role:roles(
-              id,
-              name,
-              description
-            )
-          )
+          id,
+          email,
+          first_name,
+          last_name,
+          status,
+          tenant_id
         `);
 
       if (error) {
-        console.error('Error fetching all users:', error);
-        throw error;
+        console.error('❌ Error fetching users:', error);
+        throw new Error(`Failed to fetch users: ${error.message}`);
       }
 
-      return data || [];
+      console.log('✅ Successfully fetched users:', users?.length || 0);
+      return users || [];
     } catch (error) {
-      console.error('Error fetching all users:', error);
+      console.error('❌ UserManagementService.getAllUsers error:', error);
       throw error;
     }
   }
 
-  static async getUserById(id: string): Promise<UserWithRoles | null> {
+  static async getUsersByTenant(tenantId: string): Promise<UserWithRoles[]> {
     try {
-      const { data, error } = await supabase
+      const { data: users, error } = await supabase
         .from('users')
         .select(`
-          *,
-          user_roles(
-            role:roles(
-              id,
-              name,
-              description
-            )
-          )
+          id,
+          email,
+          first_name,
+          last_name,
+          status,
+          tenant_id
         `)
-        .eq('id', id)
-        .single();
+        .eq('tenant_id', tenantId);
 
       if (error) {
-        console.error('Error fetching user:', error);
-        return null;
+        throw new Error(`Failed to fetch users for tenant: ${error.message}`);
       }
 
-      return data;
+      return users || [];
     } catch (error) {
-      console.error('Error fetching user:', error);
-      return null;
+      console.error('Error fetching users by tenant:', error);
+      throw error;
     }
   }
 
-  static async createUser(userData: Partial<UserWithRoles>): Promise<UserWithRoles> {
+  static async createUser(userData: CreateUserRequest): Promise<User> {
     try {
-      const { data, error } = await supabase
+      const { data: user, error } = await supabase
         .from('users')
-        .insert([userData])
+        .insert(userData)
         .select()
         .single();
 
       if (error) {
-        throw error;
+        throw new Error(`Failed to create user: ${error.message}`);
       }
 
-      return data;
+      return user;
     } catch (error) {
       console.error('Error creating user:', error);
       throw error;
     }
   }
 
-  static async updateUser(id: string, userData: Partial<UserWithRoles>): Promise<UserWithRoles> {
+  static async updateUser(userId: string, userData: UpdateUserRequest): Promise<User> {
     try {
-      const { data, error } = await supabase
+      const { data: user, error } = await supabase
         .from('users')
         .update(userData)
-        .eq('id', id)
+        .eq('id', userId)
         .select()
         .single();
 
       if (error) {
-        throw error;
+        throw new Error(`Failed to update user: ${error.message}`);
       }
 
-      return data;
+      return user;
     } catch (error) {
       console.error('Error updating user:', error);
       throw error;
     }
   }
 
-  static async deleteUser(id: string): Promise<void> {
+  static async deleteUser(userId: string): Promise<void> {
     try {
       const { error } = await supabase
         .from('users')
         .delete()
-        .eq('id', id);
+        .eq('id', userId);
 
       if (error) {
-        throw error;
+        throw new Error(`Failed to delete user: ${error.message}`);
       }
     } catch (error) {
       console.error('Error deleting user:', error);
       throw error;
     }
   }
+
+  static async getUserRoles(userId: string): Promise<UserRole[]> {
+    try {
+      const { data: roles, error } = await supabase
+        .from('user_roles')
+        .select(`
+          role:roles(
+            id,
+            name,
+            description
+          )
+        `)
+        .eq('user_id', userId);
+
+      if (error) {
+        throw new Error(`Failed to fetch user roles: ${error.message}`);
+      }
+
+      return roles?.map(r => r.role).filter(Boolean) || [];
+    } catch (error) {
+      console.error('Error fetching user roles:', error);
+      throw error;
+    }
+  }
+
+  static async assignRoles(userId: string, roleIds: string[]): Promise<void> {
+    try {
+      // First remove existing roles
+      await supabase
+        .from('user_roles')
+        .delete()
+        .eq('user_id', userId);
+
+      // Then assign new roles
+      if (roleIds.length > 0) {
+        const assignments = roleIds.map(roleId => ({
+          user_id: userId,
+          role_id: roleId
+        }));
+
+        const { error } = await supabase
+          .from('user_roles')
+          .insert(assignments);
+
+        if (error) {
+          throw new Error(`Failed to assign roles: ${error.message}`);
+        }
+      }
+    } catch (error) {
+      console.error('Error assigning roles:', error);
+      throw error;
+    }
+  }
 }
+
+// Export default instance for backward compatibility
+export const userManagementService = UserManagementService;
