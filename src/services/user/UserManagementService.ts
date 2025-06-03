@@ -1,27 +1,6 @@
 
-// User Management Service
-// Handles CRUD operations for users with proper tenant isolation
-
 import { supabase } from '@/integrations/supabase/client';
-
-export interface UserWithRoles {
-  id: string;
-  email: string;
-  first_name?: string;
-  last_name?: string;
-  status: string;
-  tenant_id: string;
-  created_at: string;
-  updated_at: string;
-  metadata?: Record<string, any>;
-  user_roles?: Array<{
-    role: {
-      id: string;
-      name: string;
-      description?: string;
-    };
-  }>;
-}
+import { UserWithRoles, CreateUserRequest, UpdateUserRequest } from '@/types/user';
 
 export interface PaginatedResult<T> {
   data: T[];
@@ -54,6 +33,9 @@ export class UserManagementService {
         .select(`
           *,
           user_roles(
+            id,
+            role_id,
+            assigned_at,
             role:roles(
               id,
               name,
@@ -106,6 +88,9 @@ export class UserManagementService {
         .select(`
           *,
           user_roles(
+            id,
+            role_id,
+            assigned_at,
             role:roles(
               id,
               name,
@@ -127,11 +112,18 @@ export class UserManagementService {
     }
   }
 
-  static async createUser(userData: Partial<UserWithRoles>): Promise<UserWithRoles> {
+  static async createUser(userData: CreateUserRequest): Promise<UserWithRoles> {
     try {
       const { data, error } = await supabase
         .from('users')
-        .insert([userData])
+        .insert([{
+          email: userData.email,
+          first_name: userData.first_name,
+          last_name: userData.last_name,
+          status: userData.status || 'pending_verification',
+          tenant_id: userData.tenant_id,
+          password_hash: 'supabase_managed'
+        }])
         .select()
         .single();
 
@@ -146,11 +138,18 @@ export class UserManagementService {
     }
   }
 
-  static async updateUser(id: string, userData: Partial<UserWithRoles>): Promise<UserWithRoles> {
+  static async updateUser(id: string, userData: UpdateUserRequest): Promise<UserWithRoles> {
     try {
       const { data, error } = await supabase
         .from('users')
-        .update(userData)
+        .update({
+          first_name: userData.first_name,
+          last_name: userData.last_name,
+          email: userData.email,
+          status: userData.status,
+          metadata: userData.metadata,
+          updated_at: new Date().toISOString()
+        })
         .eq('id', id)
         .select()
         .single();
@@ -181,4 +180,39 @@ export class UserManagementService {
       throw error;
     }
   }
+
+  static async assignRoles(userId: string, roleIds: string[], tenantId: string): Promise<void> {
+    try {
+      // First delete existing roles for this user in this tenant
+      await supabase
+        .from('user_roles')
+        .delete()
+        .eq('user_id', userId)
+        .eq('tenant_id', tenantId);
+
+      // Then add new roles
+      if (roleIds.length > 0) {
+        const { error } = await supabase
+          .from('user_roles')
+          .insert(
+            roleIds.map(roleId => ({
+              user_id: userId,
+              role_id: roleId,
+              tenant_id: tenantId,
+              assigned_at: new Date().toISOString()
+            }))
+          );
+
+        if (error) {
+          throw error;
+        }
+      }
+    } catch (error) {
+      console.error('Error assigning roles:', error);
+      throw error;
+    }
+  }
 }
+
+// Export types
+export type { UserWithRoles, CreateUserRequest, UpdateUserRequest };
