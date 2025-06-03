@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,7 +22,7 @@ export function UserForm({ user, onSuccess, onCancel, tenantId }: UserFormProps)
     email: '',
     first_name: '',
     last_name: '',
-    status: 'active' as const
+    status: 'active' as 'active' | 'inactive' | 'pending_verification' | 'suspended'
   });
 
   useEffect(() => {
@@ -32,7 +31,7 @@ export function UserForm({ user, onSuccess, onCancel, tenantId }: UserFormProps)
         email: user.email || '',
         first_name: user.first_name || '',
         last_name: user.last_name || '',
-        status: user.status || 'active'
+        status: (user.status as 'active' | 'inactive' | 'pending_verification' | 'suspended') || 'active'
       });
     }
   }, [user]);
