@@ -1,13 +1,15 @@
 
 import React from 'react';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Checkbox } from "@/components/ui/checkbox";
-import { UserDirectoryTableProps } from './UserDirectoryTableProps';
-import { ChevronUp, ChevronDown, MoreHorizontal } from 'lucide-react';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { ChevronLeft, ChevronRight, MoreHorizontal, Edit, Trash2, Shield } from 'lucide-react';
 import { format } from 'date-fns';
+import { UserDirectoryTableProps } from './UserDirectoryTableProps';
 
 export function UserDirectoryTable({
   users,
@@ -23,106 +25,67 @@ export function UserDirectoryTable({
   pageSize,
   onPageChange,
   onPageSizeChange,
-  totalUsers
+  totalUsers,
 }: UserDirectoryTableProps) {
-  
   const getInitials = (firstName?: string, lastName?: string) => {
-    const first = firstName?.charAt(0) || '';
-    const last = lastName?.charAt(0) || '';
-    return `${first}${last}`.toUpperCase() || '??';
+    return `${firstName?.charAt(0) || ''}${lastName?.charAt(0) || ''}`.toUpperCase();
   };
 
-  const formatLastLogin = (lastLogin: string | null) => {
+  const formatLastLogin = (lastLogin?: string) => {
     if (!lastLogin) return 'Never';
-    
     try {
-      const date = new Date(lastLogin);
-      // Format to local time with date and time
-      return format(date, 'MMM d, yyyy h:mm a');
-    } catch (error) {
-      console.error('Error formatting date:', error);
+      return format(new Date(lastLogin), 'MMM d, yyyy h:mm a');
+    } catch {
       return 'Invalid date';
     }
   };
 
-  const getTenantDisplay = (user: any) => {
-    // Check if tenant data is loaded
-    if (user.tenants && user.tenants.name) {
-      return user.tenants.name;
-    }
-    
-    // Fallback to tenant ID if name not available
-    if (user.tenant_id) {
-      return `Tenant: ${user.tenant_id.substring(0, 8)}...`;
-    }
-    
-    // No tenant association
-    return 'No Tenant';
+  const getUniqueRoles = (userRoles?: any[]) => {
+    if (!userRoles) return [];
+    const roleNames = new Set();
+    return userRoles.filter(ur => {
+      if (ur?.roles?.name && !roleNames.has(ur.roles.name)) {
+        roleNames.add(ur.roles.name);
+        return true;
+      }
+      return false;
+    });
   };
 
-  const getUserRoles = (user: any) => {
-    if (!user.user_roles || !Array.isArray(user.user_roles)) {
-      return [];
-    }
-    
-    return user.user_roles
-      .filter(userRole => userRole?.roles?.name) // Only include valid role entries
-      .map(userRole => userRole.roles.name);
+  const getTenantName = (user: any) => {
+    if (user.tenants?.name) return user.tenants.name;
+    if (!user.tenant_id) return 'No Tenant';
+    return 'Unknown Tenant';
   };
 
-  const SortButton = ({ field, children }: { field: string; children: React.ReactNode }) => (
-    <Button
-      variant="ghost"
-      className="h-8 p-0 hover:bg-transparent"
-      onClick={() => onSort(field)}
-    >
-      <span>{children}</span>
-      {sortField === field && (
-        sortDirection === 'asc' ? <ChevronUp className="ml-2 h-4 w-4" /> : <ChevronDown className="ml-2 h-4 w-4" />
-      )}
-    </Button>
-  );
+  const handleEdit = (userId: string) => {
+    // TODO: Implement edit functionality
+    console.log('Edit user:', userId);
+  };
+
+  const handleDelete = (userId: string) => {
+    // TODO: Implement delete functionality
+    console.log('Delete user:', userId);
+  };
+
+  const handleManageRoles = (userId: string) => {
+    // TODO: Implement role management
+    console.log('Manage roles for user:', userId);
+  };
 
   if (isLoading) {
     return (
-      <div className="space-y-4">
-        <div className="rounded-md border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-12">
-                  <Checkbox disabled />
-                </TableHead>
-                <TableHead>User</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Tenant</TableHead>
-                <TableHead>Roles</TableHead>
-                <TableHead>Last Login</TableHead>
-                <TableHead className="w-12"></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {Array.from({ length: 5 }).map((_, i) => (
-                <TableRow key={i}>
-                  <TableCell><div className="h-4 w-4 bg-gray-200 rounded animate-pulse" /></TableCell>
-                  <TableCell><div className="h-4 w-32 bg-gray-200 rounded animate-pulse" /></TableCell>
-                  <TableCell><div className="h-4 w-16 bg-gray-200 rounded animate-pulse" /></TableCell>
-                  <TableCell><div className="h-4 w-20 bg-gray-200 rounded animate-pulse" /></TableCell>
-                  <TableCell><div className="h-4 w-24 bg-gray-200 rounded animate-pulse" /></TableCell>
-                  <TableCell><div className="h-4 w-20 bg-gray-200 rounded animate-pulse" /></TableCell>
-                  <TableCell><div className="h-4 w-4 bg-gray-200 rounded animate-pulse" /></TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-      </div>
+      <Card>
+        <CardContent className="p-6">
+          <div className="text-center">Loading users...</div>
+        </CardContent>
+      </Card>
     );
   }
 
   return (
-    <div className="space-y-4">
-      <div className="rounded-md border">
+    <Card>
+      <CardContent className="p-0">
         <Table>
           <TableHeader>
             <TableRow>
@@ -132,26 +95,41 @@ export function UserDirectoryTable({
                   onCheckedChange={onSelectAll}
                 />
               </TableHead>
-              <TableHead>
-                <SortButton field="email">User</SortButton>
+              <TableHead 
+                className="cursor-pointer hover:bg-muted/50"
+                onClick={() => onSort('email')}
+              >
+                User
+                {sortField === 'email' && (
+                  <span className="ml-1">{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                )}
               </TableHead>
-              <TableHead>
-                <SortButton field="status">Status</SortButton>
+              <TableHead 
+                className="cursor-pointer hover:bg-muted/50"
+                onClick={() => onSort('status')}
+              >
+                Status
+                {sortField === 'status' && (
+                  <span className="ml-1">{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                )}
               </TableHead>
-              <TableHead>
-                <SortButton field="tenant_id">Tenant</SortButton>
-              </TableHead>
+              <TableHead>Tenant</TableHead>
               <TableHead>Roles</TableHead>
-              <TableHead>
-                <SortButton field="last_login_at">Last Login</SortButton>
+              <TableHead 
+                className="cursor-pointer hover:bg-muted/50"
+                onClick={() => onSort('last_login_at')}
+              >
+                Last Login
+                {sortField === 'last_login_at' && (
+                  <span className="ml-1">{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                )}
               </TableHead>
               <TableHead className="w-12"></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {users.map((user) => {
-              const roles = getUserRoles(user);
-              
+              const uniqueRoles = getUniqueRoles(user.user_roles);
               return (
                 <TableRow key={user.id}>
                   <TableCell>
@@ -161,7 +139,7 @@ export function UserDirectoryTable({
                     />
                   </TableCell>
                   <TableCell>
-                    <div className="flex items-center space-x-3">
+                    <div className="flex items-center gap-3">
                       <Avatar className="h-8 w-8">
                         <AvatarFallback className="text-xs">
                           {getInitials(user.first_name, user.last_name)}
@@ -169,10 +147,7 @@ export function UserDirectoryTable({
                       </Avatar>
                       <div>
                         <div className="font-medium">
-                          {user.first_name && user.last_name 
-                            ? `${user.first_name} ${user.last_name}`
-                            : user.email
-                          }
+                          {user.first_name} {user.last_name}
                         </div>
                         <div className="text-sm text-muted-foreground">
                           {user.email}
@@ -181,25 +156,28 @@ export function UserDirectoryTable({
                     </div>
                   </TableCell>
                   <TableCell>
-                    <Badge variant={user.status === 'active' ? 'default' : 'secondary'}>
+                    <Badge 
+                      variant={user.status === 'active' ? 'default' : 'secondary'}
+                      className="capitalize"
+                    >
                       {user.status}
                     </Badge>
                   </TableCell>
                   <TableCell>
                     <span className="text-sm text-muted-foreground">
-                      {getTenantDisplay(user)}
+                      {getTenantName(user)}
                     </span>
                   </TableCell>
                   <TableCell>
                     <div className="flex flex-wrap gap-1">
-                      {roles.length > 0 ? (
-                        roles.map((role, index) => (
-                          <Badge key={index} variant="outline" className="text-xs">
-                            {role}
+                      {uniqueRoles.length > 0 ? (
+                        uniqueRoles.map((userRole) => (
+                          <Badge key={userRole.roles.name} variant="outline" className="text-xs">
+                            {userRole.roles.name}
                           </Badge>
                         ))
                       ) : (
-                        <span className="text-sm text-muted-foreground">No roles</span>
+                        <span className="text-xs text-muted-foreground">No roles</span>
                       )}
                     </div>
                   </TableCell>
@@ -209,61 +187,68 @@ export function UserDirectoryTable({
                     </span>
                   </TableCell>
                   <TableCell>
-                    <Button variant="ghost" size="sm">
-                      <MoreHorizontal className="h-4 w-4" />
-                    </Button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                          <MoreHorizontal className="h-4 w-4" />
+                          <span className="sr-only">Open menu</span>
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => handleEdit(user.id)}>
+                          <Edit className="mr-2 h-4 w-4" />
+                          Edit
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleManageRoles(user.id)}>
+                          <Shield className="mr-2 h-4 w-4" />
+                          Manage Roles
+                        </DropdownMenuItem>
+                        <DropdownMenuItem 
+                          onClick={() => handleDelete(user.id)}
+                          className="text-red-600"
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </TableCell>
                 </TableRow>
               );
             })}
           </TableBody>
         </Table>
-      </div>
-
-      {/* Pagination */}
-      <div className="flex items-center justify-between">
-        <div className="text-sm text-muted-foreground">
-          Showing {users.length > 0 ? (currentPage - 1) * pageSize + 1 : 0} to{' '}
-          {Math.min(currentPage * pageSize, totalUsers)} of {totalUsers} users
-        </div>
         
-        <div className="flex items-center space-x-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => onPageChange(currentPage - 1)}
-            disabled={currentPage <= 1}
-          >
-            Previous
-          </Button>
-          
-          <div className="flex items-center space-x-1">
-            {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-              const page = i + 1;
-              return (
-                <Button
-                  key={page}
-                  variant={currentPage === page ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => onPageChange(page)}
-                  className="w-8 h-8 p-0"
-                >
-                  {page}
-                </Button>
-              );
-            })}
+        {/* Pagination */}
+        <div className="flex items-center justify-between px-6 py-4 border-t">
+          <div className="text-sm text-muted-foreground">
+            Showing {((currentPage - 1) * pageSize) + 1} to {Math.min(currentPage * pageSize, totalUsers)} of {totalUsers} users
           </div>
-          
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => onPageChange(currentPage + 1)}
-            disabled={currentPage >= totalPages}
-          >
-            Next
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => onPageChange(currentPage - 1)}
+              disabled={currentPage === 1}
+            >
+              <ChevronLeft className="h-4 w-4" />
+              Previous
+            </Button>
+            <span className="text-sm">
+              Page {currentPage} of {totalPages}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => onPageChange(currentPage + 1)}
+              disabled={currentPage === totalPages}
+            >
+              Next
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   );
 }

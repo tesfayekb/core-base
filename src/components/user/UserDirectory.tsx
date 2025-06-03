@@ -157,6 +157,11 @@ export function UserDirectory() {
               onChange={setSearchQuery}
             />
             
+            <div className="flex items-center gap-2">
+              <Filter className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm font-medium text-muted-foreground">Filters</span>
+            </div>
+            
             <UserDirectoryFilters
               statusFilter={statusFilter}
               onStatusFilterChange={setStatusFilter}
