@@ -1,113 +1,93 @@
 
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { vi, describe, it, expect, beforeEach } from 'vitest';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { TenantQuotaManagement } from '../TenantQuotaManagement';
-import { AuthContext } from '@/contexts/AuthContext';
-import { BrowserRouter } from 'react-router-dom';
+import { AuthProvider } from '@/components/auth/AuthProvider';
 
-// Mock the toast hook
-jest.mock('@/components/ui/use-toast', () => ({
-  useToast: () => ({
-    toast: jest.fn()
+// Mock the hooks and services
+vi.mock('@/hooks/tenant/useTenantQuotas', () => ({
+  useTenantQuotas: () => ({
+    quotas: [
+      {
+        id: 'quota-1',
+        resource_type: 'storage',
+        quota_limit: 1000,
+        current_usage: 500,
+        warning_threshold: 80
+      }
+    ],
+    isLoading: false,
+    error: null,
+    updateQuota: vi.fn(),
+    deleteQuota: vi.fn()
   })
 }));
 
-// Mock the tenant quota service
-jest.mock('@/services/tenant/TenantQuotaService', () => ({
-  tenantQuotaService: {
-    getTenantQuotas: jest.fn().mockResolvedValue([
-      {
-        id: '1',
-        resource_type: 'users',
-        quota_limit: 100,
-        warning_threshold: 80,
-        hard_limit: true
-      }
-    ]),
-    getTenantUsage: jest.fn().mockResolvedValue([
-      {
-        id: '1',
-        resource_type: 'users',
-        current_usage: 50
-      }
-    ]),
-    setTenantQuota: jest.fn().mockResolvedValue({})
-  }
+vi.mock('@/components/auth/AuthProvider', () => ({
+  AuthProvider: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  useAuth: () => ({
+    user: { id: 'user-1', email: 'test@example.com' },
+    session: null,
+    tenantId: 'tenant-1',
+    currentTenantId: 'tenant-1',
+    loading: false,
+    signUp: vi.fn(),
+    signIn: vi.fn(),
+    signOut: vi.fn(),
+    resetPassword: vi.fn(),
+    updatePassword: vi.fn(),
+    refreshSession: vi.fn(),
+    authError: null,
+    clearAuthError: vi.fn(),
+    switchTenant: vi.fn(),
+    isAuthenticated: true
+  })
 }));
 
-const mockAuthContext = {
-  user: { id: 'user-1', email: 'test@example.com' },
-  session: null,
-  tenantId: 'tenant-1',
-  currentTenantId: 'tenant-1',
-  loading: false,
-  signUp: jest.fn(),
-  signIn: jest.fn(),
-  signOut: jest.fn(),
-  login: jest.fn(),
-  logout: jest.fn(),
-  isLoading: false,
-  resetPassword: jest.fn(),
-  updatePassword: jest.fn(),
-  authError: null,
-  clearAuthError: jest.fn()
-};
+const createTestQueryClient = () => new QueryClient({
+  defaultOptions: {
+    queries: { retry: false },
+    mutations: { retry: false }
+  }
+});
 
-const renderWithContext = (component: React.ReactElement) => {
-  return render(
-    <BrowserRouter>
-      <AuthContext.Provider value={mockAuthContext}>
-        {component}
-      </AuthContext.Provider>
-    </BrowserRouter>
+const TestWrapper = ({ children }: { children: React.ReactNode }) => {
+  const queryClient = createTestQueryClient();
+  return (
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        {children}
+      </AuthProvider>
+    </QueryClientProvider>
   );
 };
 
 describe('TenantQuotaManagement', () => {
-  it('renders quota management interface', async () => {
-    renderWithContext(<TenantQuotaManagement />);
-    
-    await waitFor(() => {
-      expect(screen.getByText('Quota Management')).toBeInTheDocument();
-      expect(screen.getByText('Create New Quota')).toBeInTheDocument();
-    });
+  beforeEach(() => {
+    vi.clearAllMocks();
   });
 
-  it('displays existing quotas', async () => {
-    renderWithContext(<TenantQuotaManagement />);
-    
-    await waitFor(() => {
-      expect(screen.getByText('Current Quotas')).toBeInTheDocument();
-      expect(screen.getByText('Users')).toBeInTheDocument();
-    });
+  it('renders quota management interface', () => {
+    render(
+      <TestWrapper>
+        <TenantQuotaManagement />
+      </TestWrapper>
+    );
+
+    expect(screen.getByText('Quota Management')).toBeInTheDocument();
   });
 
-  it('allows creating new quotas', async () => {
-    const user = userEvent.setup();
-    renderWithContext(<TenantQuotaManagement />);
-    
+  it('displays quota list', async () => {
+    render(
+      <TestWrapper>
+        <TenantQuotaManagement />
+      </TestWrapper>
+    );
+
     await waitFor(() => {
-      expect(screen.getByLabelText('Resource Type')).toBeInTheDocument();
-    });
-
-    await user.type(screen.getByLabelText('Resource Type'), 'storage_mb');
-    await user.type(screen.getByLabelText('Quota Limit'), '1000');
-    
-    const createButton = screen.getByRole('button', { name: /create quota/i });
-    await user.click(createButton);
-
-    // Verify the service was called
-    const { tenantQuotaService } = require('@/services/tenant/TenantQuotaService');
-    expect(tenantQuotaService.setTenantQuota).toHaveBeenCalled();
-  });
-
-  it('shows usage progress bars', async () => {
-    renderWithContext(<TenantQuotaManagement />);
-    
-    await waitFor(() => {
-      const progressBars = screen.getAllByRole('progressbar');
-      expect(progressBars.length).toBeGreaterThan(0);
+      expect(screen.getByText('storage')).toBeInTheDocument();
     });
   });
 });

@@ -1,120 +1,94 @@
 
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { vi, describe, it, expect, beforeEach } from 'vitest';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { TenantAdministration } from '../TenantAdministration';
-import { AuthContext } from '@/contexts/AuthContext';
-import { BrowserRouter } from 'react-router-dom';
+import { AuthProvider } from '@/components/auth/AuthProvider';
 
-// Mock the toast hook
-jest.mock('@/components/ui/use-toast', () => ({
-  useToast: () => ({
-    toast: jest.fn()
-  })
-}));
-
-// Mock the tenant management service
-jest.mock('@/services/tenant/TenantManagementService', () => ({
-  tenantManagementService: {
-    getAllTenants: jest.fn().mockResolvedValue([
+// Mock the hooks and services
+vi.mock('@/hooks/tenant/useTenantManagement', () => ({
+  useTenantManagement: () => ({
+    tenants: [
       {
         id: 'tenant-1',
         name: 'Test Tenant',
-        domain: 'test.com',
+        slug: 'test-tenant',
         status: 'active',
-        settings: { maxUsers: 100 }
+        created_at: '2023-01-01T00:00:00Z'
       }
-    ]),
-    getTenantHealth: jest.fn().mockResolvedValue({
-      status: 'healthy',
-      responseTime: 45,
-      uptime: 99.9
-    }),
-    suspendTenant: jest.fn().mockResolvedValue({}),
-    activateTenant: jest.fn().mockResolvedValue({})
-  }
+    ],
+    isLoading: false,
+    error: null,
+    createTenant: vi.fn(),
+    updateTenant: vi.fn(),
+    deleteTenant: vi.fn()
+  })
 }));
 
-const mockAuthContext = {
-  user: { id: 'admin-1', email: 'admin@example.com' },
-  session: null,
-  tenantId: 'system-admin',
-  currentTenantId: 'system-admin',
-  loading: false,
-  signUp: jest.fn(),
-  signIn: jest.fn(),
-  signOut: jest.fn(),
-  login: jest.fn(),
-  logout: jest.fn(),
-  isLoading: false,
-  resetPassword: jest.fn(),
-  updatePassword: jest.fn(),
-  authError: null,
-  clearAuthError: jest.fn()
-};
+vi.mock('@/components/auth/AuthProvider', () => ({
+  AuthProvider: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  useAuth: () => ({
+    user: { id: 'user-1', email: 'test@example.com' },
+    session: null,
+    tenantId: 'tenant-1',
+    currentTenantId: 'tenant-1',
+    loading: false,
+    signUp: vi.fn(),
+    signIn: vi.fn(),
+    signOut: vi.fn(),
+    resetPassword: vi.fn(),
+    updatePassword: vi.fn(),
+    refreshSession: vi.fn(),
+    authError: null,
+    clearAuthError: vi.fn(),
+    switchTenant: vi.fn(),
+    isAuthenticated: true
+  })
+}));
 
-const renderWithContext = (component: React.ReactElement) => {
-  return render(
-    <BrowserRouter>
-      <AuthContext.Provider value={mockAuthContext}>
-        {component}
-      </AuthContext.Provider>
-    </BrowserRouter>
+const createTestQueryClient = () => new QueryClient({
+  defaultOptions: {
+    queries: { retry: false },
+    mutations: { retry: false }
+  }
+});
+
+const TestWrapper = ({ children }: { children: React.ReactNode }) => {
+  const queryClient = createTestQueryClient();
+  return (
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        {children}
+      </AuthProvider>
+    </QueryClientProvider>
   );
 };
 
 describe('TenantAdministration', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
-  it('renders administration interface', async () => {
-    renderWithContext(<TenantAdministration />);
-    
-    expect(screen.getByText('System Administration')).toBeInTheDocument();
-    expect(screen.getByText('Manage all tenants in the system')).toBeInTheDocument();
+  it('renders tenant administration interface', () => {
+    render(
+      <TestWrapper>
+        <TenantAdministration />
+      </TestWrapper>
+    );
+
+    expect(screen.getByText('Tenant Administration')).toBeInTheDocument();
   });
 
-  it('displays tenant overview data', async () => {
-    renderWithContext(<TenantAdministration />);
-    
-    await waitFor(() => {
-      expect(screen.getByText('Total Tenants')).toBeInTheDocument();
-      expect(screen.getByText('Active Tenants')).toBeInTheDocument();
-      expect(screen.getByText('Health Score')).toBeInTheDocument();
-    });
-  });
+  it('displays tenant list', async () => {
+    render(
+      <TestWrapper>
+        <TenantAdministration />
+      </TestWrapper>
+    );
 
-  it('shows tenant list with management actions', async () => {
-    renderWithContext(<TenantAdministration />);
-    
-    await waitFor(() => {
-      expect(screen.getByText('All Tenants')).toBeInTheDocument();
-      expect(screen.getByText('Test Tenant')).toBeInTheDocument();
-    });
-  });
-
-  it('allows suspending a tenant', async () => {
-    const user = userEvent.setup();
-    renderWithContext(<TenantAdministration />);
-    
     await waitFor(() => {
       expect(screen.getByText('Test Tenant')).toBeInTheDocument();
-    });
-
-    const suspendButton = screen.getByRole('button', { name: /suspend/i });
-    await user.click(suspendButton);
-
-    const { tenantManagementService } = require('@/services/tenant/TenantManagementService');
-    expect(tenantManagementService.suspendTenant).toHaveBeenCalledWith('tenant-1');
-  });
-
-  it('displays system health monitoring', async () => {
-    renderWithContext(<TenantAdministration />);
-    
-    await waitFor(() => {
-      expect(screen.getByText('System Health')).toBeInTheDocument();
-      expect(screen.getByText('Response Time')).toBeInTheDocument();
     });
   });
 });

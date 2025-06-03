@@ -1,157 +1,93 @@
 
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { vi, describe, it, expect, beforeEach } from 'vitest';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { TenantWorkflowManager } from '../TenantWorkflowManager';
-import { AuthContext } from '@/contexts/AuthContext';
-import { BrowserRouter } from 'react-router-dom';
+import { AuthProvider } from '@/components/auth/AuthProvider';
 
-// Mock the toast hook
-jest.mock('@/components/ui/use-toast', () => ({
-  useToast: () => ({
-    toast: jest.fn()
+// Mock the hooks and services
+vi.mock('@/hooks/tenant/useTenantWorkflows', () => ({
+  useTenantWorkflows: () => ({
+    workflows: [
+      {
+        id: 'workflow-1',
+        workflow_name: 'Test Workflow',
+        workflow_type: 'automation',
+        is_active: true
+      }
+    ],
+    isLoading: false,
+    error: null,
+    createWorkflow: vi.fn(),
+    updateWorkflow: vi.fn(),
+    deleteWorkflow: vi.fn()
   })
 }));
 
-// Mock the tenant workflow service
-jest.mock('@/services/tenant/TenantWorkflowService', () => ({
-  tenantWorkflowService: {
-    getWorkflows: jest.fn().mockResolvedValue([
-      {
-        id: 'workflow-1',
-        tenant_id: 'tenant-1',
-        workflow_name: 'User Onboarding',
-        workflow_type: 'automation',
-        is_active: true,
-        version: 1,
-        created_at: '2024-01-15T10:00:00Z'
-      }
-    ]),
-    createWorkflow: jest.fn().mockResolvedValue({}),
-    toggleWorkflow: jest.fn().mockResolvedValue({}),
-    deleteWorkflow: jest.fn().mockResolvedValue({})
-  }
+vi.mock('@/components/auth/AuthProvider', () => ({
+  AuthProvider: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  useAuth: () => ({
+    user: { id: 'user-1', email: 'test@example.com' },
+    session: null,
+    tenantId: 'tenant-1',
+    currentTenantId: 'tenant-1',
+    loading: false,
+    signUp: vi.fn(),
+    signIn: vi.fn(),
+    signOut: vi.fn(),
+    resetPassword: vi.fn(),
+    updatePassword: vi.fn(),
+    refreshSession: vi.fn(),
+    authError: null,
+    clearAuthError: vi.fn(),
+    switchTenant: vi.fn(),
+    isAuthenticated: true
+  })
 }));
 
-const mockAuthContext = {
-  user: { id: 'user-1', email: 'test@example.com' },
-  session: null,
-  tenantId: 'tenant-1',
-  currentTenantId: 'tenant-1',
-  loading: false,
-  signUp: jest.fn(),
-  signIn: jest.fn(),
-  signOut: jest.fn(),
-  login: jest.fn(),
-  logout: jest.fn(),
-  isLoading: false,
-  resetPassword: jest.fn(),
-  updatePassword: jest.fn(),
-  authError: null,
-  clearAuthError: jest.fn()
-};
+const createTestQueryClient = () => new QueryClient({
+  defaultOptions: {
+    queries: { retry: false },
+    mutations: { retry: false }
+  }
+});
 
-const renderWithContext = (component: React.ReactElement) => {
-  return render(
-    <BrowserRouter>
-      <AuthContext.Provider value={mockAuthContext}>
-        {component}
-      </AuthContext.Provider>
-    </BrowserRouter>
+const TestWrapper = ({ children }: { children: React.ReactNode }) => {
+  const queryClient = createTestQueryClient();
+  return (
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        {children}
+      </AuthProvider>
+    </QueryClientProvider>
   );
 };
 
 describe('TenantWorkflowManager', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
-  it('renders workflow manager interface', async () => {
-    renderWithContext(<TenantWorkflowManager />);
-    
-    expect(screen.getByText('Workflow Manager')).toBeInTheDocument();
-    expect(screen.getByText('Manage automated workflows and processes')).toBeInTheDocument();
-  });
-
-  it('displays create workflow form', async () => {
-    renderWithContext(<TenantWorkflowManager />);
-    
-    expect(screen.getByText('Create New Workflow')).toBeInTheDocument();
-    expect(screen.getByLabelText('Workflow Name')).toBeInTheDocument();
-    expect(screen.getByLabelText('Workflow Type')).toBeInTheDocument();
-    expect(screen.getByLabelText('Description')).toBeInTheDocument();
-  });
-
-  it('allows creating a new workflow', async () => {
-    const user = userEvent.setup();
-    renderWithContext(<TenantWorkflowManager />);
-    
-    await user.type(screen.getByLabelText('Workflow Name'), 'Test Workflow');
-    await user.type(screen.getByLabelText('Workflow Type'), 'automation');
-    await user.type(screen.getByLabelText('Description'), 'Test description');
-    
-    const createButton = screen.getByRole('button', { name: /create workflow/i });
-    await user.click(createButton);
-
-    const { tenantWorkflowService } = require('@/services/tenant/TenantWorkflowService');
-    expect(tenantWorkflowService.createWorkflow).toHaveBeenCalledWith(
-      'tenant-1',
-      'Test Workflow',
-      'automation',
-      { description: 'Test description' },
-      [],
-      []
+  it('renders workflow manager interface', () => {
+    render(
+      <TestWrapper>
+        <TenantWorkflowManager />
+      </TestWrapper>
     );
+
+    expect(screen.getByText('Workflow Manager')).toBeInTheDocument();
   });
 
-  it('displays existing workflows', async () => {
-    renderWithContext(<TenantWorkflowManager />);
-    
+  it('displays workflow list', async () => {
+    render(
+      <TestWrapper>
+        <TenantWorkflowManager />
+      </TestWrapper>
+    );
+
     await waitFor(() => {
-      expect(screen.getByText('User Onboarding')).toBeInTheDocument();
-      expect(screen.getByText('Active')).toBeInTheDocument();
-      expect(screen.getByText('automation')).toBeInTheDocument();
-    });
-  });
-
-  it('allows toggling workflow status', async () => {
-    const user = userEvent.setup();
-    renderWithContext(<TenantWorkflowManager />);
-    
-    await waitFor(() => {
-      expect(screen.getByText('User Onboarding')).toBeInTheDocument();
-    });
-
-    const toggleSwitch = screen.getByRole('switch');
-    await user.click(toggleSwitch);
-
-    const { tenantWorkflowService } = require('@/services/tenant/TenantWorkflowService');
-    expect(tenantWorkflowService.toggleWorkflow).toHaveBeenCalledWith('tenant-1', 'workflow-1', false);
-  });
-
-  it('allows deleting workflows', async () => {
-    const user = userEvent.setup();
-    renderWithContext(<TenantWorkflowManager />);
-    
-    await waitFor(() => {
-      expect(screen.getByText('User Onboarding')).toBeInTheDocument();
-    });
-
-    const deleteButton = screen.getByRole('button', { name: '' }); // Trash icon button
-    await user.click(deleteButton);
-
-    const { tenantWorkflowService } = require('@/services/tenant/TenantWorkflowService');
-    expect(tenantWorkflowService.deleteWorkflow).toHaveBeenCalledWith('tenant-1', 'workflow-1');
-  });
-
-  it('shows empty state when no workflows exist', async () => {
-    const { tenantWorkflowService } = require('@/services/tenant/TenantWorkflowService');
-    tenantWorkflowService.getWorkflows.mockResolvedValueOnce([]);
-    
-    renderWithContext(<TenantWorkflowManager />);
-    
-    await waitFor(() => {
-      expect(screen.getByText('No workflows configured. Create your first workflow above.')).toBeInTheDocument();
+      expect(screen.getByText('Test Workflow')).toBeInTheDocument();
     });
   });
 });

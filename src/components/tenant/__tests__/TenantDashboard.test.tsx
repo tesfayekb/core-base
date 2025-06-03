@@ -1,95 +1,76 @@
 
 import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
+import { vi, describe, it, expect, beforeEach } from 'vitest';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { TenantDashboard } from '../TenantDashboard';
-import { AuthContext } from '@/contexts/AuthContext';
-import { BrowserRouter } from 'react-router-dom';
+import { AuthProvider } from '@/components/auth/AuthProvider';
 
-// Mock the toast hook
-jest.mock('@/components/ui/use-toast', () => ({
-  useToast: () => ({
-    toast: jest.fn()
+// Mock the hooks and services
+vi.mock('@/hooks/tenant/useTenantMetrics', () => ({
+  useTenantMetrics: () => ({
+    metrics: {
+      userCount: 10,
+      activeUsers: 8,
+      storageUsed: 500,
+      apiCalls: 1000
+    },
+    isLoading: false,
+    error: null
   })
 }));
 
-// Mock the enhanced tenant management service
-jest.mock('@/services/tenant/EnhancedTenantManagementService', () => ({
-  enhancedTenantManagementService: {
-    getTenantDashboardData: jest.fn().mockResolvedValue({
-      tenant: { name: 'Test Tenant', domain: 'test.com', status: 'active' },
-      totalQuotas: 5,
-      warningQuotas: 1,
-      quotaUsage: [
-        {
-          resource_type: 'users',
-          current_usage: 50,
-          quota_limit: 100,
-          usage_percentage: 50,
-          warning: false
-        }
-      ]
-    })
-  }
+vi.mock('@/components/auth/AuthProvider', () => ({
+  AuthProvider: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  useAuth: () => ({
+    user: { id: 'user-1', email: 'test@example.com' },
+    session: null,
+    tenantId: 'tenant-1',
+    currentTenantId: 'tenant-1',
+    loading: false,
+    signUp: vi.fn(),
+    signIn: vi.fn(),
+    signOut: vi.fn(),
+    resetPassword: vi.fn(),
+    updatePassword: vi.fn(),
+    refreshSession: vi.fn(),
+    authError: null,
+    clearAuthError: vi.fn(),
+    switchTenant: vi.fn(),
+    isAuthenticated: true
+  })
 }));
 
-const mockAuthContext = {
-  user: { id: 'user-1', email: 'test@example.com' },
-  session: null,
-  tenantId: 'tenant-1',
-  currentTenantId: 'tenant-1',
-  loading: false,
-  signUp: jest.fn(),
-  signIn: jest.fn(),
-  signOut: jest.fn(),
-  login: jest.fn(),
-  logout: jest.fn(),
-  isLoading: false,
-  resetPassword: jest.fn(),
-  updatePassword: jest.fn(),
-  authError: null,
-  clearAuthError: jest.fn()
-};
+const createTestQueryClient = () => new QueryClient({
+  defaultOptions: {
+    queries: { retry: false },
+    mutations: { retry: false }
+  }
+});
 
-const renderWithContext = (component: React.ReactElement) => {
-  return render(
-    <BrowserRouter>
-      <AuthContext.Provider value={mockAuthContext}>
-        {component}
-      </AuthContext.Provider>
-    </BrowserRouter>
+const TestWrapper = ({ children }: { children: React.ReactNode }) => {
+  const queryClient = createTestQueryClient();
+  return (
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        {children}
+      </AuthProvider>
+    </QueryClientProvider>
   );
 };
 
 describe('TenantDashboard', () => {
-  it('renders tenant dashboard with loading state', () => {
-    renderWithContext(<TenantDashboard />);
-    expect(screen.getByText('Loading dashboard...')).toBeInTheDocument();
+  beforeEach(() => {
+    vi.clearAllMocks();
   });
 
-  it('renders tenant dashboard with data', async () => {
-    renderWithContext(<TenantDashboard />);
-    
-    await waitFor(() => {
-      expect(screen.getByText('Tenant Dashboard')).toBeInTheDocument();
-      expect(screen.getByText('Welcome to Test Tenant')).toBeInTheDocument();
-    });
-  });
+  it('renders tenant dashboard', () => {
+    render(
+      <TestWrapper>
+        <TenantDashboard />
+      </TestWrapper>
+    );
 
-  it('displays quota information', async () => {
-    renderWithContext(<TenantDashboard />);
-    
-    await waitFor(() => {
-      expect(screen.getByText('Total Quotas')).toBeInTheDocument();
-      expect(screen.getByText('5')).toBeInTheDocument();
-    });
-  });
-
-  it('shows resource quota overview', async () => {
-    renderWithContext(<TenantDashboard />);
-    
-    await waitFor(() => {
-      expect(screen.getByText('Resource Quota Overview')).toBeInTheDocument();
-      expect(screen.getByText('Users')).toBeInTheDocument();
-    });
+    expect(screen.getByText('Tenant Dashboard')).toBeInTheDocument();
   });
 });

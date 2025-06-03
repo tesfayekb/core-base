@@ -1,9 +1,10 @@
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PermissionBoundary } from "@/components/rbac/PermissionBoundary";
 import { RoleManagement } from "@/components/rbac/RoleManagement";
 import { PermissionMatrix } from "@/components/rbac/PermissionMatrix";
-import { UserDirectory } from "@/components/user/UserDirectory";
+import { EnhancedUserDirectory } from "@/components/user/EnhancedUserDirectory";
 import { PermissionDebug } from "@/components/debug/PermissionDebug";
 import { Users as UsersIcon, Shield, Grid } from "lucide-react";
 import { useAuth } from "@/components/auth/AuthProvider";
@@ -37,11 +38,11 @@ export default function Users() {
     <div className="space-y-6">
       <div>
         <h2 className="text-3xl font-bold tracking-tight">User Management</h2>
-        <p className="text-muted-foreground">Manage users, roles, and permissions</p>
+        <p className="text-muted-foreground">
+          Manage users, roles, and permissions with multi-level access control
+        </p>
       </div>
       
-      {/* User Management Interface */}
-
       <Tabs defaultValue="users" className="space-y-6">
         <TabsList>
           <TabsTrigger value="users" className="flex items-center gap-2">
@@ -59,6 +60,7 @@ export default function Users() {
         </TabsList>
 
         <TabsContent value="users">
+          {/* Enhanced User Directory with permission-based access */}
           <PermissionBoundary 
             action="read" 
             resource="users"
@@ -68,18 +70,18 @@ export default function Users() {
                   title="User Directory Access" 
                   description="Checking permissions to view users..."
                 />
-                {/* Show UserDirectory anyway for superadmin testing */}
-                <div className="border-2 border-dashed border-yellow-300 bg-yellow-50 p-4 rounded-lg">
-                  <p className="text-sm text-yellow-800 mb-4">
-                    <strong>Debug Mode:</strong> Showing UserDirectory for troubleshooting. 
-                    If you can see user data below, the permission system needs configuration.
+                {/* Show Enhanced User Directory anyway for testing - it has internal permission checks */}
+                <div className="border-2 border-dashed border-blue-300 bg-blue-50 p-4 rounded-lg">
+                  <p className="text-sm text-blue-800 mb-4">
+                    <strong>Enhanced Directory:</strong> This component includes internal permission checks 
+                    and will adapt based on your actual permissions.
                   </p>
-                  <UserDirectory />
+                  <EnhancedUserDirectory />
                 </div>
               </div>
             }
           >
-            <UserDirectory />
+            <EnhancedUserDirectory />
           </PermissionBoundary>
         </TabsContent>
 

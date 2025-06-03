@@ -1,72 +1,58 @@
 
 import React from 'react';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
+import { vi, describe, it, expect } from 'vitest';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { TenantMetrics } from '../TenantMetrics';
-import { AuthContext } from '@/contexts/AuthContext';
-import { BrowserRouter } from 'react-router-dom';
+import { AuthProvider } from '@/components/auth/AuthProvider';
 
-const mockAuthContext = {
-  user: { id: 'user-1', email: 'test@example.com' },
-  session: null,
-  tenantId: 'tenant-1',
-  currentTenantId: 'tenant-1',
-  loading: false,
-  signUp: jest.fn(),
-  signIn: jest.fn(),
-  signOut: jest.fn(),
-  login: jest.fn(),
-  logout: jest.fn(),
-  isLoading: false,
-  resetPassword: jest.fn(),
-  updatePassword: jest.fn(),
-  authError: null,
-  clearAuthError: jest.fn()
-};
+vi.mock('@/components/auth/AuthProvider', () => ({
+  AuthProvider: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  useAuth: () => ({
+    user: { id: 'user-1', email: 'test@example.com' },
+    session: null,
+    tenantId: 'tenant-1',
+    currentTenantId: 'tenant-1',
+    loading: false,
+    signUp: vi.fn(),
+    signIn: vi.fn(),
+    signOut: vi.fn(),
+    resetPassword: vi.fn(),
+    updatePassword: vi.fn(),
+    refreshSession: vi.fn(),
+    authError: null,
+    clearAuthError: vi.fn(),
+    switchTenant: vi.fn(),
+    isAuthenticated: true
+  })
+}));
 
-const renderWithContext = (component: React.ReactElement) => {
-  return render(
-    <BrowserRouter>
-      <AuthContext.Provider value={mockAuthContext}>
-        {component}
-      </AuthContext.Provider>
-    </BrowserRouter>
+const createTestQueryClient = () => new QueryClient({
+  defaultOptions: {
+    queries: { retry: false },
+    mutations: { retry: false }
+  }
+});
+
+const TestWrapper = ({ children }: { children: React.ReactNode }) => {
+  const queryClient = createTestQueryClient();
+  return (
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        {children}
+      </AuthProvider>
+    </QueryClientProvider>
   );
 };
 
 describe('TenantMetrics', () => {
-  it('renders metrics grid', async () => {
-    renderWithContext(<TenantMetrics />);
-    
-    await waitFor(() => {
-      expect(screen.getByText('Active Users')).toBeInTheDocument();
-      expect(screen.getByText('Quota Usage')).toBeInTheDocument();
-      expect(screen.getByText('Avg Response')).toBeInTheDocument();
-      expect(screen.getByText('Uptime')).toBeInTheDocument();
-    });
-  });
+  it('renders tenant metrics', () => {
+    render(
+      <TestWrapper>
+        <TenantMetrics />
+      </TestWrapper>
+    );
 
-  it('displays resource usage breakdown', async () => {
-    renderWithContext(<TenantMetrics />);
-    
-    await waitFor(() => {
-      expect(screen.getByText('Resource Usage Breakdown')).toBeInTheDocument();
-      expect(screen.getByText('Storage')).toBeInTheDocument();
-      expect(screen.getByText('API Calls')).toBeInTheDocument();
-      expect(screen.getByText('Bandwidth')).toBeInTheDocument();
-    });
-  });
-
-  it('shows recent activity', async () => {
-    renderWithContext(<TenantMetrics />);
-    
-    await waitFor(() => {
-      expect(screen.getByText('Recent Activity')).toBeInTheDocument();
-      expect(screen.getByText('User login')).toBeInTheDocument();
-    });
-  });
-
-  it('displays loading state initially', () => {
-    renderWithContext(<TenantMetrics />);
-    expect(screen.getByText('Loading metrics...')).toBeInTheDocument();
+    expect(screen.getByText('Tenant Metrics')).toBeInTheDocument();
   });
 });

@@ -1,273 +1,199 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { PermissionBoundary } from "@/components/rbac/PermissionBoundary";
-import { useAuth } from "@/components/auth/AuthProvider";
-import { useNavigate } from "react-router-dom";
-import { 
-  Users, 
-  Shield, 
-  Activity, 
-  Settings, 
-  Building2, 
-  BarChart3,
-  FileText,
-  CheckCircle,
-  AlertCircle,
-  TrendingUp
-} from "lucide-react";
-import { useEffect, useState } from "react";
 
-interface DashboardStats {
-  totalUsers: number;
-  activeUsers: number;
-  totalTenants: number;
-  recentAuditEvents: number;
-}
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
+import { Users, Shield, Activity, Database, Settings, BarChart3 } from "lucide-react";
+import { Link } from "react-router-dom";
+import { useAuth } from "@/components/auth/AuthProvider";
 
 export default function Dashboard() {
   const { user, currentTenantId } = useAuth();
-  const navigate = useNavigate();
-  const [stats, setStats] = useState<DashboardStats>({
-    totalUsers: 0,
-    activeUsers: 0,
-    totalTenants: 0,
-    recentAuditEvents: 0
-  });
 
-  useEffect(() => {
-    // TODO: Fetch real stats from API
-    setStats({
-      totalUsers: 156,
-      activeUsers: 89,
-      totalTenants: 12,
-      recentAuditEvents: 1234
-    });
-  }, [currentTenantId]);
-
-  const quickActions = [
-    {
-      title: "User Management",
-      description: "Manage users, roles and permissions",
-      icon: Users,
-      color: "text-blue-600",
-      bgColor: "bg-blue-100",
-      path: "/users",
-      permission: { action: "read", resource: "users" }
-    },
-    {
-      title: "Tenant Settings",
-      description: "Configure tenant settings and features",
-      icon: Building2,
-      color: "text-purple-600",
-      bgColor: "bg-purple-100",
-      path: "/tenant-management",
-      permission: { action: "read", resource: "tenants" }
-    },
-    {
-      title: "Analytics",
-      description: "View system analytics and reports",
-      icon: BarChart3,
-      color: "text-green-600",
-      bgColor: "bg-green-100",
-      path: "/analytics",
-      permission: { action: "read", resource: "analytics" }
-    },
-    {
-      title: "Audit Logs",
-      description: "Review system activity and compliance",
-      icon: FileText,
-      color: "text-orange-600",
-      bgColor: "bg-orange-100",
-      path: "/audit",
-      permission: { action: "read", resource: "audit_logs" }
-    }
+  // Mock data for demonstration
+  const stats = [
+    { label: "Total Users", value: "1,234", icon: Users, change: "+12%" },
+    { label: "Active Sessions", value: "89", icon: Activity, change: "+5%" },
+    { label: "Database Queries", value: "45.2K", icon: Database, change: "+23%" },
+    { label: "Security Events", value: "12", icon: Shield, change: "-8%" }
   ];
 
-  const statsCards = [
-    {
-      title: "Total Users",
-      value: stats.totalUsers,
-      icon: Users,
-      change: "+12%",
-      changeType: "positive" as const
-    },
-    {
-      title: "Active Users",
-      value: stats.activeUsers,
-      icon: Activity,
-      change: "+5%",
-      changeType: "positive" as const
-    },
-    {
-      title: "Tenants",
-      value: stats.totalTenants,
-      icon: Building2,
-      change: "+2",
-      changeType: "neutral" as const
-    },
-    {
-      title: "Recent Events",
-      value: stats.recentAuditEvents,
-      icon: FileText,
-      change: "Last 24h",
-      changeType: "neutral" as const
-    }
+  const recentActivity = [
+    { action: "User login", user: "john@example.com", time: "2 minutes ago", status: "success" },
+    { action: "Role assigned", user: "jane@example.com", time: "5 minutes ago", status: "success" },
+    { action: "Failed login", user: "unknown@example.com", time: "10 minutes ago", status: "warning" },
+    { action: "Permission updated", user: "admin@example.com", time: "15 minutes ago", status: "success" }
   ];
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "success":
+        return "bg-green-100 text-green-800";
+      case "warning":
+        return "bg-yellow-100 text-yellow-800";
+      case "error":
+        return "bg-red-100 text-red-800";
+      default:
+        return "bg-gray-100 text-gray-800";
+    }
+  };
+
+  const getChangeColor = (change: string) => {
+    if (change.startsWith('+')) {
+      return "text-green-600";
+    } else if (change.startsWith('-')) {
+      return "text-red-600";
+    }
+    return "text-gray-600";
+  };
 
   return (
     <div className="space-y-6">
-      {/* Welcome Section */}
+      {/* Header */}
       <div>
-        <h2 className="text-3xl font-bold tracking-tight">
-          Welcome back, {user?.user_metadata?.first_name || user?.email?.split('@')[0] || 'User'}
-        </h2>
+        <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
         <p className="text-muted-foreground">
-          Here's what's happening in your system today
+          Welcome back, {user?.email}. Here's your system overview.
         </p>
       </div>
 
-      {/* Stats Grid */}
+      {/* Quick Stats */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {statsCards.map((stat, index) => {
-          const Icon = stat.icon;
-          return (
-            <Card key={index}>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">
-                  {stat.title}
-                </CardTitle>
-                <Icon className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{stat.value.toLocaleString()}</div>
-                <p className={`text-xs flex items-center ${
-                  stat.changeType === 'positive' ? 'text-green-600' : 
-                  stat.changeType === 'negative' ? 'text-red-600' : 
-                  'text-muted-foreground'
-                }`}>
-                  {(stat.changeType === 'positive' || stat.changeType === 'negative') && (stat.changeType === 'positive' ? <TrendingUp className="h-3 w-3 mr-1" /> : <TrendingUp className="h-3 w-3 mr-1 rotate-180" />)}
-                  {stat.change}
-                </p>
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
-
-      {/* Quick Actions */}
-      <div className="space-y-4">
-        <h3 className="text-xl font-semibold">Quick Actions</h3>
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          {quickActions.map((action, index) => {
-            const Icon = action.icon;
-            return (
-              <PermissionBoundary
-                key={index}
-                action={action.permission.action}
-                resource={action.permission.resource}
-                fallback={null}
-              >
-                <Card 
-                  className="cursor-pointer transition-colors hover:bg-muted/50"
-                  onClick={() => navigate(action.path)}
-                >
-                  <CardHeader>
-                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${action.bgColor} mb-2`}>
-                      <Icon className={`h-5 w-5 ${action.color}`} />
-                    </div>
-                    <CardTitle className="text-base">{action.title}</CardTitle>
-                    <CardDescription className="text-sm">
-                      {action.description}
-                    </CardDescription>
-                  </CardHeader>
-                </Card>
-              </PermissionBoundary>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Recent Activity & System Status */}
-      <div className="grid gap-6 md:grid-cols-2">
-        <PermissionBoundary action="read" resource="audit_logs">
-          <Card>
-            <CardHeader>
-              <CardTitle>Recent Activity</CardTitle>
-              <CardDescription>Latest system events</CardDescription>
+        {stats.map((stat, index) => (
+          <Card key={index}>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">{stat.label}</CardTitle>
+              <stat.icon className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                <div className="flex items-center space-x-3">
-                  <CheckCircle className="h-4 w-4 text-green-600" />
-                  <div className="flex-1">
-                    <p className="text-sm font-medium">New user registered</p>
-                    <p className="text-xs text-muted-foreground">2 hours ago</p>
-                  </div>
-                </div>
-                <div className="flex items-center space-x-3">
-                  <Shield className="h-4 w-4 text-blue-600" />
-                  <div className="flex-1">
-                    <p className="text-sm font-medium">Role permissions updated</p>
-                    <p className="text-xs text-muted-foreground">3 hours ago</p>
-                  </div>
-                </div>
-                <div className="flex items-center space-x-3">
-                  <Settings className="h-4 w-4 text-gray-600" />
-                  <div className="flex-1">
-                    <p className="text-sm font-medium">System settings changed</p>
-                    <p className="text-xs text-muted-foreground">5 hours ago</p>
-                  </div>
-                </div>
-              </div>
-              <Button 
-                variant="link" 
-                className="mt-4 p-0 h-auto"
-                onClick={() => navigate('/audit')}
-              >
-                View all activity →
-              </Button>
+              <div className="text-2xl font-bold">{stat.value}</div>
+              <p className={`text-xs ${getChangeColor(stat.change)}`}>
+                {stat.change} from last month
+              </p>
             </CardContent>
           </Card>
-        </PermissionBoundary>
+        ))}
+      </div>
 
+      {/* Main Content Grid */}
+      <div className="grid gap-6 md:grid-cols-2">
+        {/* Quick Actions */}
         <Card>
           <CardHeader>
-            <CardTitle>System Status</CardTitle>
-            <CardDescription>Current system health</CardDescription>
+            <CardTitle>Quick Actions</CardTitle>
+            <CardDescription>Common administrative tasks</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <Button asChild className="w-full justify-start">
+              <Link to="/users">
+                <Users className="mr-2 h-4 w-4" />
+                Manage Users
+              </Link>
+            </Button>
+            <Button asChild variant="outline" className="w-full justify-start">
+              <Link to="/settings">
+                <Settings className="mr-2 h-4 w-4" />
+                System Settings
+              </Link>
+            </Button>
+            <Button asChild variant="outline" className="w-full justify-start">
+              <Link to="/analytics">
+                <BarChart3 className="mr-2 h-4 w-4" />
+                View Analytics
+              </Link>
+            </Button>
+          </CardContent>
+        </Card>
+
+        {/* Recent Activity */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Recent Activity</CardTitle>
+            <CardDescription>Latest system events and actions</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <CheckCircle className="h-4 w-4 text-green-600" />
-                  <span className="text-sm">API Services</span>
+              {recentActivity.map((activity, index) => (
+                <div key={index} className="flex items-center justify-between space-x-4">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{activity.action}</p>
+                    <p className="text-sm text-muted-foreground truncate">{activity.user}</p>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Badge className={getStatusColor(activity.status)}>
+                      {activity.status}
+                    </Badge>
+                    <span className="text-xs text-muted-foreground">{activity.time}</span>
+                  </div>
                 </div>
-                <span className="text-sm text-green-600">Operational</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <CheckCircle className="h-4 w-4 text-green-600" />
-                  <span className="text-sm">Database</span>
-                </div>
-                <span className="text-sm text-green-600">Healthy</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <AlertCircle className="h-4 w-4 text-yellow-600" />
-                  <span className="text-sm">Queue Processing</span>
-                </div>
-                <span className="text-sm text-yellow-600">High Load</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <CheckCircle className="h-4 w-4 text-green-600" />
-                  <span className="text-sm">Authentication</span>
-                </div>
-                <span className="text-sm text-green-600">Active</span>
-              </div>
+              ))}
             </div>
           </CardContent>
         </Card>
+
+        {/* System Health */}
+        <Card>
+          <CardHeader>
+            <CardTitle>System Health</CardTitle>
+            <CardDescription>Current system performance metrics</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <div className="flex justify-between text-sm mb-2">
+                <span>CPU Usage</span>
+                <span>45%</span>
+              </div>
+              <Progress value={45} className="h-2" />
+            </div>
+            <div>
+              <div className="flex justify-between text-sm mb-2">
+                <span>Memory</span>
+                <span>67%</span>
+              </div>
+              <Progress value={67} className="h-2" />
+            </div>
+            <div>
+              <div className="flex justify-between text-sm mb-2">
+                <span>Storage</span>
+                <span>23%</span>
+              </div>
+              <Progress value={23} className="h-2" />
+            </div>
+            <div>
+              <div className="flex justify-between text-sm mb-2">
+                <span>Network</span>
+                <span>89%</span>
+              </div>
+              <Progress value={89} className="h-2" />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Tenant Information */}
+        {currentTenantId && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Current Tenant</CardTitle>
+              <CardDescription>Active tenant context information</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-sm font-medium">Tenant ID:</span>
+                  <span className="text-sm text-muted-foreground">{currentTenantId}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-sm font-medium">User Role:</span>
+                  <Badge variant="secondary">Administrator</Badge>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-sm font-medium">Last Login:</span>
+                  <span className="text-sm text-muted-foreground">Today at 2:30 PM</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
   );
