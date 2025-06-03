@@ -1,32 +1,13 @@
 
-import React, { useState } from 'react';
+import React from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Modal } from "@/components/ui/modal";
-import { Edit, Shield, ChevronUp, ChevronDown } from 'lucide-react';
-import { UserForm } from '../UserForm';
-import { UserRoleAssignment } from '../UserRoleAssignment';
+import { Edit, UserCog, Trash2, ChevronUp, ChevronDown } from 'lucide-react';
 import { UserWithRoles } from '@/types/user';
-import { useAuth } from '@/contexts/AuthContext';
-
-interface UserDirectoryTableProps {
-  users: UserWithRoles[];
-  isLoading: boolean;
-  selectedUsers: string[];
-  onSelectAll: () => void;
-  onSelectUser: (userId: string) => void;
-  sortField: string;
-  sortDirection: 'asc' | 'desc';
-  onSort: (field: string) => void;
-  currentPage: number;
-  totalPages: number;
-  pageSize: number;
-  onPageChange: (page: number) => void;
-  onPageSizeChange: (size: number) => void;
-  totalUsers: number;
-}
+import { UserDirectoryTableProps } from './UserDirectoryTableProps';
+import { format } from 'date-fns';
 
 export function UserDirectoryTable({
   users,
@@ -42,86 +23,55 @@ export function UserDirectoryTable({
   pageSize,
   onPageChange,
   onPageSizeChange,
-  totalUsers
+  totalUsers,
 }: UserDirectoryTableProps) {
-  const { currentTenantId } = useAuth();
-  const [editingUser, setEditingUser] = useState<UserWithRoles | null>(null);
-  const [roleManagementUser, setRoleManagementUser] = useState<UserWithRoles | null>(null);
+  const SortButton = ({ field, children }: { field: string; children: React.ReactNode }) => (
+    <Button
+      variant="ghost"
+      onClick={() => onSort(field)}
+      className="h-auto p-0 font-medium hover:bg-transparent"
+    >
+      {children}
+      {sortField === field && (
+        sortDirection === 'asc' ? 
+          <ChevronUp className="ml-1 h-4 w-4" /> : 
+          <ChevronDown className="ml-1 h-4 w-4" />
+      )}
+    </Button>
+  );
 
-  const handleEditUser = (user: UserWithRoles) => {
-    setEditingUser(user);
+  const getStatusBadge = (status: string) => {
+    const variants: Record<string, 'default' | 'secondary' | 'destructive'> = {
+      active: 'default',
+      inactive: 'secondary',
+      pending_verification: 'destructive',
+    };
+    return <Badge variant={variants[status] || 'secondary'}>{status}</Badge>;
   };
 
-  const handleManageRoles = (user: UserWithRoles) => {
-    setRoleManagementUser(user);
-  };
-
-  const handleEditSuccess = () => {
-    setEditingUser(null);
-    // Trigger a refetch by calling parent component's refetch
-    window.location.reload();
-  };
-
-  const handleRoleSuccess = () => {
-    setRoleManagementUser(null);
-    // Trigger a refetch by calling parent component's refetch
-    window.location.reload();
+  const getTenantName = (user: UserWithRoles) => {
+    // You might want to fetch tenant names and store them in context
+    // For now, just show tenant ID substring
+    return user.tenant_id ? user.tenant_id.substring(0, 8) + '...' : 'No tenant';
   };
 
   const formatLastLogin = (lastLogin: string | null) => {
     if (!lastLogin) return 'Never';
-    
-    try {
-      const date = new Date(lastLogin);
-      return date.toLocaleString('en-US', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: true
-      });
-    } catch (error) {
-      return 'Invalid date';
-    }
+    return format(new Date(lastLogin), 'MMM dd, yyyy HH:mm');
   };
-
-  const getTenantName = (tenantId: string) => {
-    // For now, just show the tenant ID or a shortened version
-    // In a real app, you'd probably have a tenant lookup
-    if (tenantId === '50a9eb00-510b-40db-935e-9ea8e0e988e6') {
-      return 'Default Org';
-    }
-    return tenantId.substring(0, 8) + '...';
-  };
-
-  const SortableHeader = ({ field, children }: { field: string; children: React.ReactNode }) => (
-    <TableHead 
-      className="cursor-pointer hover:bg-muted/50" 
-      onClick={() => onSort(field)}
-    >
-      <div className="flex items-center space-x-1">
-        <span>{children}</span>
-        {sortField === field && (
-          sortDirection === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />
-        )}
-      </div>
-    </TableHead>
-  );
 
   if (isLoading) {
     return (
       <div className="space-y-4">
-        {/* Loading skeleton */}
-        {[...Array(5)].map((_, i) => (
-          <div key={i} className="h-16 bg-muted animate-pulse rounded" />
-        ))}
+        <div className="h-8 bg-gray-200 animate-pulse rounded" />
+        <div className="h-8 bg-gray-200 animate-pulse rounded" />
+        <div className="h-8 bg-gray-200 animate-pulse rounded" />
       </div>
     );
   }
 
   return (
-    <>
+    <div className="space-y-4">
       <div className="rounded-md border">
         <Table>
           <TableHeader>
@@ -132,72 +82,73 @@ export function UserDirectoryTable({
                   onCheckedChange={onSelectAll}
                 />
               </TableHead>
-              <SortableHeader field="email">Email</SortableHeader>
-              <SortableHeader field="first_name">Name</SortableHeader>
-              <SortableHeader field="status">Status</SortableHeader>
-              <TableHead>Tenant</TableHead>
+              <TableHead>
+                <SortButton field="first_name">Name</SortButton>
+              </TableHead>
+              <TableHead>
+                <SortButton field="email">Email</SortButton>
+              </TableHead>
+              <TableHead>Status</TableHead>
               <TableHead>Roles</TableHead>
-              <SortableHeader field="last_login_at">Last Login</SortableHeader>
-              <TableHead>Actions</TableHead>
+              <TableHead>Tenant</TableHead>
+              <TableHead>
+                <SortButton field="last_login_at">Last Login</SortButton>
+              </TableHead>
+              <TableHead className="w-32">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {users.map((user) => (
-              <TableRow key={user.id}>
-                <TableCell>
-                  <Checkbox
-                    checked={selectedUsers.includes(user.id)}
-                    onCheckedChange={() => onSelectUser(user.id)}
-                  />
-                </TableCell>
-                <TableCell className="font-medium">{user.email}</TableCell>
-                <TableCell>
-                  {[user.first_name, user.last_name].filter(Boolean).join(' ') || '-'}
-                </TableCell>
-                <TableCell>
-                  <Badge variant={user.status === 'active' ? 'default' : 'secondary'}>
-                    {user.status}
-                  </Badge>
-                </TableCell>
-                <TableCell>
-                  <span className="text-sm text-muted-foreground">
-                    {getTenantName(user.tenant_id)}
-                  </span>
-                </TableCell>
-                <TableCell>
-                  <div className="flex flex-wrap gap-1">
-                    {user.user_roles?.map((userRole) => (
-                      <Badge key={userRole.id} variant="outline" className="text-xs">
-                        {userRole.roles?.name || 'Unknown'}
-                      </Badge>
-                    )) || <span className="text-muted-foreground">No roles</span>}
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <span className="text-sm">
-                    {formatLastLogin(user.last_login_at)}
-                  </span>
-                </TableCell>
-                <TableCell>
-                  <div className="flex items-center space-x-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleEditUser(user)}
-                    >
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleManageRoles(user)}
-                    >
-                      <Shield className="h-4 w-4" />
-                    </Button>
-                  </div>
+            {users.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={8} className="h-24 text-center">
+                  No users found.
                 </TableCell>
               </TableRow>
-            ))}
+            ) : (
+              users.map((user) => (
+                <TableRow key={user.id}>
+                  <TableCell>
+                    <Checkbox
+                      checked={selectedUsers.includes(user.id)}
+                      onCheckedChange={() => onSelectUser(user.id)}
+                    />
+                  </TableCell>
+                  <TableCell className="font-medium">
+                    {`${user.first_name || ''} ${user.last_name || ''}`.trim() || 'No name'}
+                  </TableCell>
+                  <TableCell>{user.email}</TableCell>
+                  <TableCell>{getStatusBadge(user.status)}</TableCell>
+                  <TableCell>
+                    <div className="flex flex-wrap gap-1">
+                      {user.user_roles?.map((userRole) => (
+                        <Badge key={userRole.id} variant="outline">
+                          {userRole.roles?.name || 'Unknown'}
+                        </Badge>
+                      )) || <span className="text-muted-foreground">No roles</span>}
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-sm text-muted-foreground">
+                    {getTenantName(user)}
+                  </TableCell>
+                  <TableCell className="text-sm text-muted-foreground">
+                    {formatLastLogin(user.last_login_at)}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-1">
+                      <Button variant="ghost" size="sm">
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button variant="ghost" size="sm">
+                        <UserCog className="h-4 w-4" />
+                      </Button>
+                      <Button variant="ghost" size="sm">
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
           </TableBody>
         </Table>
       </div>
@@ -206,64 +157,45 @@ export function UserDirectoryTable({
       <div className="flex items-center justify-between px-2">
         <div className="flex items-center space-x-2">
           <p className="text-sm text-muted-foreground">
-            Showing {(currentPage - 1) * pageSize + 1} to {Math.min(currentPage * pageSize, totalUsers)} of {totalUsers} users
+            Showing {Math.min((currentPage - 1) * pageSize + 1, totalUsers)} to{' '}
+            {Math.min(currentPage * pageSize, totalUsers)} of {totalUsers} results
           </p>
         </div>
         <div className="flex items-center space-x-2">
           <Button
             variant="outline"
             size="sm"
-            disabled={currentPage <= 1}
             onClick={() => onPageChange(currentPage - 1)}
+            disabled={currentPage <= 1}
           >
             Previous
           </Button>
-          <span className="text-sm">
-            Page {currentPage} of {totalPages}
-          </span>
+          <div className="flex items-center space-x-1">
+            {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+              const page = currentPage <= 3 ? i + 1 : currentPage - 2 + i;
+              if (page > totalPages) return null;
+              return (
+                <Button
+                  key={page}
+                  variant={currentPage === page ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => onPageChange(page)}
+                >
+                  {page}
+                </Button>
+              );
+            })}
+          </div>
           <Button
             variant="outline"
             size="sm"
-            disabled={currentPage >= totalPages}
             onClick={() => onPageChange(currentPage + 1)}
+            disabled={currentPage >= totalPages}
           >
             Next
           </Button>
         </div>
       </div>
-
-      {/* Edit User Modal */}
-      <Modal
-        open={!!editingUser}
-        onOpenChange={(open) => !open && setEditingUser(null)}
-        title="Edit User"
-        size="lg"
-      >
-        {editingUser && currentTenantId && (
-          <UserForm
-            user={editingUser}
-            tenantId={currentTenantId}
-            onSuccess={handleEditSuccess}
-            onCancel={() => setEditingUser(null)}
-          />
-        )}
-      </Modal>
-
-      {/* Role Management Modal */}
-      <Modal
-        open={!!roleManagementUser}
-        onOpenChange={(open) => !open && setRoleManagementUser(null)}
-        title="Manage User Roles"
-        size="md"
-      >
-        {roleManagementUser && currentTenantId && (
-          <UserRoleAssignment
-            user={roleManagementUser}
-            tenantId={currentTenantId}
-            onSuccess={handleRoleSuccess}
-          />
-        )}
-      </Modal>
-    </>
+    </div>
   );
 }

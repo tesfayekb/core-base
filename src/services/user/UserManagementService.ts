@@ -34,7 +34,8 @@ export class UserManagementService {
     console.log('UserManagementService.getUsers called with:', {
       filters,
       pagination,
-      isSuperAdmin
+      isSuperAdmin,
+      tenantId
     });
 
     try {
@@ -64,9 +65,12 @@ export class UserManagementService {
 
       // Apply tenant filtering (unless superadmin wants all users)
       if (!isSuperAdmin && tenantId) {
+        console.log('Applying tenant filter:', tenantId);
         query = query.eq('tenant_id', tenantId);
       } else if (isSuperAdmin) {
         console.log('SuperAdmin access - fetching all users without tenant restrictions');
+      } else {
+        console.log('No tenant context - this might cause issues');
       }
 
       // Apply filters
@@ -110,9 +114,6 @@ export class UserManagementService {
     }
   }
 
-  /**
-   * Create a new user
-   */
   static async createUser(userData: CreateUserRequest): Promise<UserWithRoles> {
     try {
       // Set tenant context if provided
@@ -154,9 +155,6 @@ export class UserManagementService {
     }
   }
 
-  /**
-   * Update an existing user
-   */
   static async updateUser(userId: string, userData: UpdateUserRequest): Promise<UserWithRoles> {
     try {
       // Get current user for tenant context
@@ -202,9 +200,6 @@ export class UserManagementService {
     }
   }
 
-  /**
-   * Delete a user
-   */
   static async deleteUser(userId: string): Promise<void> {
     try {
       const { error } = await supabase
@@ -222,9 +217,6 @@ export class UserManagementService {
     }
   }
 
-  /**
-   * Get user by ID
-   */
   static async getUserById(userId: string): Promise<UserWithRoles | null> {
     try {
       const { data, error } = await supabase

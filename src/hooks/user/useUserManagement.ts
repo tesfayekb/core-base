@@ -2,7 +2,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { UserManagementService, UserFilters, PaginationOptions } from '@/services/user/UserManagementService';
+import { UserManagementService } from '@/services/user/UserManagementService';
 import { UserWithRoles, CreateUserRequest, UpdateUserRequest } from '@/types/user';
 
 export function useUserManagement(tenantId?: string) {
@@ -42,22 +42,12 @@ export function useUserManagement(tenantId?: string) {
         }
       }
       
-      const filters: UserFilters = {};
-      
       // For SuperAdmin, don't apply any tenant filtering to show all users
       // For regular users, apply tenant filtering
-      if (!isSuperAdmin && effectiveTenantId) {
-        filters.tenantId = effectiveTenantId;
-        console.log('Applying tenant filter for regular user:', effectiveTenantId);
-      } else if (isSuperAdmin) {
-        console.log('SuperAdmin detected - fetching all users without tenant restrictions');
-      }
-      
-      return await UserManagementService.getUsers(
-        filters,
-        { page: 1, limit: 50 },
+      return await UserManagementService.getUsers({
+        tenantId: !isSuperAdmin ? effectiveTenantId : undefined,
         isSuperAdmin
-      );
+      });
     },
     enabled: !!currentUser, // Only fetch when user is logged in
     staleTime: 0, // Always consider data stale to ensure fresh data
@@ -69,7 +59,7 @@ export function useUserManagement(tenantId?: string) {
     }
   });
 
-  const users = usersResult?.data || [];
+  const users = usersResult?.users || [];
 
   // Create user mutation
   const createUserMutation = useMutation({
@@ -118,7 +108,7 @@ export function useUserManagement(tenantId?: string) {
   // Get user roles
   const getUserRoles = async (userId: string) => {
     const user = await UserManagementService.getUserById(userId);
-    return user?.user_roles?.map(ur => ur.role) || [];
+    return user?.user_roles?.map(ur => ur.roles) || [];
   };
 
   // Get user by ID
