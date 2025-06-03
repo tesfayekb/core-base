@@ -23,6 +23,7 @@ Last Updated: 2025-06-03
 | 008 | enhanced_user_synchronization | 2025-06-03 | ✅ Applied | **CRITICAL FIX** - User sync between auth.users and custom users table |
 | 009 | user_sync_verification_and_audit | 2025-06-03 | ✅ Applied | Verification and audit logging for user synchronization |
 | 010 | force_user_sync_with_audit_logs | 2025-06-03 | ✅ Applied | Final fix for missing users and comprehensive audit logging |
+| 011 | fix_tenant_associations | 2025-06-03 | ✅ Applied | **CRITICAL FIX** - Ensures all users have proper tenant associations |
 
 ## Critical Migrations
 
@@ -61,6 +62,17 @@ Last Updated: 2025-06-03
   - Comprehensive force sync for all users
   - Detailed audit logging for troubleshooting
 
+### Migration 011: Fix Tenant Associations
+- **Problem**: Users missing proper tenant associations in user_tenants table
+- **Solution**: Comprehensive tenant association fix for all users
+- **Impact**: Ensures every user has proper tenant context and associations
+- **Key Features**:
+  - Verifies all users have tenant associations
+  - Creates missing user_tenants relationships
+  - Ensures default tenant exists and is properly linked
+  - Updates users.tenant_id to match default tenant
+  - Dynamic handling of user_tenants table structure
+
 ## Migration Files Location
 
 All migration files are located in:
@@ -97,19 +109,23 @@ See [RUNNING_MIGRATIONS.md](./RUNNING_MIGRATIONS.md) for detailed instructions o
 
 ## User Synchronization Status
 
-The latest migrations (008-010) have resolved critical user synchronization issues:
+The latest migrations (008-011) have resolved critical user synchronization and tenant association issues:
 
 ✅ **Fixed Issues:**
 - Null last_login_at fields
 - Missing first_name and last_name data
 - Users not appearing in application tables
 - Inconsistent user-tenant relationships
+- Missing tenant associations in user_tenants table
+- Improper tenant context for users
 
 ✅ **Current Status:**
 - All auth.users automatically sync to users table
 - Proper field mapping from metadata to structured fields
 - Comprehensive audit logging for troubleshooting
 - Real-time sync via triggers on auth operations
+- All users have proper tenant associations
+- Default tenant context established for all users
 
 ## Debugging Scripts
 
@@ -125,3 +141,4 @@ Debugging SQL scripts are stored in `/sql-scripts/debugging/`:
 - [RUNNING_MIGRATIONS.md](./RUNNING_MIGRATIONS.md) - How to run migrations
 - [MIGRATION_PATTERNS.md](./MIGRATION_PATTERNS.md) - Best practices and patterns
 - [ZERO_DOWNTIME_MIGRATIONS.md](./ZERO_DOWNTIME_MIGRATIONS.md) - Production migration strategies
+
