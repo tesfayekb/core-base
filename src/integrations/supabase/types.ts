@@ -708,6 +708,33 @@ export type Database = {
           },
         ]
       }
+      user_sync_audit_logs: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          details: Json | null
+          id: string
+          operation: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          details?: Json | null
+          id?: string
+          operation: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          details?: Json | null
+          id?: string
+          operation?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_tenants: {
         Row: {
           id: string
@@ -811,9 +838,17 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      backfill_users_from_auth: {
+        Args: Record<PropertyKey, never>
+        Returns: number
+      }
       backup_tenant_configuration: {
         Args: { p_tenant_id: string; p_backup_description?: string }
         Returns: string
+      }
+      check_trigger_exists: {
+        Args: { trigger_name: string; table_name: string; schema_name?: string }
+        Returns: boolean
       }
       check_user_permission: {
         Args: {
@@ -839,6 +874,14 @@ export type Database = {
           p_trigger_data?: Json
         }
         Returns: string
+      }
+      force_sync_all_users: {
+        Args: Record<PropertyKey, never>
+        Returns: number
+      }
+      force_sync_user: {
+        Args: { user_id: string }
+        Returns: boolean
       }
       get_tenant_configuration: {
         Args: {
@@ -869,6 +912,10 @@ export type Database = {
           p_user_agent?: string
         }
         Returns: string
+      }
+      manually_sync_user: {
+        Args: { p_user_id: string }
+        Returns: boolean
       }
       set_tenant_context: {
         Args: { tenant_id: string }
