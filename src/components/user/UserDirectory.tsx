@@ -11,7 +11,7 @@ import { UserDirectoryBulkActions } from './directory/UserDirectoryBulkActions';
 import { UserForm } from './UserForm';
 import { useUserManagement } from '@/hooks/user/useUserManagement';
 import { useAuth } from '@/contexts/AuthContext';
-import { Users, Filter, Download, Plus } from 'lucide-react';
+import { Users, Download, Plus } from 'lucide-react';
 
 export function UserDirectory() {
   const { user, currentTenantId } = useAuth();
@@ -170,11 +170,6 @@ export function UserDirectory() {
               value={searchQuery}
               onChange={setSearchQuery}
             />
-            
-            <div className="flex items-center gap-2">
-              <Filter className="h-4 w-4 text-muted-foreground" />
-              <span className="text-sm font-medium text-muted-foreground">Filters</span>
-            </div>
             
             <UserDirectoryFilters
               statusFilter={statusFilter}
