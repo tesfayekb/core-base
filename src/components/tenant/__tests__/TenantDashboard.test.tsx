@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
-import { vi, describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { TenantDashboard } from '../TenantDashboard';
 import { AuthProvider } from '@/components/auth/AuthProvider';

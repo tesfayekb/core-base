@@ -24,15 +24,10 @@ export function PermissionBoundary({
   fallback = null,
   loading = <Skeleton className="h-8 w-32" />
 }: PermissionBoundaryProps) {
-  const { hasPermission, isLoading, error } = usePermission(action, resource, resourceId);
+  const { hasPermission, loading: isLoading } = usePermission(action, resource, { resourceId });
   
   if (isLoading) {
     return <>{loading}</>;
-  }
-  
-  if (error) {
-    console.error('Permission boundary error:', error);
-    return <>{fallback}</>;
   }
   
   if (!hasPermission) {

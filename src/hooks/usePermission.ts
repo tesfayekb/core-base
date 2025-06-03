@@ -27,8 +27,7 @@ export function usePermission(action: string, resource: string, context?: Permis
           userId: user.id,
           action,
           resource,
-          resourceId: context?.resourceId,
-          tenantId: context?.tenantId || currentTenantId || undefined
+          resourceId: context?.resourceId
         });
         setHasPermission(result);
       } catch (error) {
@@ -40,7 +39,7 @@ export function usePermission(action: string, resource: string, context?: Permis
     };
 
     checkPermission();
-  }, [user, action, resource, context?.resourceId, context?.tenantId, currentTenantId]);
+  }, [user, action, resource, context?.resourceId, currentTenantId]);
 
   return { hasPermission, loading };
 }
@@ -64,8 +63,7 @@ export function usePermissions(checks: Array<{ action: string; resource: string;
           userId: user.id,
           action,
           resource,
-          resourceId: context?.resourceId,
-          tenantId: context?.tenantId || currentTenantId || undefined
+          resourceId: context?.resourceId
         }));
 
         const results = await permissionService.batchCheckPermissions(permissionChecks);
