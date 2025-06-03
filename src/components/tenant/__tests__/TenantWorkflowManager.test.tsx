@@ -1,9 +1,29 @@
+
 import React from 'react';
-import { render, screen } from '@testing-library/react';
-import { describe, it, expect, vi } from 'vitest';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { TenantWorkflowManager } from '../TenantWorkflowManager';
 import { AuthProvider } from '@/components/auth/AuthProvider';
+
+// Mock the hooks and services
+vi.mock('@/hooks/tenant/useTenantWorkflows', () => ({
+  useTenantWorkflows: () => ({
+    workflows: [
+      {
+        id: 'workflow-1',
+        workflow_name: 'Test Workflow',
+        workflow_type: 'automation',
+        is_active: true
+      }
+    ],
+    isLoading: false,
+    error: null,
+    createWorkflow: vi.fn(),
+    updateWorkflow: vi.fn(),
+    deleteWorkflow: vi.fn()
+  })
+}));
 
 vi.mock('@/components/auth/AuthProvider', () => ({
   AuthProvider: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
@@ -45,7 +65,11 @@ const TestWrapper = ({ children }: { children: React.ReactNode }) => {
 };
 
 describe('TenantWorkflowManager', () => {
-  it('renders workflow manager', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('renders workflow manager interface', () => {
     render(
       <TestWrapper>
         <TenantWorkflowManager />
@@ -53,5 +77,17 @@ describe('TenantWorkflowManager', () => {
     );
 
     expect(screen.getByText('Workflow Manager')).toBeInTheDocument();
+  });
+
+  it('displays workflow list', async () => {
+    render(
+      <TestWrapper>
+        <TenantWorkflowManager />
+      </TestWrapper>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Test Workflow')).toBeInTheDocument();
+    });
   });
 });

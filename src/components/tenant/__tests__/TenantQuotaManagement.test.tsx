@@ -1,9 +1,29 @@
+
 import React from 'react';
-import { render, screen } from '@testing-library/react';
-import { describe, it, expect, vi } from 'vitest';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { TenantQuotaManagement } from '../TenantQuotaManagement';
 import { AuthProvider } from '@/components/auth/AuthProvider';
+
+// Mock the hooks and services
+vi.mock('@/hooks/tenant/useTenantQuotas', () => ({
+  useTenantQuotas: () => ({
+    quotas: [
+      {
+        id: 'quota-1',
+        resource_type: 'storage',
+        quota_limit: 1000,
+        current_usage: 500,
+        warning_threshold: 80
+      }
+    ],
+    isLoading: false,
+    error: null,
+    updateQuota: vi.fn(),
+    deleteQuota: vi.fn()
+  })
+}));
 
 vi.mock('@/components/auth/AuthProvider', () => ({
   AuthProvider: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
@@ -45,7 +65,11 @@ const TestWrapper = ({ children }: { children: React.ReactNode }) => {
 };
 
 describe('TenantQuotaManagement', () => {
-  it('renders quota management', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('renders quota management interface', () => {
     render(
       <TestWrapper>
         <TenantQuotaManagement />
@@ -53,5 +77,17 @@ describe('TenantQuotaManagement', () => {
     );
 
     expect(screen.getByText('Quota Management')).toBeInTheDocument();
+  });
+
+  it('displays quota list', async () => {
+    render(
+      <TestWrapper>
+        <TenantQuotaManagement />
+      </TestWrapper>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('storage')).toBeInTheDocument();
+    });
   });
 });

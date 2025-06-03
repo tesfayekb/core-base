@@ -41,37 +41,16 @@ export function PermissionDebug() {
           p_user_id: user.id
         });
 
-      // Check if user is SuperAdmin - handle missing function gracefully
-      let isSuperAdmin = false;
-      let superAdminError = null;
-      try {
-        const { data: superAdminResult, error: saError } = await supabase
-          .rpc('is_super_admin', {
-            p_user_id: user.id
-          });
-        isSuperAdmin = superAdminResult;
-        superAdminError = saError;
-      } catch (error) {
-        superAdminError = error;
-        // Fallback: check manually if function doesn't exist
-        const hasSystemRole = userRoles?.some(ur => 
-          ur.roles?.name === 'SuperAdmin' && ur.roles?.is_system_role
-        );
-        isSuperAdmin = hasSystemRole || false;
-      }
+      // Check if user is SuperAdmin
+      const { data: isSuperAdmin, error: superAdminError } = await supabase
+        .rpc('is_super_admin', {
+          p_user_id: user.id
+        });
 
       // Get all users to see if there are any
       const { data: allUsers, error: allUsersError } = await supabase
         .from('users')
         .select('id, email, first_name, last_name, status, tenant_id');
-
-      // Check database functions
-      const { data: functions, error: functionsError } = await supabase
-        .rpc('check_user_permission', {
-          p_user_id: user.id,
-          p_action: 'read',
-          p_resource: 'users'
-        });
 
       setDebugInfo({
         userData,
@@ -84,9 +63,7 @@ export function PermissionDebug() {
         superAdminError,
         allUsers,
         allUsersError,
-        currentTenantId,
-        functionsTest: functions,
-        functionsError
+        currentTenantId
       });
     } catch (error) {
       console.error('Debug check failed:', error);
@@ -132,7 +109,7 @@ export function PermissionDebug() {
             <>
               <div>
                 <h3 className="font-semibold">User in Database:</h3>
-                <pre className="text-xs bg-gray-100 p-2 rounded max-h-32 overflow-y-auto">
+                <pre className="text-xs bg-gray-100 p-2 rounded">
                   {JSON.stringify(debugInfo.userData, null, 2)}
                 </pre>
                 {debugInfo.userError && (
@@ -169,14 +146,6 @@ export function PermissionDebug() {
                 <p>{debugInfo.isSuperAdmin ? 'Yes' : 'No'}</p>
                 {debugInfo.superAdminError && (
                   <p className="text-red-600">Error: {debugInfo.superAdminError.message}</p>
-                )}
-              </div>
-
-              <div>
-                <h3 className="font-semibold">Database Functions Test:</h3>
-                <p>check_user_permission result: {debugInfo.functionsTest ? 'Works' : 'Failed'}</p>
-                {debugInfo.functionsError && (
-                  <p className="text-red-600">Error: {debugInfo.functionsError.message}</p>
                 )}
               </div>
 

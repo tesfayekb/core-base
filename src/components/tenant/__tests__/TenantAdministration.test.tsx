@@ -1,9 +1,30 @@
+
 import React from 'react';
-import { render, screen } from '@testing-library/react';
-import { describe, it, expect, vi } from 'vitest';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { TenantAdministration } from '../TenantAdministration';
 import { AuthProvider } from '@/components/auth/AuthProvider';
+
+// Mock the hooks and services
+vi.mock('@/hooks/tenant/useTenantManagement', () => ({
+  useTenantManagement: () => ({
+    tenants: [
+      {
+        id: 'tenant-1',
+        name: 'Test Tenant',
+        slug: 'test-tenant',
+        status: 'active',
+        created_at: '2023-01-01T00:00:00Z'
+      }
+    ],
+    isLoading: false,
+    error: null,
+    createTenant: vi.fn(),
+    updateTenant: vi.fn(),
+    deleteTenant: vi.fn()
+  })
+}));
 
 vi.mock('@/components/auth/AuthProvider', () => ({
   AuthProvider: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
@@ -45,7 +66,11 @@ const TestWrapper = ({ children }: { children: React.ReactNode }) => {
 };
 
 describe('TenantAdministration', () => {
-  it('renders tenant administration', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('renders tenant administration interface', () => {
     render(
       <TestWrapper>
         <TenantAdministration />
@@ -53,5 +78,17 @@ describe('TenantAdministration', () => {
     );
 
     expect(screen.getByText('Tenant Administration')).toBeInTheDocument();
+  });
+
+  it('displays tenant list', async () => {
+    render(
+      <TestWrapper>
+        <TenantAdministration />
+      </TestWrapper>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Test Tenant')).toBeInTheDocument();
+    });
   });
 });
