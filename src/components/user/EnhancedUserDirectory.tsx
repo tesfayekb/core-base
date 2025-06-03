@@ -1,24 +1,34 @@
-import React, { useState, useMemo } from 'react';
+
+import React, { useState, useMemo, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { UserDirectorySearch } from './directory/UserDirectorySearch';
 import { UserDirectoryFilters } from './directory/UserDirectoryFilters';
 import { UserDirectoryTable } from './directory/UserDirectoryTable';
 import { UserDirectoryBulkActions } from './directory/UserDirectoryBulkActions';
 import { useUserManagement } from '@/hooks/user/useUserManagement';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 import { Users, Filter, Download, Plus } from 'lucide-react';
 import { UserWithRoles } from '@/types/user';
 
+interface Tenant {
+  id: string;
+  name: string;
+  slug: string;
+}
+
 export function EnhancedUserDirectory() {
   const { user, currentTenantId } = useAuth();
-  const { users, isLoading, error } = useUserManagement(); // Remove tenant filtering to allow SuperAdmin access
+  const { users, isLoading, error } = useUserManagement(); // SuperAdmin gets all users
   
   // State for search and filters
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [roleFilter, setRoleFilter] = useState<string>('all');
+  const [tenantFilter, setTenantFilter] = useState<string>('all');
   const [sortField, setSortField] = useState<string>('created_at');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
@@ -26,6 +36,35 @@ export function EnhancedUserDirectory() {
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+  
+  // Tenant list for filtering
+  const [tenants, setTenants] = useState<Tenant[]>([]);
+  const [isLoadingTenants, setIsLoadingTenants] = useState(false);
+
+  // Fetch tenants for filtering
+  useEffect(() => {
+    const fetchTenants = async () => {
+      setIsLoadingTenants(true);
+      try {
+        const { data, error } = await supabase
+          .from('tenants')
+          .select('id, name, slug')
+          .order('name');
+        
+        if (error) {
+          console.error('Error fetching tenants:', error);
+        } else {
+          setTenants(data || []);
+        }
+      } catch (err) {
+        console.error('Error fetching tenants:', err);
+      } finally {
+        setIsLoadingTenants(false);
+      }
+    };
+
+    fetchTenants();
+  }, []);
   
   // Filter and sort users
   const filteredAndSortedUsers = useMemo(() => {
@@ -38,6 +77,11 @@ export function EnhancedUserDirectory() {
       
       const matchesStatus = statusFilter === 'all' || user.status === statusFilter;
       
+      // Tenant filtering
+      const matchesTenant = tenantFilter === 'all' || 
+        (tenantFilter === 'no-tenant' && !user.tenant_id) ||
+        user.tenant_id === tenantFilter;
+      
       // Role filtering using actual role data
       const matchesRole = roleFilter === 'all' || (
         user.user_roles && user.user_roles.some(userRole => 
@@ -45,7 +89,7 @@ export function EnhancedUserDirectory() {
         )
       );
       
-      return matchesSearch && matchesStatus && matchesRole;
+      return matchesSearch && matchesStatus && matchesTenant && matchesRole;
     });
     
     // Sort users
@@ -67,7 +111,7 @@ export function EnhancedUserDirectory() {
     });
     
     return filtered;
-  }, [users, searchQuery, statusFilter, roleFilter, sortField, sortDirection]);
+  }, [users, searchQuery, statusFilter, roleFilter, tenantFilter, sortField, sortDirection]);
   
   // Paginate users
   const paginatedUsers = useMemo(() => {
@@ -121,7 +165,7 @@ export function EnhancedUserDirectory() {
         <div>
           <h2 className="text-2xl font-bold tracking-tight flex items-center gap-2">
             <Users className="h-6 w-6" />
-            Enhanced User Directory
+            User Directory
           </h2>
           <p className="text-muted-foreground">
             Manage and monitor user accounts across your organization
@@ -152,12 +196,49 @@ export function EnhancedUserDirectory() {
               onChange={setSearchQuery}
             />
             
-            <UserDirectoryFilters
-              statusFilter={statusFilter}
-              onStatusFilterChange={setStatusFilter}
-              roleFilter={roleFilter}
-              onRoleFilterChange={setRoleFilter}
-            />
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <Filter className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm font-medium">Filters</span>
+              </div>
+              
+              <div className="flex items-center gap-3">
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="w-40">
+                    <SelectValue placeholder="Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Status</SelectItem>
+                    <SelectItem value="active">Active</SelectItem>
+                    <SelectItem value="pending_verification">Pending</SelectItem>
+                    <SelectItem value="suspended">Suspended</SelectItem>
+                    <SelectItem value="inactive">Inactive</SelectItem>
+                  </SelectContent>
+                </Select>
+                
+                <Select value={tenantFilter} onValueChange={setTenantFilter}>
+                  <SelectTrigger className="w-48">
+                    <SelectValue placeholder={isLoadingTenants ? "Loading..." : "Tenant"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Tenants</SelectItem>
+                    <SelectItem value="no-tenant">No Tenant</SelectItem>
+                    {tenants.map((tenant) => (
+                      <SelectItem key={tenant.id} value={tenant.id}>
+                        {tenant.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                
+                <UserDirectoryFilters
+                  statusFilter={statusFilter}
+                  onStatusFilterChange={setStatusFilter}
+                  roleFilter={roleFilter}
+                  onRoleFilterChange={setRoleFilter}
+                />
+              </div>
+            </div>
           </div>
         </CardContent>
       </Card>

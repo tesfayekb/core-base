@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
@@ -15,9 +16,8 @@ jest.mock('@/contexts/AuthContext', () => ({
     },
     currentTenantId: 'test-tenant-id',
     isLoading: false,
-  },
-}
-));
+  }),
+}));
 
 describe('TenantDashboard Component', () => {
   test('renders TenantDashboard without errors', async () => {
