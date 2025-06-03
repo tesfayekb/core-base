@@ -14,7 +14,7 @@ import { UserWithRoles } from '@/types/user';
 
 export function EnhancedUserDirectory() {
   const { user, currentTenantId } = useAuth();
-  const { users, isLoading, error } = useUserManagement(currentTenantId || '');
+  const { users, isLoading, error } = useUserManagement(); // Remove tenant filtering for now
   
   // State for search and filters
   const [searchQuery, setSearchQuery] = useState('');
@@ -42,7 +42,7 @@ export function EnhancedUserDirectory() {
       // Role filtering using actual role data
       const matchesRole = roleFilter === 'all' || (
         user.user_roles && user.user_roles.some(userRole => 
-          userRole.role.name.toLowerCase() === roleFilter.toLowerCase()
+          userRole.role && userRole.role.name.toLowerCase() === roleFilter.toLowerCase()
         )
       );
       
@@ -96,17 +96,19 @@ export function EnhancedUserDirectory() {
   };
   
   if (error) {
+    console.error('User directory error:', error);
     return (
       <Card>
         <CardHeader>
           <CardTitle className="text-red-600">Error Loading Users</CardTitle>
         </CardHeader>
         <CardContent>
-          <p>Failed to load user directory: {String(error)}</p>
+          <p>Failed to load user directory. Please try refreshing the page.</p>
           <div className="mt-4 p-4 bg-gray-50 rounded">
             <p className="text-sm text-gray-600 mb-2">Debug Information:</p>
             <p className="text-xs font-mono">{currentTenantId ? `Tenant: ${currentTenantId}` : 'No tenant ID'}</p>
             <p className="text-xs font-mono">{user ? `User: ${user.email}` : 'No user'}</p>
+            <p className="text-xs font-mono text-red-600">Error: {error?.message || 'Unknown error'}</p>
           </div>
         </CardContent>
       </Card>

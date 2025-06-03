@@ -4,9 +4,12 @@ import { useAuth } from '@/contexts/AuthContext';
 import { UserManagementService, UserFilters, PaginationOptions } from '@/services/user/UserManagementService';
 import { UserWithRoles, CreateUserRequest, UpdateUserRequest } from '@/types/user';
 
-export function useUserManagement(tenantId: string) {
-  const { user: currentUser } = useAuth();
+export function useUserManagement(tenantId?: string) {
+  const { user: currentUser, currentTenantId } = useAuth();
   const queryClient = useQueryClient();
+
+  // Use provided tenantId, fallback to currentTenantId, or fetch all users if neither available
+  const effectiveTenantId = tenantId || currentTenantId;
 
   // Fetch users from Supabase with roles
   const {
@@ -15,19 +18,28 @@ export function useUserManagement(tenantId: string) {
     error,
     refetch
   } = useQuery({
-    queryKey: ['users', tenantId],
+    queryKey: ['users', effectiveTenantId],
     queryFn: async () => {
-      if (!tenantId) return { data: [], total: 0, page: 1, pageSize: 10, totalPages: 0 };
+      console.log('Fetching users with tenant filter:', effectiveTenantId);
       
-      console.log('Fetching users for tenant:', tenantId);
+      const filters: UserFilters = {};
+      
+      // Only filter by tenant if we have a specific tenant ID
+      if (effectiveTenantId) {
+        filters.tenantId = effectiveTenantId;
+      }
       
       return await UserManagementService.getUsers(
-        { tenantId },
-        { page: 1, limit: 50 } // Get more users for now
+        filters,
+        { page: 1, limit: 50 }
       );
     },
-    enabled: !!tenantId,
+    enabled: !!currentUser, // Only fetch when user is logged in
     staleTime: 2 * 60 * 1000, // 2 minutes
+    retry: (failureCount, error) => {
+      console.error('Query failed:', error);
+      return failureCount < 2; // Retry up to 2 times
+    }
   });
 
   const users = usersResult?.data || [];
@@ -38,7 +50,7 @@ export function useUserManagement(tenantId: string) {
       return await UserManagementService.createUser(data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['users', tenantId] });
+      queryClient.invalidateQueries({ queryKey: ['users'] });
     }
   });
 
@@ -48,7 +60,7 @@ export function useUserManagement(tenantId: string) {
       return await UserManagementService.updateUser(userId, data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['users', tenantId] });
+      queryClient.invalidateQueries({ queryKey: ['users'] });
     }
   });
 
@@ -59,18 +71,19 @@ export function useUserManagement(tenantId: string) {
       return { success: true };
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['users', tenantId] });
+      queryClient.invalidateQueries({ queryKey: ['users'] });
     }
   });
 
   // Assign roles mutation
   const assignRolesMutation = useMutation({
     mutationFn: async ({ userId, roleIds }: { userId: string; roleIds: string[] }) => {
-      await UserManagementService.assignRoles(userId, roleIds, tenantId);
+      const tenantForRoles = effectiveTenantId || 'default';
+      await UserManagementService.assignRoles(userId, roleIds, tenantForRoles);
       return { success: true };
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['users', tenantId] });
+      queryClient.invalidateQueries({ queryKey: ['users'] });
       queryClient.invalidateQueries({ queryKey: ['userRoles'] });
     }
   });

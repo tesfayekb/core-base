@@ -44,11 +44,12 @@ export class UserManagementService {
           )
         `, { count: 'exact' });
 
-      // Apply filters
+      // Apply filters - but be more flexible with tenant filtering
       if (filters.status) {
         query = query.eq('status', filters.status);
       }
 
+      // If tenantId is provided, filter by it, otherwise get all users
       if (filters.tenantId) {
         query = query.eq('tenant_id', filters.tenantId);
       }
@@ -65,8 +66,11 @@ export class UserManagementService {
       const { data, error, count } = await query;
 
       if (error) {
+        console.error('Supabase error fetching users:', error);
         throw error;
       }
+
+      console.log('Successfully fetched users:', data?.length || 0);
 
       return {
         data: data || [],
@@ -102,6 +106,7 @@ export class UserManagementService {
         .single();
 
       if (error) {
+        console.error('Error fetching user by ID:', error);
         throw error;
       }
 
@@ -214,5 +219,4 @@ export class UserManagementService {
   }
 }
 
-// Export types
 export type { UserWithRoles, CreateUserRequest, UpdateUserRequest };

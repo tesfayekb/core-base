@@ -35,17 +35,14 @@ export function PermissionDebug() {
         `)
         .eq('user_id', user.id);
 
-      // Check permissions
+      // Check permissions using the working function
       const { data: permissions, error: permError } = await supabase
         .rpc('get_user_permissions', {
           p_user_id: user.id
         });
 
-      // Check if user is SuperAdmin
-      const { data: isSuperAdmin, error: superAdminError } = await supabase
-        .rpc('is_super_admin', {
-          p_user_id: user.id
-        });
+      // Check SuperAdmin by looking at roles directly
+      const isSuperAdmin = userRoles?.some(ur => ur.roles?.name === 'SuperAdmin') || false;
 
       // Get all users to see if there are any
       const { data: allUsers, error: allUsersError } = await supabase
@@ -60,7 +57,6 @@ export function PermissionDebug() {
         permissions,
         permError,
         isSuperAdmin,
-        superAdminError,
         allUsers,
         allUsersError,
         currentTenantId
@@ -144,9 +140,6 @@ export function PermissionDebug() {
               <div>
                 <h3 className="font-semibold">Is SuperAdmin:</h3>
                 <p>{debugInfo.isSuperAdmin ? 'Yes' : 'No'}</p>
-                {debugInfo.superAdminError && (
-                  <p className="text-red-600">Error: {debugInfo.superAdminError.message}</p>
-                )}
               </div>
 
               <div>
