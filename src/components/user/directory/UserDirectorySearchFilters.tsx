@@ -27,21 +27,27 @@ export function UserDirectorySearchFilters({
 }: UserDirectorySearchFiltersProps) {
   return (
     <Card>
-      <CardContent className="p-6">
-        <div className="space-y-4">
-          <UserDirectorySearch 
-            value={searchQuery}
-            onChange={onSearchChange}
-          />
+      <CardContent className="p-4 sm:p-6">
+        <div className="flex flex-col space-y-4">
+          {/* Search Bar - Full width on all screens */}
+          <div className="w-full">
+            <UserDirectorySearch 
+              value={searchQuery}
+              onChange={onSearchChange}
+            />
+          </div>
           
-          <UserDirectoryFilters
-            statusFilter={statusFilter}
-            onStatusFilterChange={onStatusFilterChange}
-            roleFilter={roleFilter}
-            onRoleFilterChange={onRoleFilterChange}
-            tenantFilter={tenantFilter}
-            onTenantFilterChange={onTenantFilterChange}
-          />
+          {/* Filters - Responsive grid layout */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+            <UserDirectoryFilters
+              statusFilter={statusFilter}
+              onStatusFilterChange={onStatusFilterChange}
+              roleFilter={roleFilter}
+              onRoleFilterChange={onRoleFilterChange}
+              tenantFilter={tenantFilter}
+              onTenantFilterChange={onTenantFilterChange}
+            />
+          </div>
         </div>
       </CardContent>
     </Card>

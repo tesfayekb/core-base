@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { UserWithRoles, CreateUserRequest, UpdateUserRequest } from '@/types/user';
 
@@ -150,6 +151,18 @@ export class UserManagementService {
 
   static async createUser(userData: CreateUserRequest): Promise<UserWithRoles> {
     try {
+      // First, set the tenant context to avoid RLS issues
+      if (userData.tenant_id) {
+        const { error: contextError } = await supabase.rpc('set_tenant_context', {
+          tenant_id: userData.tenant_id
+        });
+        
+        if (contextError) {
+          console.error('Error setting tenant context:', contextError);
+        }
+      }
+
+      // Create user with proper tenant context
       const { data, error } = await supabase
         .from('users')
         .insert([{
@@ -158,12 +171,26 @@ export class UserManagementService {
           last_name: userData.last_name,
           status: userData.status || 'pending_verification',
           tenant_id: userData.tenant_id,
-          password_hash: 'supabase_managed'
+          password_hash: 'temp_hash', // This will be managed by auth system
+          metadata: {}
         }])
-        .select()
+        .select(`
+          *,
+          user_roles!user_roles_user_id_fkey(
+            id,
+            role_id,
+            assigned_at,
+            roles!user_roles_role_id_fkey(
+              id,
+              name,
+              description
+            )
+          )
+        `)
         .single();
 
       if (error) {
+        console.error('Create user error:', error);
         throw error;
       }
 
@@ -176,6 +203,29 @@ export class UserManagementService {
 
   static async updateUser(id: string, userData: UpdateUserRequest): Promise<UserWithRoles> {
     try {
+      // Get the current user to check tenant context
+      const { data: currentUser, error: getCurrentError } = await supabase
+        .from('users')
+        .select('tenant_id')
+        .eq('id', id)
+        .single();
+
+      if (getCurrentError) {
+        console.error('Error getting current user:', getCurrentError);
+        throw getCurrentError;
+      }
+
+      // Set tenant context if available
+      if (currentUser?.tenant_id) {
+        const { error: contextError } = await supabase.rpc('set_tenant_context', {
+          tenant_id: currentUser.tenant_id
+        });
+        
+        if (contextError) {
+          console.error('Error setting tenant context:', contextError);
+        }
+      }
+
       const { data, error } = await supabase
         .from('users')
         .update({
@@ -187,10 +237,23 @@ export class UserManagementService {
           updated_at: new Date().toISOString()
         })
         .eq('id', id)
-        .select()
+        .select(`
+          *,
+          user_roles!user_roles_user_id_fkey(
+            id,
+            role_id,
+            assigned_at,
+            roles!user_roles_role_id_fkey(
+              id,
+              name,
+              description
+            )
+          )
+        `)
         .single();
 
       if (error) {
+        console.error('Update user error:', error);
         throw error;
       }
 

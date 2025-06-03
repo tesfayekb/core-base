@@ -85,47 +85,56 @@ export function UserDirectoryFilters({
   }, [currentTenantId]);
 
   return (
-    <div className="flex flex-wrap items-center gap-2 sm:gap-4 w-full">
-      <Select value={statusFilter} onValueChange={onStatusFilterChange}>
-        <SelectTrigger className="w-32 sm:w-40">
-          <SelectValue placeholder="Status" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">All Status</SelectItem>
-          <SelectItem value="active">Active</SelectItem>
-          <SelectItem value="inactive">Inactive</SelectItem>
-          <SelectItem value="pending_verification">Pending</SelectItem>
-        </SelectContent>
-      </Select>
+    <>
+      {/* Status Filter */}
+      <div className="w-full">
+        <Select value={statusFilter} onValueChange={onStatusFilterChange}>
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder="Status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Status</SelectItem>
+            <SelectItem value="active">Active</SelectItem>
+            <SelectItem value="inactive">Inactive</SelectItem>
+            <SelectItem value="pending_verification">Pending</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
 
-      <Select value={roleFilter} onValueChange={onRoleFilterChange}>
-        <SelectTrigger className="w-32 sm:w-40">
-          <SelectValue placeholder={isLoadingRoles ? "Loading..." : "Roles"} />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">All Roles</SelectItem>
-          {roles.map((role) => (
-            <SelectItem key={role.id} value={role.name}>
-              {role.name}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      {/* Role Filter */}
+      <div className="w-full">
+        <Select value={roleFilter} onValueChange={onRoleFilterChange}>
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder={isLoadingRoles ? "Loading..." : "Roles"} />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Roles</SelectItem>
+            {roles.map((role) => (
+              <SelectItem key={role.id} value={role.name}>
+                {role.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
 
-      <Select value={tenantFilter} onValueChange={onTenantFilterChange}>
-        <SelectTrigger className="w-36 sm:w-48">
-          <SelectValue placeholder={isLoadingTenants ? "Loading..." : "Tenants"} />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">All Tenants</SelectItem>
-          <SelectItem value="no-tenant">No Tenant</SelectItem>
-          {tenants.map((tenant) => (
-            <SelectItem key={tenant.id} value={tenant.id}>
-              {tenant.name}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </div>
+      {/* Tenant Filter */}
+      <div className="w-full">
+        <Select value={tenantFilter} onValueChange={onTenantFilterChange}>
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder={isLoadingTenants ? "Loading..." : "Tenants"} />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Tenants</SelectItem>
+            <SelectItem value="no-tenant">No Tenant</SelectItem>
+            {tenants.map((tenant) => (
+              <SelectItem key={tenant.id} value={tenant.id}>
+                {tenant.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+    </>
   );
 }
