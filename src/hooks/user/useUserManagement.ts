@@ -1,6 +1,7 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 import { UserManagementService, UserFilters, PaginationOptions } from '@/services/user/UserManagementService';
 import { UserWithRoles, CreateUserRequest, UpdateUserRequest } from '@/types/user';
 
