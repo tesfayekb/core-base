@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { UserWithRoles, CreateUserRequest, UpdateUserRequest } from '@/types/user';
 
@@ -32,7 +31,7 @@ export class UserManagementService {
         .from('users')
         .select(`
           *,
-          user_roles(
+          user_roles!user_roles_user_id_fkey(
             id,
             role_id,
             assigned_at,
@@ -44,12 +43,11 @@ export class UserManagementService {
           )
         `, { count: 'exact' });
 
-      // Apply filters - but be more flexible with tenant filtering
+      // Apply filters
       if (filters.status) {
         query = query.eq('status', filters.status);
       }
 
-      // If tenantId is provided, filter by it, otherwise get all users
       if (filters.tenantId) {
         query = query.eq('tenant_id', filters.tenantId);
       }
@@ -91,7 +89,7 @@ export class UserManagementService {
         .from('users')
         .select(`
           *,
-          user_roles(
+          user_roles!user_roles_user_id_fkey(
             id,
             role_id,
             assigned_at,

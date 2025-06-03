@@ -1,142 +1,91 @@
 
 import React from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { User, Mail, Calendar, Shield, Activity } from 'lucide-react';
-import { UserWithRoles } from '@/services/user/UserManagementService';
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { UserWithRoles } from '@/types/user';
+import { format } from 'date-fns';
 
 interface UserProfileProps {
   user: UserWithRoles;
 }
 
 export function UserProfile({ user }: UserProfileProps) {
-  const getStatusBadgeVariant = (status: string) => {
-    switch (status) {
-      case 'active': return 'default';
-      case 'inactive': return 'secondary';
-      case 'suspended': return 'destructive';
-      case 'pending_verification': return 'outline';
-      default: return 'secondary';
-    }
+  const getUserInitials = () => {
+    const firstName = user.first_name || '';
+    const lastName = user.last_name || '';
+    return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase() || user.email.charAt(0).toUpperCase();
+  };
+
+  const getStatusBadge = (status: string) => {
+    const statusConfig = {
+      active: { variant: 'default' as const, label: 'Active' },
+      pending_verification: { variant: 'secondary' as const, label: 'Pending' },
+      suspended: { variant: 'destructive' as const, label: 'Suspended' },
+      inactive: { variant: 'outline' as const, label: 'Inactive' }
+    };
+    
+    const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.inactive;
+    return <Badge variant={config.variant}>{config.label}</Badge>;
   };
 
   return (
-    <div className="space-y-6">
-      {/* Basic Information */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center space-x-2">
-            <User className="h-5 w-5" />
-            <span>User Information</span>
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="text-sm font-medium text-muted-foreground">Full Name</label>
-              <p className="text-sm">
-                {user.first_name && user.last_name 
-                  ? `${user.first_name} ${user.last_name}`
-                  : 'No name set'
-                }
-              </p>
+    <Card>
+      <CardHeader>
+        <CardTitle>User Profile</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        <div className="flex items-center gap-4">
+          <Avatar className="h-16 w-16">
+            <AvatarFallback className="text-lg">
+              {getUserInitials()}
+            </AvatarFallback>
+          </Avatar>
+          <div>
+            <h3 className="text-xl font-semibold">
+              {user.first_name && user.last_name
+                ? `${user.first_name} ${user.last_name}`
+                : user.email
+              }
+            </h3>
+            <p className="text-sm text-muted-foreground">{user.email}</p>
+            <div className="mt-2">
+              {getStatusBadge(user.status)}
             </div>
-            <div>
-              <label className="text-sm font-medium text-muted-foreground">Email</label>
-              <p className="text-sm flex items-center">
-                <Mail className="h-3 w-3 mr-1" />
-                {user.email}
-              </p>
-            </div>
-            <div>
-              <label className="text-sm font-medium text-muted-foreground">Status</label>
-              <div>
-                <Badge variant={getStatusBadgeVariant(user.status)}>
-                  {user.status.replace('_', ' ')}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <h4 className="font-medium text-sm text-muted-foreground">Member Since</h4>
+            <p>{format(new Date(user.created_at), 'PPP')}</p>
+          </div>
+          <div>
+            <h4 className="font-medium text-sm text-muted-foreground">Last Login</h4>
+            <p>
+              {user.last_login_at
+                ? format(new Date(user.last_login_at), 'PPp')
+                : 'Never'
+              }
+            </p>
+          </div>
+        </div>
+
+        <div>
+          <h4 className="font-medium text-sm text-muted-foreground mb-2">Roles</h4>
+          <div className="flex flex-wrap gap-2">
+            {user.user_roles && user.user_roles.length > 0 ? (
+              user.user_roles.map((userRole) => (
+                <Badge key={userRole.id} variant="outline">
+                  {userRole.role.name}
                 </Badge>
-              </div>
-            </div>
-            <div>
-              <label className="text-sm font-medium text-muted-foreground">Created</label>
-              <p className="text-sm flex items-center">
-                <Calendar className="h-3 w-3 mr-1" />
-                {new Date(user.created_at).toLocaleDateString()}
-              </p>
-            </div>
+              ))
+            ) : (
+              <span className="text-sm text-muted-foreground">No roles assigned</span>
+            )}
           </div>
-        </CardContent>
-      </Card>
-
-      {/* Roles and Permissions */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center space-x-2">
-            <Shield className="h-5 w-5" />
-            <span>Roles & Permissions</span>
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {user.roles && user.roles.length > 0 ? (
-            <div className="space-y-3">
-              {user.roles.map((userRole) => (
-                <div key={userRole.id} className="flex items-center justify-between p-3 border rounded-lg">
-                  <div>
-                    <div className="font-medium">{userRole.role.name}</div>
-                    {userRole.assigned_at && (
-                      <div className="text-sm text-muted-foreground">
-                        Assigned on {new Date(userRole.assigned_at).toLocaleDateString()}
-                      </div>
-                    )}
-                    {userRole.role.description && (
-                      <div className="text-sm text-muted-foreground">
-                        {userRole.role.description}
-                      </div>
-                    )}
-                  </div>
-                  <Badge variant={userRole.role.is_system_role ? "secondary" : "outline"}>
-                    {userRole.role.is_system_role ? "System Role" : "Custom Role"}
-                  </Badge>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-4 text-muted-foreground">
-              <Shield className="h-8 w-8 mx-auto mb-2 opacity-50" />
-              <p>No roles assigned</p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Activity Summary */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center space-x-2">
-            <Activity className="h-5 w-5" />
-            <span>Activity Summary</span>
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="text-center p-4 border rounded-lg">
-              <div className="text-2xl font-bold">
-                {user.last_login_at ? new Date(user.last_login_at).toLocaleDateString() : 'Never'}
-              </div>
-              <div className="text-sm text-muted-foreground">Last Login</div>
-            </div>
-            <div className="text-center p-4 border rounded-lg">
-              <div className="text-2xl font-bold">{user.failed_login_attempts || 0}</div>
-              <div className="text-sm text-muted-foreground">Failed Login Attempts</div>
-            </div>
-            <div className="text-center p-4 border rounded-lg">
-              <div className="text-2xl font-bold">
-                {user.email_verified_at ? 'Verified' : 'Unverified'}
-              </div>
-              <div className="text-sm text-muted-foreground">Email Status</div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
