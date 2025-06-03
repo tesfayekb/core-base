@@ -2,10 +2,11 @@
 // Test Helper Utilities
 // Following src/docs/implementation/testing/CORE_TESTING_PATTERNS.md
 
+import { render, fireEvent, waitFor, screen } from '@testing-library/react';
+import { expect } from 'vitest';
+
 // Re-export testing library functions that other tests depend on
-export { render, fireEvent, waitFor } from '@testing-library/react';
-export { screen } from '@testing-library/react';
-export { expect } from 'vitest';
+export { render, fireEvent, waitFor, screen, expect };
 
 export const testHelpers = {
   createTestUser: (overrides: any = {}) => ({

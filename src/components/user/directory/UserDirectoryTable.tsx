@@ -6,9 +6,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Modal } from "@/components/ui/modal";
 import { UserRoleAssignment } from '../UserRoleAssignment';
+import { UserForm } from '../UserForm';
 import { UserDirectoryTableProps } from './UserDirectoryTableProps';
 import { format } from 'date-fns';
-import { Edit, Trash2, Users } from 'lucide-react';
+import { Edit, Trash2, Users, UserCheck } from 'lucide-react';
 
 export function UserDirectoryTable({
   users,
@@ -28,24 +29,39 @@ export function UserDirectoryTable({
 }: UserDirectoryTableProps) {
   const [roleAssignmentUser, setRoleAssignmentUser] = useState<any>(null);
   const [showRoleModal, setShowRoleModal] = useState(false);
+  const [editUser, setEditUser] = useState<any>(null);
+  const [showEditModal, setShowEditModal] = useState(false);
 
   const formatDate = (dateString: string | undefined) => {
     if (!dateString) return 'N/A';
     try {
-      return format(new Date(dateString), 'MMM dd, yyyy');
+      return format(new Date(dateString), 'MMM dd, yyyy HH:mm');
     } catch (error) {
       return 'N/A';
     }
   };
 
   const handleRoleAssignment = (user: any) => {
+    console.log('Opening role assignment for user:', user);
     setRoleAssignmentUser(user);
     setShowRoleModal(true);
+  };
+
+  const handleEditUser = (user: any) => {
+    console.log('Opening edit for user:', user);
+    setEditUser(user);
+    setShowEditModal(true);
   };
 
   const handleRoleAssignmentSuccess = () => {
     setShowRoleModal(false);
     setRoleAssignmentUser(null);
+    // Trigger refetch by parent component
+  };
+
+  const handleEditSuccess = () => {
+    setShowEditModal(false);
+    setEditUser(null);
     // Trigger refetch by parent component
   };
 
@@ -107,6 +123,12 @@ export function UserDirectoryTable({
                 >
                   Created {sortField === 'created_at' && (sortDirection === 'asc' ? '↑' : '↓')}
                 </TableHead>
+                <TableHead 
+                  className="cursor-pointer hover:bg-gray-50"
+                  onClick={() => onSort('last_login_at')}
+                >
+                  Last Login {sortField === 'last_login_at' && (sortDirection === 'asc' ? '↑' : '↓')}
+                </TableHead>
                 <TableHead>Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -153,15 +175,27 @@ export function UserDirectoryTable({
                   <TableCell className="text-sm text-muted-foreground">
                     {formatDate(user.created_at)}
                   </TableCell>
+                  <TableCell className="text-sm text-muted-foreground">
+                    {formatDate(user.last_login_at)}
+                  </TableCell>
                   <TableCell>
-                    <div className="flex gap-2">
+                    <div className="flex gap-1">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleEditUser(user)}
+                        className="h-8"
+                      >
+                        <Edit className="h-3 w-3 mr-1" />
+                        Edit
+                      </Button>
                       <Button
                         variant="outline"
                         size="sm"
                         onClick={() => handleRoleAssignment(user)}
                         className="h-8"
                       >
-                        <Edit className="h-3 w-3 mr-1" />
+                        <UserCheck className="h-3 w-3 mr-1" />
                         Roles
                       </Button>
                       <Button
@@ -222,6 +256,23 @@ export function UserDirectoryTable({
             user={roleAssignmentUser}
             tenantId={roleAssignmentUser.tenant_id}
             onSuccess={handleRoleAssignmentSuccess}
+          />
+        )}
+      </Modal>
+
+      {/* Edit User Modal */}
+      <Modal
+        open={showEditModal}
+        onOpenChange={setShowEditModal}
+        title="Edit User"
+        size="lg"
+      >
+        {editUser && (
+          <UserForm
+            user={editUser}
+            tenantId={editUser.tenant_id}
+            onSuccess={handleEditSuccess}
+            onCancel={() => setShowEditModal(false)}
           />
         )}
       </Modal>

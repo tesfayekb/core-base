@@ -12,7 +12,7 @@ export function UserProfile() {
   const formatDate = (dateString: string | undefined) => {
     if (!dateString) return 'N/A';
     try {
-      return format(new Date(dateString), 'MMM dd, yyyy HH:mm');
+      return format(new Date(dateString), 'MMM dd, yyyy HH:mm:ss');
     } catch (error) {
       console.error('Error formatting date:', error);
       return 'N/A';
@@ -84,6 +84,12 @@ export function UserProfile() {
             <p className="text-sm">
               {userWithRoles?.tenant?.name || 'No Tenant Assigned'}
             </p>
+          </div>
+
+          {/* Created At */}
+          <div>
+            <Label className="text-sm font-medium text-muted-foreground">Created At</Label>
+            <p className="text-sm">{formatDate(userWithRoles?.created_at)}</p>
           </div>
 
           {/* Email Verified At */}

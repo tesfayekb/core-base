@@ -127,34 +127,45 @@ export function UserRoleAssignment({ user, tenantId, onSuccess }: UserRoleAssign
     <Card>
       <CardHeader>
         <CardTitle>Assign Roles to {user.email}</CardTitle>
+        <p className="text-sm text-muted-foreground">
+          Current roles: {user.user_roles?.map(ur => ur.roles?.name).join(', ') || 'None'}
+        </p>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="space-y-3">
           {availableRoles.length === 0 ? (
             <p className="text-sm text-muted-foreground">No roles available for this tenant.</p>
           ) : (
-            availableRoles.map((role) => (
-              <div key={role.id} className="flex items-center space-x-2">
-                <Checkbox
-                  id={role.id}
-                  checked={selectedRoles.includes(role.id)}
-                  onCheckedChange={(checked) => handleRoleToggle(role.id, !!checked)}
-                />
-                <div className="grid gap-1.5 leading-none">
-                  <label
-                    htmlFor={role.id}
-                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-                  >
-                    {role.name}
-                  </label>
-                  {role.description && (
-                    <p className="text-xs text-muted-foreground">
-                      {role.description}
-                    </p>
-                  )}
+            availableRoles.map((role) => {
+              const isSelected = selectedRoles.includes(role.id);
+              const isCurrentRole = user.user_roles?.some(ur => ur.role_id === role.id);
+              
+              return (
+                <div key={role.id} className="flex items-center space-x-2">
+                  <Checkbox
+                    id={role.id}
+                    checked={isSelected}
+                    onCheckedChange={(checked) => handleRoleToggle(role.id, !!checked)}
+                  />
+                  <div className="grid gap-1.5 leading-none">
+                    <label
+                      htmlFor={role.id}
+                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                    >
+                      {role.name}
+                      {isCurrentRole && (
+                        <span className="ml-2 text-xs text-green-600">(Currently assigned)</span>
+                      )}
+                    </label>
+                    {role.description && (
+                      <p className="text-xs text-muted-foreground">
+                        {role.description}
+                      </p>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
 
