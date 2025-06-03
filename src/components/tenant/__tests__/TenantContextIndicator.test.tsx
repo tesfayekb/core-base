@@ -1,75 +1,84 @@
-
 import React from 'react';
 import { render, screen } from '@testing-library/react';
+import '@testing-library/jest-dom';
 import { TenantContextIndicator } from '../TenantContextIndicator';
-import { AuthContext } from '@/contexts/AuthContext';
-import { BrowserRouter } from 'react-router-dom';
-
-const mockAuthContextWithTenant = {
-  user: { id: 'user-1', email: 'test@example.com' },
-  tenantId: 'tenant-1',
-  login: jest.fn(),
-  signIn: jest.fn(),
-  signOut: jest.fn(),
-  logout: jest.fn(),
-  isLoading: false,
-  loading: false
-};
-
-const mockAuthContextWithoutTenant = {
-  user: { id: 'user-1', email: 'test@example.com' },
-  tenantId: null,
-  login: jest.fn(),
-  signIn: jest.fn(),
-  signOut: jest.fn(),
-  logout: jest.fn(),
-  isLoading: false,
-  loading: false
-};
-
-const renderWithContext = (component: React.ReactElement, authContext: any) => {
-  return render(
-    <BrowserRouter>
-      <AuthContext.Provider value={authContext}>
-        {component}
-      </AuthContext.Provider>
-    </BrowserRouter>
-  );
-};
+import { TenantContext } from '@/contexts/TenantContext';
 
 describe('TenantContextIndicator', () => {
-  it('renders tenant active badge when user has tenant context', () => {
-    renderWithContext(<TenantContextIndicator />, mockAuthContextWithTenant);
-    
-    expect(screen.getByText('Tenant Active')).toBeInTheDocument();
-  });
+  test('renders tenant name when tenant is selected', () => {
+    const mockTenant = {
+      id: 'tenant-123',
+      name: 'Test Tenant',
+      slug: 'test-tenant',
+      status: 'active',
+      created_at: '2023-01-01T00:00:00Z',
+      updated_at: '2023-01-01T00:00:00Z',
+    };
 
-  it('renders no tenant context badge when user lacks tenant context', () => {
-    renderWithContext(<TenantContextIndicator />, mockAuthContextWithoutTenant);
-    
-    expect(screen.getByText('No Tenant Context')).toBeInTheDocument();
-  });
-
-  it('shows detailed information when showDetails is true', () => {
-    renderWithContext(<TenantContextIndicator showDetails />, mockAuthContextWithTenant);
-    
-    expect(screen.getByText('Current Tenant')).toBeInTheDocument();
-    expect(screen.getByText('test@example.com')).toBeInTheDocument();
-  });
-
-  it('does not show detailed information when showDetails is false', () => {
-    renderWithContext(<TenantContextIndicator showDetails={false} />, mockAuthContextWithTenant);
-    
-    expect(screen.getByText('Tenant Active')).toBeInTheDocument();
-    expect(screen.queryByText('test@example.com')).not.toBeInTheDocument();
-  });
-
-  it('applies custom className when provided', () => {
-    const { container } = renderWithContext(
-      <TenantContextIndicator className="custom-class" />, 
-      mockAuthContextWithTenant
+    render(
+      <TenantContext.Provider value={{ 
+        currentTenant: mockTenant, 
+        setCurrentTenant: jest.fn(),
+        tenants: [mockTenant],
+        isLoading: false,
+        error: null,
+        refreshTenants: jest.fn()
+      }}>
+        <TenantContextIndicator />
+      </TenantContext.Provider>
     );
-    
-    expect(container.firstChild).toHaveClass('custom-class');
+
+    expect(screen.getByText('Test Tenant')).toBeInTheDocument();
+  });
+
+  test('renders placeholder when no tenant is selected', () => {
+    render(
+      <TenantContext.Provider value={{ 
+        currentTenant: null, 
+        setCurrentTenant: jest.fn(),
+        tenants: [],
+        isLoading: false,
+        error: null,
+        refreshTenants: jest.fn()
+      }}>
+        <TenantContextIndicator />
+      </TenantContext.Provider>
+    );
+
+    expect(screen.getByText('No tenant selected')).toBeInTheDocument();
+  });
+
+  test('renders loading state', () => {
+    render(
+      <TenantContext.Provider value={{ 
+        currentTenant: null, 
+        setCurrentTenant: jest.fn(),
+        tenants: [],
+        isLoading: true,
+        error: null,
+        refreshTenants: jest.fn()
+      }}>
+        <TenantContextIndicator />
+      </TenantContext.Provider>
+    );
+
+    expect(screen.getByText('Loading...')).toBeInTheDocument();
+  });
+
+  test('renders error state', () => {
+    render(
+      <TenantContext.Provider value={{ 
+        currentTenant: null, 
+        setCurrentTenant: jest.fn(),
+        tenants: [],
+        isLoading: false,
+        error: new Error('Failed to load tenants'),
+        refreshTenants: jest.fn()
+      }}>
+        <TenantContextIndicator />
+      </TenantContext.Provider>
+    );
+
+    expect(screen.getByText('Error')).toBeInTheDocument();
   });
 });

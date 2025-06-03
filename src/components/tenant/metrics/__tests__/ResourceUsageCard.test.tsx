@@ -1,51 +1,61 @@
-
 import React from 'react';
 import { render, screen } from '@testing-library/react';
+import '@testing-library/jest-dom';
 import { ResourceUsageCard } from '../ResourceUsageCard';
 
-const mockResourceUsage = {
-  storage: 65,
-  api: 78,
-  bandwidth: 45
-};
+describe('ResourceUsageCard Component', () => {
+  test('renders the component with provided data', () => {
+    const mockData = {
+      title: 'Memory Usage',
+      used: 75,
+      available: 100,
+      unit: 'GB',
+    };
 
-describe('ResourceUsageCard', () => {
-  it('renders resource usage breakdown', () => {
-    render(<ResourceUsageCard resourceUsage={mockResourceUsage} />);
-    
-    expect(screen.getByText('Resource Usage Breakdown')).toBeInTheDocument();
-    expect(screen.getByText('Storage')).toBeInTheDocument();
-    expect(screen.getByText('API Calls')).toBeInTheDocument();
-    expect(screen.getByText('Bandwidth')).toBeInTheDocument();
+    render(
+      <ResourceUsageCard
+        title={mockData.title}
+        used={mockData.used}
+        available={mockData.available}
+        unit={mockData.unit}
+      />
+    );
+
+    expect(screen.getByText(mockData.title)).toBeInTheDocument();
+    expect(screen.getByText(`${mockData.used} / ${mockData.available} ${mockData.unit}`)).toBeInTheDocument();
   });
 
-  it('displays correct usage percentages', () => {
-    render(<ResourceUsageCard resourceUsage={mockResourceUsage} />);
-    
-    expect(screen.getByText('65%')).toBeInTheDocument();
-    expect(screen.getByText('78%')).toBeInTheDocument();
-    expect(screen.getByText('45%')).toBeInTheDocument();
+  test('displays "N/A" when used or available is not a number', () => {
+    render(
+      <ResourceUsageCard
+        title="CPU Usage"
+        used={NaN}
+        available={null}
+        unit="%"
+      />
+    );
+
+    expect(screen.getByText('N/A / N/A %')).toBeInTheDocument();
   });
 
-  it('shows warning badge for high usage', () => {
-    const highUsage = { storage: 95, api: 85, bandwidth: 45 };
-    render(<ResourceUsageCard resourceUsage={highUsage} />);
-    
-    // Storage should be red (>=90%)
-    expect(screen.getByText('95%')).toHaveClass('text-red-600');
-    // API should be yellow (>=75% but <90%)
-    expect(screen.getByText('85%')).toHaveClass('text-yellow-600');
-    // Bandwidth should be green (<75%)
-    expect(screen.getByText('45%')).toHaveClass('text-green-600');
-  });
+  test('displays a progress bar', () => {
+    const mockData = {
+      title: 'Disk Usage',
+      used: 60,
+      available: 100,
+      unit: 'GB',
+    };
 
-  it('renders progress bars with correct values', () => {
-    render(<ResourceUsageCard resourceUsage={mockResourceUsage} />);
-    
-    const progressBars = screen.getAllByRole('progressbar');
-    expect(progressBars).toHaveLength(3);
-    expect(progressBars[0]).toHaveAttribute('aria-valuenow', '65');
-    expect(progressBars[1]).toHaveAttribute('aria-valuenow', '78');
-    expect(progressBars[2]).toHaveAttribute('aria-valuenow', '45');
+    render(
+      <ResourceUsageCard
+        title={mockData.title}
+        used={mockData.used}
+        available={mockData.available}
+        unit={mockData.unit}
+      />
+    );
+
+    const progressBar = screen.getByRole('progressbar');
+    expect(progressBar).toBeInTheDocument();
   });
 });

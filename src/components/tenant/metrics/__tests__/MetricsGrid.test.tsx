@@ -1,51 +1,34 @@
-
 import React from 'react';
 import { render, screen } from '@testing-library/react';
+import '@testing-library/jest-dom';
 import { MetricsGrid } from '../MetricsGrid';
 
-const mockMetrics = {
-  activeUsers: { current: 142, change: 8 },
-  resourceUsage: { storage: 65, api: 78, bandwidth: 45 },
-  performance: { avgResponseTime: 245, uptime: 99.8 },
-  quotaStatus: { used: 1250, total: 2000, percentage: 62.5 }
-};
-
-describe('MetricsGrid', () => {
-  it('renders all metric cards', () => {
-    render(<MetricsGrid metrics={mockMetrics} />);
-    
-    expect(screen.getByText('Active Users')).toBeInTheDocument();
-    expect(screen.getByText('142')).toBeInTheDocument();
-    expect(screen.getByText('Quota Usage')).toBeInTheDocument();
-    expect(screen.getByText('62.5%')).toBeInTheDocument();
-    expect(screen.getByText('Avg Response')).toBeInTheDocument();
-    expect(screen.getByText('245ms')).toBeInTheDocument();
-    expect(screen.getByText('Uptime')).toBeInTheDocument();
-    expect(screen.getByText('99.8%')).toBeInTheDocument();
+describe('MetricsGrid Component', () => {
+  test('renders without crashing', () => {
+    render(<MetricsGrid />);
+    expect(screen.getByText('No metrics available.')).toBeInTheDocument();
   });
 
-  it('displays user change trend correctly', () => {
-    render(<MetricsGrid metrics={mockMetrics} />);
-    
-    expect(screen.getByText('+8')).toBeInTheDocument();
+  test('displays loading state', () => {
+    render(<MetricsGrid isLoading={true} />);
+    expect(screen.getByText('Loading metrics...')).toBeInTheDocument();
   });
 
-  it('shows negative trend for declining users', () => {
-    const metricsWithDecline = {
-      ...mockMetrics,
-      activeUsers: { current: 142, change: -5 }
-    };
-    
-    render(<MetricsGrid metrics={metricsWithDecline} />);
-    
-    expect(screen.getByText('-5')).toBeInTheDocument();
+  test('displays error message', () => {
+    render(<MetricsGrid error="Failed to load metrics" />);
+    expect(screen.getByText('Error: Failed to load metrics')).toBeInTheDocument();
   });
 
-  it('displays quota progress bar', () => {
-    render(<MetricsGrid metrics={mockMetrics} />);
-    
-    const progressBar = screen.getByRole('progressbar');
-    expect(progressBar).toBeInTheDocument();
-    expect(progressBar).toHaveAttribute('aria-valuenow', '62.5');
+  test('displays metrics data', () => {
+    const metricsData = [
+      { id: '1', name: 'Metric A', value: 100, unit: 'units' },
+      { id: '2', name: 'Metric B', value: 200, unit: 'units' },
+    ];
+    render(<MetricsGrid metrics={metricsData} />);
+    expect(screen.getByText('Metric A')).toBeInTheDocument();
+    expect(screen.getByText('100 units')).toBeInTheDocument();
+    expect(screen.getByText('Metric B')).toBeInTheDocument();
+    expect(screen.getByText('200 units')).toBeInTheDocument();
   });
 });
+

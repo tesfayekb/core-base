@@ -1,93 +1,128 @@
-
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import '@testing-library/jest-dom';
 import { TenantQuotaManagement } from '../TenantQuotaManagement';
-import { AuthProvider } from '@/components/auth/AuthProvider';
+import { AuthProvider } from '@/contexts/AuthContext';
+import { MockedRouterProvider } from '@/tests/utils/testHelpers';
 
-// Mock the hooks and services
-vi.mock('@/hooks/tenant/useTenantQuotas', () => ({
-  useTenantQuotas: () => ({
-    quotas: [
-      {
-        id: 'quota-1',
-        resource_type: 'storage',
-        quota_limit: 1000,
-        current_usage: 500,
-        warning_threshold: 80
-      }
-    ],
-    isLoading: false,
-    error: null,
-    updateQuota: vi.fn(),
-    deleteQuota: vi.fn()
-  })
+// Mock the useToast hook
+jest.mock('../../../hooks/use-toast', () => ({
+  useToast: () => ({
+    toast: jest.fn(),
+  }),
 }));
 
-vi.mock('@/components/auth/AuthProvider', () => ({
-  AuthProvider: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  useAuth: () => ({
-    user: { id: 'user-1', email: 'test@example.com' },
-    session: null,
-    tenantId: 'tenant-1',
-    currentTenantId: 'tenant-1',
-    loading: false,
-    signUp: vi.fn(),
-    signIn: vi.fn(),
-    signOut: vi.fn(),
-    resetPassword: vi.fn(),
-    updatePassword: vi.fn(),
-    refreshSession: vi.fn(),
-    authError: null,
-    clearAuthError: vi.fn(),
-    switchTenant: vi.fn(),
-    isAuthenticated: true
-  })
-}));
+describe('TenantQuotaManagement Component', () => {
+  const mockTenantId = 'test-tenant-id';
 
-const createTestQueryClient = () => new QueryClient({
-  defaultOptions: {
-    queries: { retry: false },
-    mutations: { retry: false }
-  }
-});
-
-const TestWrapper = ({ children }: { children: React.ReactNode }) => {
-  const queryClient = createTestQueryClient();
-  return (
-    <QueryClientProvider client={queryClient}>
+  it('renders without crashing', () => {
+    render(
       <AuthProvider>
-        {children}
+        <MockedRouterProvider>
+          <TenantQuotaManagement tenantId={mockTenantId} />
+        </MockedRouterProvider>
       </AuthProvider>
-    </QueryClientProvider>
-  );
-};
-
-describe('TenantQuotaManagement', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
-  it('renders quota management interface', () => {
-    render(
-      <TestWrapper>
-        <TenantQuotaManagement />
-      </TestWrapper>
     );
-
-    expect(screen.getByText('Quota Management')).toBeInTheDocument();
+    expect(screen.getByText('Tenant Quota Management')).toBeInTheDocument();
   });
 
-  it('displays quota list', async () => {
+  it('displays loading state initially', () => {
     render(
-      <TestWrapper>
-        <TenantQuotaManagement />
-      </TestWrapper>
+      <AuthProvider>
+        <MockedRouterProvider>
+          <TenantQuotaManagement tenantId={mockTenantId} />
+        </MockedRouterProvider>
+      </AuthProvider>
+    );
+    expect(screen.getByText('Loading quotas...')).toBeInTheDocument();
+  });
+
+  it('fetches and displays quotas', async () => {
+    const mockQuotas = [
+      { id: '1', name: 'Users', quota: 100, usage: 50, tenant_id: mockTenantId },
+      { id: '2', name: 'Storage', quota: 1000, usage: 750, tenant_id: mockTenantId },
+    ];
+
+    jest.spyOn(global, 'fetch').mockImplementation(async () => ({
+      json: async () => mockQuotas,
+      ok: true,
+    } as Response));
+
+    render(
+      <AuthProvider>
+        <MockedRouterProvider>
+          <TenantQuotaManagement tenantId={mockTenantId} />
+        </MockedRouterProvider>
+      </AuthProvider>
     );
 
     await waitFor(() => {
-      expect(screen.getByText('storage')).toBeInTheDocument();
+      expect(screen.getByText('Users')).toBeInTheDocument();
+      expect(screen.getByText('Storage')).toBeInTheDocument();
     });
+
+    (global.fetch as jest.Mock).mockRestore();
+  });
+
+  it('allows editing and updating a quota', async () => {
+    const mockQuotas = [
+      { id: '1', name: 'Users', quota: 100, usage: 50, tenant_id: mockTenantId },
+    ];
+
+    jest.spyOn(global, 'fetch')
+      .mockImplementationOnce(async () => ({
+        json: async () => mockQuotas,
+        ok: true,
+      } as Response))
+      .mockImplementationOnce(async () => ({ // Mock the update request
+        json: async () => ({ ...mockQuotas[0], quota: 150 }),
+        ok: true,
+      } as Response));
+
+    render(
+      <AuthProvider>
+        <MockedRouterProvider>
+          <TenantQuotaManagement tenantId={mockTenantId} />
+        </MockedRouterProvider>
+      </AuthProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Users')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+
+    const quotaInput = screen.getByLabelText('Quota') as HTMLInputElement;
+    fireEvent.change(quotaInput, { target: { value: '150' } });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Update Quota' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('150')).toBeInTheDocument();
+    });
+
+    (global.fetch as jest.Mock).mockRestore();
+  });
+
+  it('displays an error message on failed quota fetch', async () => {
+    jest.spyOn(global, 'fetch').mockImplementation(async () => ({
+      ok: false,
+      statusText: 'Failed to fetch',
+    } as Response));
+
+    render(
+      <AuthProvider>
+        <MockedRouterProvider>
+          <TenantQuotaManagement tenantId={mockTenantId} />
+        </MockedRouterProvider>
+      </AuthProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Failed to load quotas')).toBeInTheDocument();
+    });
+
+    (global.fetch as jest.Mock).mockRestore();
   });
 });

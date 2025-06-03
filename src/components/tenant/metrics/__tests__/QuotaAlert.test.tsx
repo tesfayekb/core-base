@@ -1,45 +1,27 @@
-
 import React from 'react';
 import { render, screen } from '@testing-library/react';
+import '@testing-library/jest-dom';
 import { QuotaAlert } from '../QuotaAlert';
 
-describe('QuotaAlert', () => {
-  it('does not render alert when quota is below 80%', () => {
-    const { container } = render(<QuotaAlert quotaPercentage={75} />);
-    expect(container.firstChild).toBeNull();
+describe('QuotaAlert Component', () => {
+  it('renders without errors', () => {
+    render(<QuotaAlert current={50} max={100} title="Test Quota" />);
+    expect(screen.getByText('Test Quota')).toBeInTheDocument();
   });
 
-  it('renders warning alert when quota is above 80%', () => {
-    render(<QuotaAlert quotaPercentage={85} />);
-    
-    expect(screen.getByText('Quota Warning')).toBeInTheDocument();
-    expect(screen.getByText(/You've used 85\.0% of your quota/)).toBeInTheDocument();
+  it('displays the correct usage percentage', () => {
+    render(<QuotaAlert current={50} max={100} title="Test Quota" />);
+    expect(screen.getByText('50%')).toBeInTheDocument();
   });
 
-  it('displays correct percentage in warning message', () => {
-    render(<QuotaAlert quotaPercentage={92.5} />);
-    
-    expect(screen.getByText(/You've used 92\.5% of your quota/)).toBeInTheDocument();
+  it('shows an alert when usage exceeds 80%', () => {
+    render(<QuotaAlert current={90} max={100} title="Test Quota" />);
+    expect(screen.getByText('Approaching Quota Limit')).toBeInTheDocument();
   });
 
-  it('shows upgrade suggestion in warning message', () => {
-    render(<QuotaAlert quotaPercentage={90} />);
-    
-    expect(screen.getByText(/Consider upgrading or optimizing usage/)).toBeInTheDocument();
-  });
-
-  it('renders with warning styles', () => {
-    render(<QuotaAlert quotaPercentage={85} />);
-    
-    const alertCard = screen.getByText('Quota Warning').closest('.border-yellow-200');
-    expect(alertCard).toBeInTheDocument();
-    expect(alertCard).toHaveClass('bg-yellow-50');
-  });
-
-  it('renders alert icon', () => {
-    render(<QuotaAlert quotaPercentage={85} />);
-    
-    const alertIcon = screen.getByText('Quota Warning').parentElement?.querySelector('svg');
-    expect(alertIcon).toBeInTheDocument();
+  it('does not show an alert when usage is below 80%', () => {
+    render(<QuotaAlert current={70} max={100} title="Test Quota" />);
+    expect(screen.queryByText('Approaching Quota Limit')).not.toBeInTheDocument();
   });
 });
+

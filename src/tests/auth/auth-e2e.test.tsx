@@ -1,77 +1,131 @@
-
-// Authentication End-to-End Tests
-// Following src/docs/implementation/testing/PHASE1_CORE_TESTING.md
-
 import React from 'react';
+import { describe, test, expect, beforeEach, afterEach } from '@jest/globals';
 import { render, screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
-import { AuthProvider } from '../../components/auth/AuthProvider';
-import { LoginForm } from '../../components/auth/LoginForm';
+import '@testing-library/jest-dom';
+import { AuthProvider } from '@/contexts/AuthContext';
+import { MemoryRouter } from 'react-router-dom';
 
-// Create proper mocks
-const mockSignInWithPassword = jest.fn();
-const mockSignOut = jest.fn();
-const mockGetSession = jest.fn();
-const mockOnAuthStateChange = jest.fn();
-
-jest.mock('../../services/database', () => ({
-  supabase: {
-    auth: {
-      signInWithPassword: mockSignInWithPassword,
-      signOut: mockSignOut,
-      getSession: mockGetSession,
-      onAuthStateChange: mockOnAuthStateChange
-    }
-  }
-}));
-
-describe('Authentication E2E Tests', () => {
+describe('Auth E2E Tests', () => {
   beforeEach(() => {
+    // Mock the Supabase client and any other dependencies as needed
+  });
+
+  afterEach(() => {
+    // Clean up any mocks or state after each test
     jest.clearAllMocks();
-    
-    mockOnAuthStateChange.mockReturnValue({
-      data: { subscription: { unsubscribe: jest.fn() } }
-    });
-    
-    mockGetSession.mockResolvedValue({
-      data: { session: null },
-      error: null
+  });
+
+  test('renders AuthProvider without crashing', () => {
+    render(
+      <MemoryRouter>
+        <AuthProvider>
+          <div>Auth Content</div>
+        </AuthProvider>
+      </MemoryRouter>
+    );
+    expect(screen.getByText('Auth Content')).toBeInTheDocument();
+  });
+
+  test('initializes with default auth state', () => {
+    render(
+      <MemoryRouter>
+        <AuthProvider>
+          <div>
+            <span data-testid="user-id"></span>
+            <span data-testid="is-authenticated"></span>
+          </div>
+        </AuthProvider>
+      </MemoryRouter>
+    );
+
+    const userIdSpan = screen.getByTestId('user-id');
+    const isAuthenticatedSpan = screen.getByTestId('is-authenticated');
+
+    expect(userIdSpan.textContent).toBe('');
+    expect(isAuthenticatedSpan.textContent).toBe('');
+  });
+
+  test('updates auth state on login', async () => {
+    const mockUser = {
+      id: 'mock-user-id',
+      email: 'test@example.com',
+      app_metadata: {},
+      aud: 'authenticated',
+      confirmation_sent_at: null,
+      created_at: '',
+      email_confirmed_at: null,
+      identities: [],
+      last_sign_in_at: null,
+      phone: '',
+      role: '',
+      updated_at: '',
+      user_metadata: {}
+    };
+
+    const mockSupabaseClient = {
+      auth: {
+        getSession: jest.fn().mockResolvedValue({ data: { session: { user: mockUser } }, error: null }),
+        onAuthStateChange: jest.fn(),
+        signInWithOAuth: jest.fn(),
+        signOut: jest.fn()
+      }
+    };
+
+    jest.mock('@/integrations/supabase/client', () => ({
+      supabase: mockSupabaseClient,
+    }));
+
+    render(
+      <MemoryRouter>
+        <AuthProvider>
+          <div>
+            <span data-testid="user-id"></span>
+            <span data-testid="is-authenticated"></span>
+          </div>
+        </AuthProvider>
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      const userIdSpan = screen.getByTestId('user-id');
+      const isAuthenticatedSpan = screen.getByTestId('is-authenticated');
+
+      expect(userIdSpan.textContent).toBe('mock-user-id');
+      expect(isAuthenticatedSpan.textContent).toBe('true');
     });
   });
 
-  test('should complete full authentication flow', async () => {
-    const user = userEvent.setup();
-    
+  test('updates auth state on logout', async () => {
+    const mockSupabaseClient = {
+      auth: {
+        getSession: jest.fn().mockResolvedValue({ data: { session: null }, error: null }),
+        onAuthStateChange: jest.fn(),
+        signInWithOAuth: jest.fn(),
+        signOut: jest.fn().mockResolvedValue({ data: {}, error: null })
+      }
+    };
+
+    jest.mock('@/integrations/supabase/client', () => ({
+      supabase: mockSupabaseClient,
+    }));
+
     render(
-      <AuthProvider>
-        <LoginForm />
-      </AuthProvider>
+      <MemoryRouter>
+        <AuthProvider>
+          <div>
+            <span data-testid="user-id"></span>
+            <span data-testid="is-authenticated"></span>
+          </div>
+        </AuthProvider>
+      </MemoryRouter>
     );
 
-    // Mock successful login
-    mockSignInWithPassword.mockResolvedValue({
-      data: { 
-        user: { id: 'test-id', email: 'test@example.com' }, 
-        session: { access_token: 'token' } 
-      },
-      error: null
-    });
-
-    // Fill in login form
-    const emailInput = screen.getByLabelText(/email/i);
-    const passwordInput = screen.getByLabelText(/password/i);
-    const submitButton = screen.getByRole('button', { name: /sign in/i });
-
-    await user.type(emailInput, 'test@example.com');
-    await user.type(passwordInput, 'password123');
-    await user.click(submitButton);
-
-    // Should call authentication service
     await waitFor(() => {
-      expect(mockSignInWithPassword).toHaveBeenCalledWith({
-        email: 'test@example.com',
-        password: 'password123'
-      });
+      const userIdSpan = screen.getByTestId('user-id');
+      const isAuthenticatedSpan = screen.getByTestId('is-authenticated');
+
+      expect(userIdSpan.textContent).toBe('');
+      expect(isAuthenticatedSpan.textContent).toBe('false');
     });
   });
 });

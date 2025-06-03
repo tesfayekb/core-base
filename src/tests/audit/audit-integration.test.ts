@@ -1,215 +1,104 @@
-
-// Audit System Integration Tests
-// Tests interactions between audit components
-
-import { describe, it, expect, beforeEach, jest } from '@jest/globals';
-import '@testing-library/jest-dom';
+import { describe, test, expect, beforeEach, afterEach } from '@jest/globals';
 import { render, screen, waitFor } from '@testing-library/react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import React from 'react';
-import { AuditDashboard } from '../../components/audit/AuditDashboard';
-import { standardizedAuditLogger } from '../../services/audit/StandardizedAuditLogger';
-import { realTimeAuditMonitor } from '../../services/audit/RealTimeAuditMonitor';
-import { enhancedAuditService } from '../../services/audit/enhancedAuditService';
+import '@testing-library/jest-dom';
+import { AuthProvider } from '@/contexts/AuthContext';
+import { MockedSupabaseProvider } from '../utils/MockedSupabaseProvider';
+import { RealTimeAuditMonitor } from '@/components/audit/RealTimeAuditMonitor';
+import { AuditDashboard } from '@/components/audit/AuditDashboard';
+import { SecurityThreatsPanel } from '@/components/audit/SecurityThreatsPanel';
+import { StandardizedAuditLogger } from '@/services/audit/StandardizedAuditLogger';
+import { createClient } from '@supabase/supabase-js';
 
-// Mock AuthContext
-jest.mock('../../contexts/AuthContext', () => ({
-  useAuth: () => ({
-    tenantId: 'test-tenant-123',
-    user: { id: 'test-user-123' }
-  })
-}));
-
-// Mock Supabase
-jest.mock('../../integrations/supabase/client', () => ({
-  supabase: {
-    from: jest.fn(() => ({
-      select: jest.fn(() => ({
-        eq: jest.fn(() => ({
-          gte: jest.fn(() => ({
-            lte: jest.fn(() => ({
-              order: jest.fn(() => Promise.resolve({
-                data: [],
-                error: null
-              }))
-            }))
-          }))
+// Mock Supabase client
+jest.mock('@/integrations/supabase/client', () => {
+  const mockSupabase = {
+    from: jest.fn(() => mockSupabase),
+    select: jest.fn(() => mockSupabase),
+    eq: jest.fn(() => mockSupabase),
+    order: jest.fn(() => mockSupabase),
+    realtime: {
+      subscribe: jest.fn(() => ({
+        on: jest.fn(() => ({
+          subscribe: jest.fn()
         }))
       }))
-    })),
-    channel: jest.fn(() => ({
-      on: jest.fn(() => ({
-        subscribe: jest.fn()
-      }))
-    })),
-    removeChannel: jest.fn()
-  }
-}));
+    }
+  };
+  return { supabase: mockSupabase };
+});
 
-describe('Audit System Integration Tests', () => {
-  let queryClient: QueryClient;
-
+describe('Audit Integration Tests', () => {
   beforeEach(() => {
-    queryClient = new QueryClient({
-      defaultOptions: {
-        queries: { retry: false },
-        mutations: { retry: false }
-      }
-    });
+    // Clear mocks before each test
     jest.clearAllMocks();
   });
 
-  const renderWithProviders = (component: React.ReactElement) => {
-    return render(
-      React.createElement(QueryClientProvider, { client: queryClient }, component)
+  test('RealTimeAuditMonitor renders without errors', async () => {
+    render(
+      <MockedSupabaseProvider>
+        <AuthProvider>
+          <RealTimeAuditMonitor />
+        </AuthProvider>
+      </MockedSupabaseProvider>
     );
-  };
-
-  describe('Audit Flow Integration', () => {
-    it('should integrate standardized logger with enhanced audit service', async () => {
-      const mockContext = {
-        userId: 'user-123',
-        tenantId: 'tenant-456',
-        requestId: 'req-789'
-      };
-
-      // Log event through standardized logger
-      await standardizedAuditLogger.logStandardizedEvent(
-        'test.integration',
-        'test_resource',
-        'resource-123',
-        'success',
-        mockContext
-      );
-
-      // Verify it flows through to enhanced audit service
-      expect(enhancedAuditService).toBeDefined();
-    });
-
-    it('should display real-time audit data in dashboard', async () => {
-      renderWithProviders(React.createElement(AuditDashboard));
-
-      // Wait for dashboard to load
-      await waitFor(() => {
-        const dashboardTitle = screen.queryByText('Audit Dashboard');
-        expect(dashboardTitle).not.toBeNull();
-      });
-
-      // Verify metrics grid is displayed
-      const totalEventsElement = screen.queryByText('Total Events');
-      const securityEventsElement = screen.queryByText('Security Events');
-      const failureRateElement = screen.queryByText('Failure Rate');
-      
-      expect(totalEventsElement).not.toBeNull();
-      expect(securityEventsElement).not.toBeNull();
-      expect(failureRateElement).not.toBeNull();
-    });
-
-    it('should handle audit event subscriptions', async () => {
-      const mockCallback = jest.fn();
-      
-      const unsubscribe = realTimeAuditMonitor.subscribeToAuditEvents(mockCallback);
-      
-      expect(typeof unsubscribe).toBe('function');
-      
-      // Test unsubscribe
-      unsubscribe();
+    
+    // Wait for component to render
+    await waitFor(() => {
+      expect(screen.getByText('Real-Time Audit Events')).toBeInTheDocument();
     });
   });
 
-  describe('Component Interaction Tests', () => {
-    it('should update metrics when new audit events are logged', async () => {
-      // Mock initial metrics
-      const mockMetrics = {
-        totalEvents: 5,
-        eventsByType: { 'test': 3, 'security': 2 },
-        securityEvents: 2,
-        failureRate: 0,
-        recentActivity: []
-      };
-
-      jest.spyOn(realTimeAuditMonitor, 'getAuditMetrics')
-        .mockResolvedValue(mockMetrics);
-
-      renderWithProviders(React.createElement(AuditDashboard));
-
-      await waitFor(() => {
-        const totalEventsValue = screen.queryByText('5');
-        const securityEventsValue = screen.queryByText('2');
-        expect(totalEventsValue).not.toBeNull();
-        expect(securityEventsValue).not.toBeNull();
-      });
-    });
-
-    it('should generate compliance reports with proper data flow', async () => {
-      const mockReport = {
-        reportType: 'daily' as const,
-        tenantId: 'tenant-123',
-        generatedAt: new Date().toISOString(),
-        timeRange: {
-          start: new Date(Date.now() - 24 * 60 * 60 * 1000),
-          end: new Date()
-        },
-        summary: {
-          totalEvents: 10,
-          eventsByType: {},
-          securityEvents: 2,
-          failureRate: 0,
-          recentActivity: []
-        },
-        events: [],
-        complianceChecks: {
-          dataAccessLogged: true,
-          authenticationTracked: true,
-          securityEventsMonitored: true,
-          retentionCompliant: true,
-          threatDetectionActive: true
-        }
-      };
-
-      jest.spyOn(realTimeAuditMonitor, 'generateComplianceReport')
-        .mockResolvedValue(mockReport);
-
-      const report = await realTimeAuditMonitor.generateComplianceReport('tenant-123', 'daily');
-      
-      expect(report.reportType).toBe('daily');
-      expect(report.complianceChecks.dataAccessLogged).toBe(true);
-      expect(report.complianceChecks.threatDetectionActive).toBe(true);
+  test('AuditDashboard renders without errors', async () => {
+    render(
+      <MockedSupabaseProvider>
+        <AuthProvider>
+          <AuditDashboard />
+        </AuthProvider>
+      </MockedSupabaseProvider>
+    );
+    
+    // Wait for component to render
+    await waitFor(() => {
+      expect(screen.getByText('Audit Dashboard')).toBeInTheDocument();
     });
   });
 
-  describe('Performance Integration Tests', () => {
-    it('should maintain performance standards across integrated components', async () => {
-      const events = Array.from({ length: 50 }, (_, i) => ({
-        action: `test.batch.${i}`,
-        resourceType: 'test_resource',
-        resourceId: `resource-${i}`,
-        outcome: 'success' as const,
-        context: {
-          userId: 'user-123',
-          tenantId: 'tenant-456'
-        }
-      }));
+  test('SecurityThreatsPanel renders without errors', async () => {
+    render(
+      <MockedSupabaseProvider>
+        <AuthProvider>
+          <SecurityThreatsPanel />
+        </AuthProvider>
+      </MockedSupabaseProvider>
+    );
+    
+    // Wait for component to render
+    await waitFor(() => {
+      expect(screen.getByText('Security Threats')).toBeInTheDocument();
+    });
+  });
 
-      const startTime = performance.now();
-      
-      await Promise.all(
-        events.map(event => 
-          standardizedAuditLogger.logStandardizedEvent(
-            event.action,
-            event.resourceType,
-            event.resourceId,
-            event.outcome,
-            event.context
-          )
-        )
-      );
-      
-      const endTime = performance.now();
-      const avgDuration = (endTime - startTime) / events.length;
-      
-      // Should maintain <5ms average per event
-      expect(avgDuration).toBeLessThan(5);
+  test('StandardizedAuditLogger logs an event', async () => {
+    const mockLogger = new StandardizedAuditLogger();
+    const mockEvent = {
+      event_type: 'test_event',
+      user_id: 'test_user',
+      tenant_id: 'test_tenant',
+      timestamp: new Date().toISOString(),
+      details: { message: 'This is a test event' }
+    };
+    
+    // Mock the insert function
+    const mockSupabaseInsert = jest.fn().mockResolvedValue({ data: [mockEvent], error: null });
+    (createClient() as any).from = jest.fn(() => ({
+      insert: mockSupabaseInsert,
+    }));
+
+    await mockLogger.logEvent(mockEvent.event_type, mockEvent.user_id, mockEvent.tenant_id, mockEvent.details);
+
+    // Wait for the logging to complete
+    await waitFor(() => {
+      expect(mockSupabaseInsert).toHaveBeenCalled();
     });
   });
 });

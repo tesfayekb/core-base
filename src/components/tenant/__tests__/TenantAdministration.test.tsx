@@ -1,94 +1,85 @@
-
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import '@testing-library/jest-dom';
 import { TenantAdministration } from '../TenantAdministration';
-import { AuthProvider } from '@/components/auth/AuthProvider';
+import { AuthProvider } from '@/contexts/AuthContext';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
-// Mock the hooks and services
-vi.mock('@/hooks/tenant/useTenantManagement', () => ({
-  useTenantManagement: () => ({
-    tenants: [
-      {
-        id: 'tenant-1',
-        name: 'Test Tenant',
-        slug: 'test-tenant',
-        status: 'active',
-        created_at: '2023-01-01T00:00:00Z'
-      }
-    ],
-    isLoading: false,
-    error: null,
-    createTenant: vi.fn(),
-    updateTenant: vi.fn(),
-    deleteTenant: vi.fn()
-  })
-}));
+const queryClient = new QueryClient();
 
-vi.mock('@/components/auth/AuthProvider', () => ({
-  AuthProvider: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  useAuth: () => ({
-    user: { id: 'user-1', email: 'test@example.com' },
-    session: null,
-    tenantId: 'tenant-1',
-    currentTenantId: 'tenant-1',
-    loading: false,
-    signUp: vi.fn(),
-    signIn: vi.fn(),
-    signOut: vi.fn(),
-    resetPassword: vi.fn(),
-    updatePassword: vi.fn(),
-    refreshSession: vi.fn(),
-    authError: null,
-    clearAuthError: vi.fn(),
-    switchTenant: vi.fn(),
-    isAuthenticated: true
-  })
-}));
-
-const createTestQueryClient = () => new QueryClient({
-  defaultOptions: {
-    queries: { retry: false },
-    mutations: { retry: false }
-  }
-});
-
-const TestWrapper = ({ children }: { children: React.ReactNode }) => {
-  const queryClient = createTestQueryClient();
-  return (
+const renderWithAuthProvider = (ui: React.ReactElement) => {
+  return render(
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        {children}
+        {ui}
       </AuthProvider>
     </QueryClientProvider>
   );
 };
 
-describe('TenantAdministration', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
-  it('renders tenant administration interface', () => {
-    render(
-      <TestWrapper>
-        <TenantAdministration />
-      </TestWrapper>
-    );
-
+describe('TenantAdministration Component', () => {
+  test('renders TenantAdministration component', () => {
+    renderWithAuthProvider(<TenantAdministration />);
     expect(screen.getByText('Tenant Administration')).toBeInTheDocument();
   });
 
-  it('displays tenant list', async () => {
-    render(
-      <TestWrapper>
-        <TenantAdministration />
-      </TestWrapper>
-    );
+  test('displays loading state initially', () => {
+    renderWithAuthProvider(<TenantAdministration />);
+    expect(screen.getByText('Loading...')).toBeInTheDocument();
+  });
 
+  test('renders tenant details after loading', async () => {
+    renderWithAuthProvider(<TenantAdministration />);
     await waitFor(() => {
-      expect(screen.getByText('Test Tenant')).toBeInTheDocument();
-    });
+      expect(screen.getByText(/Tenant ID:/i)).toBeInTheDocument();
+    }, { timeout: 5000 });
+  });
+
+  test('allows navigation to Tenant Customization', async () => {
+    renderWithAuthProvider(<TenantAdministration />);
+    await waitFor(() => {
+      expect(screen.getByText(/Tenant ID:/i)).toBeInTheDocument();
+    }, { timeout: 5000 });
+
+    fireEvent.click(screen.getByText('Customization'));
+    await waitFor(() => {
+      expect(screen.getByText('Customize Your Tenant')).toBeInTheDocument();
+    }, { timeout: 5000 });
+  });
+
+  test('allows navigation to Tenant Metrics', async () => {
+    renderWithAuthProvider(<TenantAdministration />);
+    await waitFor(() => {
+      expect(screen.getByText(/Tenant ID:/i)).toBeInTheDocument();
+    }, { timeout: 5000 });
+
+    fireEvent.click(screen.getByText('Metrics'));
+    await waitFor(() => {
+      expect(screen.getByText('Tenant Metrics Dashboard')).toBeInTheDocument();
+    }, { timeout: 5000 });
+  });
+
+  test('allows navigation to Tenant Quota Management', async () => {
+    renderWithAuthProvider(<TenantAdministration />);
+    await waitFor(() => {
+      expect(screen.getByText(/Tenant ID:/i)).toBeInTheDocument();
+    }, { timeout: 5000 });
+
+    fireEvent.click(screen.getByText('Quota Management'));
+    await waitFor(() => {
+      expect(screen.getByText('Manage Tenant Quotas')).toBeInTheDocument();
+    }, { timeout: 5000 });
+  });
+
+  test('allows navigation to Tenant Workflow Manager', async () => {
+    renderWithAuthProvider(<TenantAdministration />);
+    await waitFor(() => {
+      expect(screen.getByText(/Tenant ID:/i)).toBeInTheDocument();
+    }, { timeout: 5000 });
+
+    fireEvent.click(screen.getByText('Workflow Manager'));
+    await waitFor(() => {
+      expect(screen.getByText('Tenant Workflow Management')).toBeInTheDocument();
+    }, { timeout: 5000 });
   });
 });
