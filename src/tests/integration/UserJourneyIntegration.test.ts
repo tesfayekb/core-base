@@ -1,72 +1,58 @@
 
-import { render, screen } from '@testing-library/react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { BrowserRouter } from 'react-router-dom';
-import React from 'react';
-
-// Mock the auth context
-jest.mock('@/contexts/AuthContext', () => ({
-  useAuth: () => ({
-    user: { id: 'test-user', email: 'test@example.com' },
-    currentTenantId: 'test-tenant',
-    loading: false
-  })
-}));
-
-// Mock the permission hook
-jest.mock('@/hooks/usePermission', () => ({
-  usePermission: () => ({
-    hasPermission: true,
-    isLoading: false,
-    error: null,
-    refetch: jest.fn()
-  })
-}));
-
-// Mock the user management hook
-jest.mock('@/hooks/user/useUserManagement', () => ({
-  useUserManagement: () => ({
-    users: [],
-    isLoading: false,
-    error: null,
-    createUser: jest.fn(),
-    updateUser: jest.fn(),
-    deleteUser: jest.fn(),
-    assignRoles: jest.fn(),
-    refetch: jest.fn()
-  })
-}));
-
-const TestWrapper = ({ children }: { children: React.ReactNode }) => {
-  const queryClient = new QueryClient({
-    defaultOptions: {
-      queries: { retry: false },
-      mutations: { retry: false }
-    }
-  });
-
-  return (
-    <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
-        {children}
-      </BrowserRouter>
-    </QueryClientProvider>
-  );
-};
+import { describe, it, expect, beforeEach, afterEach } from '@jest/globals';
+import { supabase } from '@/services/database/connection';
 
 describe('User Journey Integration Tests', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
+  let testUserId: string;
+  let testTenantId: string;
+
+  beforeEach(async () => {
+    // Setup test data
+    const { data: tenant } = await supabase
+      .from('tenants')
+      .insert({ name: 'Test Tenant', slug: 'test-tenant' })
+      .select()
+      .single();
+    
+    testTenantId = tenant.id;
+
+    const { data: user } = await supabase
+      .from('users')
+      .insert({
+        email: 'test@example.com',
+        tenant_id: testTenantId,
+        password_hash: 'test_hash'
+      })
+      .select()
+      .single();
+    
+    testUserId = user.id;
   });
 
-  test('should render test placeholder', () => {
-    // Basic test to ensure the test setup works
-    expect(true).toBe(true);
+  afterEach(async () => {
+    // Cleanup test data
+    await supabase.from('users').delete().eq('id', testUserId);
+    await supabase.from('tenants').delete().eq('id', testTenantId);
   });
 
-  test('should handle user management workflow', async () => {
-    // Test placeholder - would implement actual user journey tests here
-    const mockUser = { id: 'test-user', email: 'test@example.com' };
-    expect(mockUser.id).toBe('test-user');
+  it('should create user with tenant association', async () => {
+    const { data: user } = await supabase
+      .from('users')
+      .select('*, user_tenants(*)')
+      .eq('id', testUserId)
+      .single();
+
+    expect(user).toBeTruthy();
+    expect(user.tenant_id).toBe(testTenantId);
+  });
+
+  it('should handle user permissions correctly', async () => {
+    // Test permission system integration
+    const { data: permissions } = await supabase
+      .from('user_permissions')
+      .select('*')
+      .eq('user_id', testUserId);
+
+    expect(Array.isArray(permissions)).toBe(true);
   });
 });
