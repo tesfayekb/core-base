@@ -3,13 +3,15 @@ import React, { useState, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Modal } from "@/components/ui/modal";
 import { UserDirectorySearch } from './directory/UserDirectorySearch';
 import { UserDirectoryFilters } from './directory/UserDirectoryFilters';
 import { UserDirectoryTable } from './directory/UserDirectoryTable';
 import { UserDirectoryBulkActions } from './directory/UserDirectoryBulkActions';
+import { UserForm } from './UserForm';
 import { useUserManagement } from '@/hooks/user/useUserManagement';
 import { useAuth } from '@/contexts/AuthContext';
-import { Users, Filter, Download } from 'lucide-react';
+import { Users, Filter, Download, Plus } from 'lucide-react';
 
 export function UserDirectory() {
   const { user, currentTenantId } = useAuth();
@@ -27,6 +29,9 @@ export function UserDirectory() {
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+
+  // Add user modal state
+  const [showAddUserModal, setShowAddUserModal] = useState(false);
   
   // Force refresh data when component mounts or when user logs in
   React.useEffect(() => {
@@ -106,6 +111,11 @@ export function UserDirectory() {
         : [...prev, userId]
     );
   };
+
+  const handleAddUserSuccess = () => {
+    setShowAddUserModal(false);
+    refetch();
+  };
   
   if (error) {
     return (
@@ -144,6 +154,10 @@ export function UserDirectory() {
           <Button variant="outline" size="sm">
             <Download className="h-4 w-4 mr-2" />
             Export
+          </Button>
+          <Button onClick={() => setShowAddUserModal(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Add User
           </Button>
         </div>
       </div>
@@ -206,6 +220,22 @@ export function UserDirectory() {
         onPageSizeChange={setPageSize}
         totalUsers={filteredAndSortedUsers.length}
       />
+
+      {/* Add User Modal */}
+      <Modal
+        open={showAddUserModal}
+        onOpenChange={setShowAddUserModal}
+        title="Add New User"
+        size="lg"
+      >
+        {currentTenantId && (
+          <UserForm
+            tenantId={currentTenantId}
+            onSuccess={handleAddUserSuccess}
+            onCancel={() => setShowAddUserModal(false)}
+          />
+        )}
+      </Modal>
     </div>
   );
 }
