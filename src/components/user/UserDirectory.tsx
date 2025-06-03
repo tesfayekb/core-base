@@ -1,17 +1,13 @@
 
 import React, { useState, useMemo } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Modal } from "@/components/ui/modal";
-import { UserDirectorySearch } from './directory/UserDirectorySearch';
-import { UserDirectoryFilters } from './directory/UserDirectoryFilters';
+import { UserDirectoryHeader } from './directory/UserDirectoryHeader';
+import { UserDirectorySearchFilters } from './directory/UserDirectorySearchFilters';
 import { UserDirectoryTable } from './directory/UserDirectoryTable';
 import { UserDirectoryBulkActions } from './directory/UserDirectoryBulkActions';
 import { UserForm } from './UserForm';
 import { useUserManagement } from '@/hooks/user/useUserManagement';
 import { useAuth } from '@/contexts/AuthContext';
-import { Users, Download, Plus } from 'lucide-react';
 
 export function UserDirectory() {
   const { user, currentTenantId } = useAuth();
@@ -116,72 +112,53 @@ export function UserDirectory() {
     setShowAddUserModal(false);
     refetch();
   };
+
+  const handleExport = () => {
+    // Export functionality to be implemented
+    console.log('Export users functionality');
+  };
   
   if (error) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-red-600">Error Loading Users</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p>Failed to load user directory: {String(error)}</p>
-          <Button onClick={() => refetch()} className="mt-4">
+      <div className="space-y-6">
+        <UserDirectoryHeader 
+          userCount={0}
+          onExport={handleExport}
+          onAddUser={() => setShowAddUserModal(true)}
+        />
+        <div className="text-center py-12">
+          <p className="text-red-600">Failed to load user directory: {String(error)}</p>
+          <button 
+            onClick={() => refetch()} 
+            className="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+          >
             Retry
-          </Button>
-        </CardContent>
-      </Card>
+          </button>
+        </div>
+      </div>
     );
   }
   
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-            <Users className="h-6 w-6" />
-            User Directory
-          </h2>
-          <p className="text-muted-foreground">
-            Manage and monitor user accounts across your organization
-          </p>
-        </div>
-        
-        <div className="flex items-center gap-2">
-          <Badge variant="secondary">
-            {filteredAndSortedUsers.length} users
-          </Badge>
-          <Button variant="outline" size="sm">
-            <Download className="h-4 w-4 mr-2" />
-            Export
-          </Button>
-          <Button onClick={() => setShowAddUserModal(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            Add User
-          </Button>
-        </div>
-      </div>
+      <UserDirectoryHeader 
+        userCount={filteredAndSortedUsers.length}
+        onExport={handleExport}
+        onAddUser={() => setShowAddUserModal(true)}
+      />
       
-      {/* Search and Filters */}
-      <Card>
-        <CardContent className="p-6">
-          <div className="space-y-4">
-            <UserDirectorySearch 
-              value={searchQuery}
-              onChange={setSearchQuery}
-            />
-            
-            <UserDirectoryFilters
-              statusFilter={statusFilter}
-              onStatusFilterChange={setStatusFilter}
-              roleFilter={roleFilter}
-              onRoleFilterChange={setRoleFilter}
-              tenantFilter={tenantFilter}
-              onTenantFilterChange={setTenantFilter}
-            />
-          </div>
-        </CardContent>
-      </Card>
+      {/* Search and Filters - Single instance only */}
+      <UserDirectorySearchFilters
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        statusFilter={statusFilter}
+        onStatusFilterChange={setStatusFilter}
+        roleFilter={roleFilter}
+        onRoleFilterChange={setRoleFilter}
+        tenantFilter={tenantFilter}
+        onTenantFilterChange={setTenantFilter}
+      />
       
       {/* Bulk Actions */}
       {selectedUsers.length > 0 && (
