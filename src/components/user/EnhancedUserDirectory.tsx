@@ -4,165 +4,124 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { UserDirectorySearch } from './directory/UserDirectorySearch';
-import { UserDirectoryFilters } from './directory/UserDirectoryFilters';
-import { UserDirectoryTable } from './directory/UserDirectoryTable';
-import { UserDirectoryBulkActions } from './directory/UserDirectoryBulkActions';
+import { Input } from "@/components/ui/input";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useUserManagement } from '@/hooks/user/useUserManagement';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePermission } from '@/hooks/usePermission';
-import { Users, Filter, Download, Globe, Building, User } from 'lucide-react';
-
-type DirectoryScope = 'system' | 'tenant' | 'personal';
+import { Users, Filter, Search, Eye, Edit, Trash2 } from 'lucide-react';
+import { UserWithRoles } from '@/services/user/UserManagementService';
 
 export function EnhancedUserDirectory() {
   const { user, currentTenantId } = useAuth();
-  const [directoryScope, setDirectoryScope] = useState<DirectoryScope>('tenant');
-  const [selectedTenant, setSelectedTenant] = useState<string>(currentTenantId || '');
+  const { users, isLoading, error } = useUserManagement();
   
-  // Permission checks for different scopes
-  const { hasPermission: canViewAllUsers } = usePermission('ViewAny', 'users');
-  const { hasPermission: canViewTenantUsers } = usePermission('Read', 'users');
-  const { hasPermission: canManageUsers } = usePermission('Manage', 'users');
+  // Permission checks
+  const { hasPermission: canViewAllUsers } = usePermission('manage', 'all');
+  const { hasPermission: canManageUsers } = usePermission('manage', 'users');
+  const { hasPermission: canViewUsers } = usePermission('read', 'users');
   
-  // Determine effective tenant ID based on scope
-  const effectiveTenantId = useMemo(() => {
-    switch (directoryScope) {
-      case 'system':
-        return null; // System-wide view
-      case 'tenant':
-        return selectedTenant || currentTenantId;
-      case 'personal':
-        return currentTenantId;
-      default:
-        return currentTenantId;
-    }
-  }, [directoryScope, selectedTenant, currentTenantId]);
-
-  const { users, isLoading, error } = useUserManagement(effectiveTenantId || '');
-  
-  // State for search and filters
+  // State for filters and search
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [roleFilter, setRoleFilter] = useState<string>('all');
-  const [sortField, setSortField] = useState<string>('created_at');
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
-  const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
+  const [tenantFilter, setTenantFilter] = useState<string>('all');
+  const [scopeFilter, setScopeFilter] = useState<string>('current-tenant');
   
-  // Pagination state
-  const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
-
-  // Filter users based on scope and permissions
-  const filteredAndSortedUsers = useMemo(() => {
+  // Filter users based on permissions and filters
+  const filteredUsers = useMemo(() => {
     if (!users || !Array.isArray(users)) return [];
     
-    let filtered = users.filter(userItem => {
-      // Scope-based filtering
-      switch (directoryScope) {
-        case 'system':
-          // SuperAdmin can see all users across all tenants
-          if (!canViewAllUsers) return false;
-          break;
-        case 'tenant':
-          // Users in current tenant context
-          if (!canViewTenantUsers) return false;
-          break;
-        case 'personal':
-          // Only current user's data
-          if (userItem.id !== user?.id) return false;
-          break;
-      }
-
-      // Search filtering
-      const matchesSearch = searchQuery === '' || 
-        userItem.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        `${userItem.first_name || ''} ${userItem.last_name || ''}`.toLowerCase().includes(searchQuery.toLowerCase());
-      
-      // Status filtering
-      const matchesStatus = statusFilter === 'all' || userItem.status === statusFilter;
-      
-      // Role filtering
-      const matchesRole = roleFilter === 'all' || (
-        userItem.user_roles && userItem.user_roles.some(userRole => 
-          userRole.role.name.toLowerCase() === roleFilter.toLowerCase()
-        )
-      );
-      
-      return matchesSearch && matchesStatus && matchesRole;
-    });
+    let filtered = users;
     
-    // Sort users
-    filtered.sort((a, b) => {
-      let aValue: any = a[sortField as keyof typeof a];
-      let bValue: any = b[sortField as keyof typeof b];
-      
-      if (!aValue && !bValue) return 0;
-      if (!aValue) return sortDirection === 'asc' ? 1 : -1;
-      if (!bValue) return sortDirection === 'asc' ? -1 : 1;
-      
-      if (typeof aValue === 'string') aValue = aValue.toLowerCase();
-      if (typeof bValue === 'string') bValue = bValue.toLowerCase();
-      
-      if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
-      if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
-      return 0;
-    });
+    // Apply permission-based filtering
+    if (!canViewAllUsers) {
+      // If user can't view all users, only show users from their tenant
+      filtered = filtered.filter(u => u.tenant_id === currentTenantId);
+    }
+    
+    // Apply scope filter
+    if (scopeFilter === 'current-tenant' && currentTenantId) {
+      filtered = filtered.filter(u => u.tenant_id === currentTenantId);
+    } else if (scopeFilter === 'all-tenants' && !canViewAllUsers) {
+      // If user doesn't have permission to view all, fall back to current tenant
+      filtered = filtered.filter(u => u.tenant_id === currentTenantId);
+    }
+    
+    // Apply search filter
+    if (searchQuery) {
+      filtered = filtered.filter(u => 
+        u.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        `${u.first_name || ''} ${u.last_name || ''}`.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+    }
+    
+    // Apply status filter
+    if (statusFilter !== 'all') {
+      filtered = filtered.filter(u => u.status === statusFilter);
+    }
+    
+    // Apply tenant filter
+    if (tenantFilter !== 'all') {
+      filtered = filtered.filter(u => u.tenant_id === tenantFilter);
+    }
     
     return filtered;
-  }, [users, directoryScope, canViewAllUsers, canViewTenantUsers, user?.id, searchQuery, statusFilter, roleFilter, sortField, sortDirection]);
+  }, [users, searchQuery, statusFilter, tenantFilter, scopeFilter, canViewAllUsers, currentTenantId]);
   
-  // Paginate users
-  const paginatedUsers = useMemo(() => {
-    const start = (currentPage - 1) * pageSize;
-    return filteredAndSortedUsers.slice(start, start + pageSize);
-  }, [filteredAndSortedUsers, currentPage, pageSize]);
+  // Get unique tenants for filter
+  const uniqueTenants = useMemo(() => {
+    if (!users) return [];
+    const tenants = [...new Set(users.map(u => u.tenant_id))];
+    return tenants;
+  }, [users]);
   
-  const totalPages = Math.ceil(filteredAndSortedUsers.length / pageSize);
-
-  // Scope options based on permissions
-  const availableScopes = useMemo(() => {
-    const scopes = [];
-    
-    if (canViewAllUsers) {
-      scopes.push({ value: 'system', label: 'System-wide', icon: Globe });
-    }
-    
-    if (canViewTenantUsers) {
-      scopes.push({ value: 'tenant', label: 'Current Tenant', icon: Building });
-    }
-    
-    scopes.push({ value: 'personal', label: 'Personal', icon: User });
-    
-    return scopes;
-  }, [canViewAllUsers, canViewTenantUsers]);
-
-  // Bulk selection handlers
-  const handleSelectAll = () => {
-    if (selectedUsers.length === paginatedUsers.length) {
-      setSelectedUsers([]);
-    } else {
-      setSelectedUsers(paginatedUsers.map(user => user.id));
-    }
-  };
+  const renderUserRow = (user: UserWithRoles) => (
+    <TableRow key={user.id}>
+      <TableCell>
+        <div className="flex flex-col">
+          <span className="font-medium">{user.email}</span>
+          <span className="text-sm text-muted-foreground">
+            {user.first_name} {user.last_name}
+          </span>
+        </div>
+      </TableCell>
+      <TableCell>
+        <Badge variant={user.status === 'active' ? 'default' : 'secondary'}>
+          {user.status}
+        </Badge>
+      </TableCell>
+      <TableCell>
+        <div className="flex flex-wrap gap-1">
+          {user.user_roles?.map((userRole, idx) => (
+            <Badge key={idx} variant="outline">
+              {userRole.role.name}
+            </Badge>
+          )) || <span className="text-muted-foreground">No roles</span>}
+        </div>
+      </TableCell>
+      <TableCell className="text-sm text-muted-foreground">
+        {user.tenant_id}
+      </TableCell>
+      <TableCell>
+        <div className="flex gap-2">
+          <Button variant="ghost" size="sm">
+            <Eye className="h-4 w-4" />
+          </Button>
+          {canManageUsers && (
+            <>
+              <Button variant="ghost" size="sm">
+                <Edit className="h-4 w-4" />
+              </Button>
+              <Button variant="ghost" size="sm">
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </>
+          )}
+        </div>
+      </TableCell>
+    </TableRow>
+  );
   
-  const handleSelectUser = (userId: string) => {
-    setSelectedUsers(prev => 
-      prev.includes(userId) 
-        ? prev.filter(id => id !== userId)
-        : [...prev, userId]
-    );
-  };
-
-  const getScopeIcon = (scope: DirectoryScope) => {
-    switch (scope) {
-      case 'system': return Globe;
-      case 'tenant': return Building;
-      case 'personal': return User;
-      default: return Users;
-    }
-  };
-
   if (error) {
     return (
       <Card>
@@ -170,7 +129,7 @@ export function EnhancedUserDirectory() {
           <CardTitle className="text-red-600">Error Loading Users</CardTitle>
         </CardHeader>
         <CardContent>
-          <p>Failed to load user directory: {String(error)}</p>
+          <p>Failed to load users: {error}</p>
         </CardContent>
       </Card>
     );
@@ -178,131 +137,160 @@ export function EnhancedUserDirectory() {
   
   return (
     <div className="space-y-6">
-      {/* Header with Scope Selection */}
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold tracking-tight flex items-center gap-2">
             <Users className="h-6 w-6" />
-            User Directory
+            Enhanced User Directory
           </h2>
           <p className="text-muted-foreground">
-            Manage and monitor user accounts based on your access level
+            {canViewAllUsers ? 'System-wide user management' : 'Tenant user management'}
           </p>
         </div>
         
-        <div className="flex items-center gap-4">
-          {/* Scope Selection */}
-          <div className="flex items-center gap-2">
-            <label className="text-sm font-medium">View:</label>
-            <Select value={directoryScope} onValueChange={(value: DirectoryScope) => setDirectoryScope(value)}>
-              <SelectTrigger className="w-48">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {availableScopes.map(scope => {
-                  const Icon = scope.icon;
-                  return (
-                    <SelectItem key={scope.value} value={scope.value}>
-                      <div className="flex items-center gap-2">
-                        <Icon className="h-4 w-4" />
-                        {scope.label}
-                      </div>
-                    </SelectItem>
-                  );
-                })}
-              </SelectContent>
-            </Select>
-          </div>
-
+        <div className="flex items-center gap-2">
           <Badge variant="secondary">
-            {filteredAndSortedUsers.length} users
+            {filteredUsers.length} users
           </Badge>
-          
-          {canManageUsers && (
-            <Button variant="outline" size="sm">
-              <Download className="h-4 w-4 mr-2" />
-              Export
-            </Button>
+          {canViewAllUsers && (
+            <Badge variant="outline">
+              SuperAdmin View
+            </Badge>
           )}
         </div>
       </div>
-
-      {/* Scope Information */}
+      
+      {/* Filters */}
       <Card>
-        <CardContent className="p-4">
-          <div className="flex items-center gap-3">
-            {React.createElement(getScopeIcon(directoryScope), { className: "h-5 w-5 text-muted-foreground" })}
-            <div>
-              <p className="font-medium">
-                {directoryScope === 'system' && 'System-wide User Directory'}
-                {directoryScope === 'tenant' && `Tenant User Directory${selectedTenant ? ` (${selectedTenant})` : ''}`}
-                {directoryScope === 'personal' && 'Personal User Profile'}
-              </p>
-              <p className="text-sm text-muted-foreground">
-                {directoryScope === 'system' && 'Viewing all users across all tenants (SuperAdmin access)'}
-                {directoryScope === 'tenant' && 'Viewing users within the current tenant context'}
-                {directoryScope === 'personal' && 'Viewing only your personal user information'}
-              </p>
+        <CardContent className="p-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+            {/* Search */}
+            <div className="relative">
+              <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search users..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10"
+              />
             </div>
+            
+            {/* Scope Filter - only show if user has permission */}
+            {canViewAllUsers && (
+              <Select value={scopeFilter} onValueChange={setScopeFilter}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Scope" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="current-tenant">Current Tenant</SelectItem>
+                  <SelectItem value="all-tenants">All Tenants</SelectItem>
+                </SelectContent>
+              </Select>
+            )}
+            
+            {/* Status Filter */}
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger>
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="active">Active</SelectItem>
+                <SelectItem value="pending_verification">Pending</SelectItem>
+                <SelectItem value="suspended">Suspended</SelectItem>
+              </SelectContent>
+            </Select>
+            
+            {/* Tenant Filter - only show if viewing all tenants */}
+            {canViewAllUsers && scopeFilter === 'all-tenants' && (
+              <Select value={tenantFilter} onValueChange={setTenantFilter}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Tenant" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Tenants</SelectItem>
+                  {uniqueTenants.map(tenantId => (
+                    <SelectItem key={tenantId} value={tenantId}>
+                      {tenantId.slice(0, 8)}...
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+            
+            {/* Clear Filters */}
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setSearchQuery('');
+                setStatusFilter('all');
+                setTenantFilter('all');
+                setScopeFilter('current-tenant');
+              }}
+            >
+              <Filter className="h-4 w-4 mr-2" />
+              Clear
+            </Button>
           </div>
         </CardContent>
       </Card>
       
-      {/* Search and Filters - Only show for system and tenant views */}
-      {directoryScope !== 'personal' && (
-        <Card>
-          <CardContent className="p-6">
-            <div className="space-y-4">
-              <UserDirectorySearch 
-                value={searchQuery}
-                onChange={setSearchQuery}
-              />
-              
-              <UserDirectoryFilters
-                statusFilter={statusFilter}
-                onStatusFilterChange={setStatusFilter}
-                roleFilter={roleFilter}
-                onRoleFilterChange={setRoleFilter}
-              />
-            </div>
-          </CardContent>
-        </Card>
-      )}
-      
-      {/* Bulk Actions - Only show if users are selected and user has management permissions */}
-      {selectedUsers.length > 0 && canManageUsers && directoryScope !== 'personal' && (
-        <UserDirectoryBulkActions
-          selectedCount={selectedUsers.length}
-          onClearSelection={() => setSelectedUsers([])}
-        />
-      )}
-      
       {/* User Table */}
-      <UserDirectoryTable
-        users={paginatedUsers}
-        isLoading={isLoading}
-        selectedUsers={selectedUsers}
-        onSelectAll={directoryScope !== 'personal' ? handleSelectAll : undefined}
-        onSelectUser={directoryScope !== 'personal' ? handleSelectUser : undefined}
-        sortField={sortField}
-        sortDirection={sortDirection}
-        onSort={(field) => {
-          if (sortField === field) {
-            setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
-          } else {
-            setSortField(field);
-            setSortDirection('asc');
-          }
-        }}
-        currentPage={currentPage}
-        totalPages={totalPages}
-        pageSize={pageSize}
-        onPageChange={setCurrentPage}
-        onPageSizeChange={setPageSize}
-        totalUsers={filteredAndSortedUsers.length}
-        canManage={canManageUsers && directoryScope !== 'personal'}
-        scope={directoryScope}
-      />
+      <Card>
+        <CardContent className="p-0">
+          {isLoading ? (
+            <div className="p-8 text-center">
+              <div className="inline-flex items-center gap-2">
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
+                Loading users...
+              </div>
+            </div>
+          ) : filteredUsers.length === 0 ? (
+            <div className="p-8 text-center text-muted-foreground">
+              {users.length === 0 ? 'No users found in the system.' : 'No users match your filters.'}
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>User</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Roles</TableHead>
+                  <TableHead>Tenant</TableHead>
+                  <TableHead>Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredUsers.map(renderUserRow)}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+      
+      {/* Debug Info */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-sm">Debug Information</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 gap-4 text-sm">
+            <div>
+              <strong>Total Users:</strong> {users?.length || 0}
+            </div>
+            <div>
+              <strong>Filtered Users:</strong> {filteredUsers.length}
+            </div>
+            <div>
+              <strong>Current Tenant:</strong> {currentTenantId}
+            </div>
+            <div>
+              <strong>Can View All:</strong> {canViewAllUsers ? 'Yes' : 'No'}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

@@ -13,6 +13,9 @@ export interface UserWithRoles {
   tenant_id: string;
   created_at: string;
   updated_at: string;
+  last_login_at?: string;
+  email_verified_at?: string;
+  failed_login_attempts?: number;
   metadata?: Record<string, any>;
   user_roles?: Array<{
     role: {
@@ -83,6 +86,7 @@ export class UserManagementService {
       const { data, error, count } = await query;
 
       if (error) {
+        console.error('Error fetching users:', error);
         throw error;
       }
 
@@ -95,6 +99,33 @@ export class UserManagementService {
       };
     } catch (error) {
       console.error('Error fetching users:', error);
+      throw error;
+    }
+  }
+
+  static async getAllUsers(): Promise<UserWithRoles[]> {
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select(`
+          *,
+          user_roles(
+            role:roles(
+              id,
+              name,
+              description
+            )
+          )
+        `);
+
+      if (error) {
+        console.error('Error fetching all users:', error);
+        throw error;
+      }
+
+      return data || [];
+    } catch (error) {
+      console.error('Error fetching all users:', error);
       throw error;
     }
   }
@@ -117,7 +148,8 @@ export class UserManagementService {
         .single();
 
       if (error) {
-        throw error;
+        console.error('Error fetching user:', error);
+        return null;
       }
 
       return data;
