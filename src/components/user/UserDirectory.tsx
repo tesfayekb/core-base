@@ -8,6 +8,7 @@ import { UserDirectoryBulkActions } from './directory/UserDirectoryBulkActions';
 import { UserForm } from './UserForm';
 import { useUserManagement } from '@/hooks/user/useUserManagement';
 import { useAuth } from '@/contexts/AuthContext';
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export function UserDirectory() {
   const { user, currentTenantId } = useAuth();
@@ -119,6 +120,9 @@ export function UserDirectory() {
   };
   
   if (error) {
+    console.error('User directory error:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+    
     return (
       <div className="space-y-6">
         <UserDirectoryHeader 
@@ -126,15 +130,18 @@ export function UserDirectory() {
           onExport={handleExport}
           onAddUser={() => setShowAddUserModal(true)}
         />
-        <div className="text-center py-12">
-          <p className="text-red-600">Failed to load user directory: {String(error)}</p>
-          <button 
-            onClick={() => refetch()} 
-            className="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-          >
-            Retry
-          </button>
-        </div>
+        <Alert variant="destructive">
+          <AlertDescription>
+            Failed to load user directory: {errorMessage}
+            <br />
+            <button 
+              onClick={() => refetch()} 
+              className="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+            >
+              Retry
+            </button>
+          </AlertDescription>
+        </Alert>
       </div>
     );
   }

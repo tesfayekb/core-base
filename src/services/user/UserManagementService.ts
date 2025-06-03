@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { UserWithRoles, CreateUserRequest, UpdateUserRequest } from '@/types/user';
 
@@ -46,12 +45,12 @@ export class UserManagementService {
         console.log('Successfully synced users from auth:', syncResult || 0);
       }
 
-      // Build the query
+      // Build the query - fix the ambiguous relationship by specifying the exact foreign key
       let query = supabase
         .from('users')
         .select(`
           *,
-          user_roles:user_roles(
+          user_roles:user_roles!user_roles_user_id_fkey(
             id,
             role_id,
             assigned_at,
@@ -130,7 +129,7 @@ export class UserManagementService {
         })
         .select(`
           *,
-          user_roles:user_roles(
+          user_roles:user_roles!user_roles_user_id_fkey(
             id,
             role_id,
             assigned_at,
@@ -177,7 +176,7 @@ export class UserManagementService {
         .eq('id', userId)
         .select(`
           *,
-          user_roles:user_roles(
+          user_roles:user_roles!user_roles_user_id_fkey(
             id,
             role_id,
             assigned_at,
@@ -232,7 +231,7 @@ export class UserManagementService {
         .from('users')
         .select(`
           *,
-          user_roles:user_roles(
+          user_roles:user_roles!user_roles_user_id_fkey(
             id,
             role_id,
             assigned_at,
@@ -257,6 +256,44 @@ export class UserManagementService {
       return data as UserWithRoles;
     } catch (error) {
       console.error('Error getting user by ID:', error);
+      throw error;
+    }
+  }
+
+  static async assignRoles(userId: string, roleIds: string[], tenantId: string): Promise<void> {
+    try {
+      // Remove existing roles for the user and tenant
+      const { error: deleteError } = await supabase
+        .from('user_roles')
+        .delete()
+        .eq('user_id', userId)
+        .eq('tenant_id', tenantId);
+
+      if (deleteError) {
+        console.error('Error deleting existing user roles:', deleteError);
+        throw deleteError;
+      }
+
+      // Insert new roles for the user and tenant
+      const newRoles = roleIds.map(roleId => ({
+        user_id: userId,
+        role_id: roleId,
+        tenant_id: tenantId,
+        assigned_at: new Date().toISOString()
+      }));
+
+      const { data: insertData, error: insertError } = await supabase
+        .from('user_roles')
+        .insert(newRoles);
+
+      if (insertError) {
+        console.error('Error assigning new roles to user:', insertError);
+        throw insertError;
+      }
+
+      console.log('Successfully assigned roles to user:', insertData);
+    } catch (error) {
+      console.error('Error assigning roles to user:', error);
       throw error;
     }
   }
