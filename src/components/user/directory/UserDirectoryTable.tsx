@@ -68,6 +68,33 @@ export function UserDirectoryTable({
     window.location.reload();
   };
 
+  const formatLastLogin = (lastLogin: string | null) => {
+    if (!lastLogin) return 'Never';
+    
+    try {
+      const date = new Date(lastLogin);
+      return date.toLocaleString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true
+      });
+    } catch (error) {
+      return 'Invalid date';
+    }
+  };
+
+  const getTenantName = (tenantId: string) => {
+    // For now, just show the tenant ID or a shortened version
+    // In a real app, you'd probably have a tenant lookup
+    if (tenantId === '50a9eb00-510b-40db-935e-9ea8e0e988e6') {
+      return 'Default Org';
+    }
+    return tenantId.substring(0, 8) + '...';
+  };
+
   const SortableHeader = ({ field, children }: { field: string; children: React.ReactNode }) => (
     <TableHead 
       className="cursor-pointer hover:bg-muted/50" 
@@ -108,6 +135,7 @@ export function UserDirectoryTable({
               <SortableHeader field="email">Email</SortableHeader>
               <SortableHeader field="first_name">Name</SortableHeader>
               <SortableHeader field="status">Status</SortableHeader>
+              <TableHead>Tenant</TableHead>
               <TableHead>Roles</TableHead>
               <SortableHeader field="last_login_at">Last Login</SortableHeader>
               <TableHead>Actions</TableHead>
@@ -132,6 +160,11 @@ export function UserDirectoryTable({
                   </Badge>
                 </TableCell>
                 <TableCell>
+                  <span className="text-sm text-muted-foreground">
+                    {getTenantName(user.tenant_id)}
+                  </span>
+                </TableCell>
+                <TableCell>
                   <div className="flex flex-wrap gap-1">
                     {user.user_roles?.map((userRole) => (
                       <Badge key={userRole.id} variant="outline" className="text-xs">
@@ -141,10 +174,9 @@ export function UserDirectoryTable({
                   </div>
                 </TableCell>
                 <TableCell>
-                  {user.last_login_at 
-                    ? new Date(user.last_login_at).toLocaleDateString()
-                    : 'Never'
-                  }
+                  <span className="text-sm">
+                    {formatLastLogin(user.last_login_at)}
+                  </span>
                 </TableCell>
                 <TableCell>
                   <div className="flex items-center space-x-2">
