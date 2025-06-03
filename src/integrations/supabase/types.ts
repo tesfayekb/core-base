@@ -207,7 +207,7 @@ export type Database = {
           is_system_role: boolean | null
           metadata: Json | null
           name: string
-          tenant_id: string
+          tenant_id: string | null
           updated_at: string | null
         }
         Insert: {
@@ -217,7 +217,7 @@ export type Database = {
           is_system_role?: boolean | null
           metadata?: Json | null
           name: string
-          tenant_id: string
+          tenant_id?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -227,7 +227,7 @@ export type Database = {
           is_system_role?: boolean | null
           metadata?: Json | null
           name?: string
-          tenant_id?: string
+          tenant_id?: string | null
           updated_at?: string | null
         }
         Relationships: [
@@ -900,6 +900,10 @@ export type Database = {
           resource_id: string
           source: string
         }[]
+      }
+      is_current_user_superadmin: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
       }
       log_audit_event: {
         Args: {
