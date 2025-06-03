@@ -24,6 +24,7 @@ Last Updated: 2025-06-03
 | 009 | user_sync_verification_and_audit | 2025-06-03 | ✅ Applied | Verification and audit logging for user synchronization |
 | 010 | force_user_sync_with_audit_logs | 2025-06-03 | ✅ Applied | Final fix for missing users and comprehensive audit logging |
 | 011 | fix_tenant_associations | 2025-06-03 | ✅ Applied | **CRITICAL FIX** - Ensures all users have proper tenant associations |
+| 012 | targeted_login_sync_fix | 2025-06-03 | ✅ Applied | **CRITICAL FIX** - Fixes login time synchronization between auth.users and users tables |
 
 ## Critical Migrations
 
@@ -73,6 +74,17 @@ Last Updated: 2025-06-03
   - Updates users.tenant_id to match default tenant
   - Dynamic handling of user_tenants table structure
 
+### Migration 012: Targeted Login Sync Fix
+- **Problem**: login_time_mismatch between auth.users.last_sign_in_at and users.last_login_at
+- **Solution**: Enhanced sync functions to ensure exact timestamp matching
+- **Impact**: Eliminates login time synchronization discrepancies
+- **Key Features**:
+  - Removes COALESCE logic that preserved stale login timestamps
+  - Direct assignment of auth.users.last_sign_in_at to users.last_login_at
+  - Updated both manually_sync_user and trigger functions
+  - Force sync all existing users to fix current mismatches
+  - Comprehensive audit logging for all sync operations
+
 ## Migration Files Location
 
 All migration files are located in:
@@ -101,7 +113,7 @@ See [RUNNING_MIGRATIONS.md](./RUNNING_MIGRATIONS.md) for detailed instructions o
 
 ## Migration Development Guidelines
 
-1. **Naming Convention**: `XXX_descriptive_name.ts` where XXX is a zero-padded number
+1. **Naming Convention**: `XXX_descriptive_name.sql` where XXX is a zero-padded number
 2. **Idempotency**: All migrations must be idempotent (safe to run multiple times)
 3. **Transaction Safety**: Wrap complex migrations in transactions
 4. **Documentation**: Update this file and SCHEMA_MIGRATIONS.md after creating new migrations
@@ -109,7 +121,7 @@ See [RUNNING_MIGRATIONS.md](./RUNNING_MIGRATIONS.md) for detailed instructions o
 
 ## User Synchronization Status
 
-The latest migrations (008-011) have resolved critical user synchronization and tenant association issues:
+The latest migrations (008-012) have resolved critical user synchronization and tenant association issues:
 
 ✅ **Fixed Issues:**
 - Null last_login_at fields
@@ -118,6 +130,7 @@ The latest migrations (008-011) have resolved critical user synchronization and 
 - Inconsistent user-tenant relationships
 - Missing tenant associations in user_tenants table
 - Improper tenant context for users
+- **Login time mismatches between auth.users and users tables** (Migration 012)
 
 ✅ **Current Status:**
 - All auth.users automatically sync to users table
@@ -126,6 +139,7 @@ The latest migrations (008-011) have resolved critical user synchronization and 
 - Real-time sync via triggers on auth operations
 - All users have proper tenant associations
 - Default tenant context established for all users
+- **Perfect login timestamp synchronization** between auth and app tables
 
 ## Debugging Scripts
 
@@ -141,4 +155,3 @@ Debugging SQL scripts are stored in `/sql-scripts/debugging/`:
 - [RUNNING_MIGRATIONS.md](./RUNNING_MIGRATIONS.md) - How to run migrations
 - [MIGRATION_PATTERNS.md](./MIGRATION_PATTERNS.md) - Best practices and patterns
 - [ZERO_DOWNTIME_MIGRATIONS.md](./ZERO_DOWNTIME_MIGRATIONS.md) - Production migration strategies
-
