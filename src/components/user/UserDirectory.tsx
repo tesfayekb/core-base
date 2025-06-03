@@ -10,6 +10,9 @@ import { useUserManagement } from '@/hooks/user/useUserManagement';
 import { useAuth } from '@/contexts/AuthContext';
 
 export function UserDirectory() {
+  // Add debugging to see if this component is being rendered multiple times
+  console.log('🔍 UserDirectory component rendering');
+  
   const { user, currentTenantId } = useAuth();
   const { users, isLoading, error, refetch } = useUserManagement(currentTenantId || '');
   
@@ -139,6 +142,8 @@ export function UserDirectory() {
     );
   }
   
+  console.log('🎯 Rendering UserDirectory with search filters ONCE');
+  
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -148,7 +153,7 @@ export function UserDirectory() {
         onAddUser={() => setShowAddUserModal(true)}
       />
       
-      {/* Search and Filters - ONLY ONE INSTANCE */}
+      {/* Search and Filters - SINGLE INSTANCE ONLY */}
       <UserDirectorySearchFilters
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
