@@ -1,4 +1,12 @@
-import { render, screen, waitFor } from '@testing-library/react';
+
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 
-export * from '@testing-library/react'
+// Export everything from testing library
+export * from '@testing-library/react';
+export { screen, waitFor, fireEvent };
+
+// Mock router provider for tests
+export const MockedRouterProvider = ({ children }: { children: React.ReactNode }) => {
+  return <div>{children}</div>;
+};

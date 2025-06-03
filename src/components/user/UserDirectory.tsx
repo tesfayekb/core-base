@@ -13,12 +13,13 @@ import { Users, Filter, Download } from 'lucide-react';
 
 export function UserDirectory() {
   const { user, currentTenantId } = useAuth();
-  const { users, isLoading, error } = useUserManagement(currentTenantId || '');
+  const { users, isLoading, error, refetch } = useUserManagement(currentTenantId || '');
   
   // State for search and filters
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [roleFilter, setRoleFilter] = useState<string>('all');
+  const [tenantFilter, setTenantFilter] = useState<string>('all');
   const [sortField, setSortField] = useState<string>('created_at');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
@@ -26,6 +27,13 @@ export function UserDirectory() {
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+  
+  // Force refresh data when component mounts or when user logs in
+  React.useEffect(() => {
+    if (user) {
+      refetch();
+    }
+  }, [user, refetch]);
   
   // Filter and sort users
   const filteredAndSortedUsers = useMemo(() => {
@@ -41,11 +49,16 @@ export function UserDirectory() {
       // Role filtering using actual role data
       const matchesRole = roleFilter === 'all' || (
         user.user_roles && user.user_roles.some(userRole => 
-          userRole.role.name.toLowerCase() === roleFilter.toLowerCase()
+          userRole?.roles?.name?.toLowerCase() === roleFilter.toLowerCase()
         )
       );
       
-      return matchesSearch && matchesStatus && matchesRole;
+      // Tenant filtering
+      const matchesTenant = tenantFilter === 'all' || 
+        (tenantFilter === 'no-tenant' && !user.tenant_id) ||
+        user.tenant_id === tenantFilter;
+      
+      return matchesSearch && matchesStatus && matchesRole && matchesTenant;
     });
     
     // Sort users
@@ -67,7 +80,7 @@ export function UserDirectory() {
     });
     
     return filtered;
-  }, [users, searchQuery, statusFilter, roleFilter, sortField, sortDirection]);
+  }, [users, searchQuery, statusFilter, roleFilter, tenantFilter, sortField, sortDirection]);
   
   // Paginate users
   const paginatedUsers = useMemo(() => {
@@ -102,6 +115,9 @@ export function UserDirectory() {
         </CardHeader>
         <CardContent>
           <p>Failed to load user directory: {String(error)}</p>
+          <Button onClick={() => refetch()} className="mt-4">
+            Retry
+          </Button>
         </CardContent>
       </Card>
     );
@@ -146,6 +162,8 @@ export function UserDirectory() {
               onStatusFilterChange={setStatusFilter}
               roleFilter={roleFilter}
               onRoleFilterChange={setRoleFilter}
+              tenantFilter={tenantFilter}
+              onTenantFilterChange={setTenantFilter}
             />
           </div>
         </CardContent>

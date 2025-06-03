@@ -9,6 +9,8 @@ interface UserDirectoryFiltersProps {
   onStatusFilterChange: (value: string) => void;
   roleFilter: string;
   onRoleFilterChange: (value: string) => void;
+  tenantFilter: string;
+  onTenantFilterChange: (value: string) => void;
 }
 
 interface Role {
@@ -17,21 +19,30 @@ interface Role {
   description?: string;
 }
 
+interface Tenant {
+  id: string;
+  name: string;
+  slug: string;
+}
+
 export function UserDirectoryFilters({
   statusFilter,
   onStatusFilterChange,
   roleFilter,
   onRoleFilterChange,
+  tenantFilter,
+  onTenantFilterChange,
 }: UserDirectoryFiltersProps) {
   const { currentTenantId } = useAuth();
   const [roles, setRoles] = useState<Role[]>([]);
+  const [tenants, setTenants] = useState<Tenant[]>([]);
   const [isLoadingRoles, setIsLoadingRoles] = useState(false);
+  const [isLoadingTenants, setIsLoadingTenants] = useState(false);
 
   useEffect(() => {
     const fetchRoles = async () => {
       setIsLoadingRoles(true);
       try {
-        // For SuperAdmin, fetch all roles across all tenants
         const { data, error } = await supabase
           .from('roles')
           .select('id, name, description')
@@ -49,22 +60,72 @@ export function UserDirectoryFilters({
       }
     };
 
+    const fetchTenants = async () => {
+      setIsLoadingTenants(true);
+      try {
+        const { data, error } = await supabase
+          .from('tenants')
+          .select('id, name, slug')
+          .order('name');
+        
+        if (error) {
+          console.error('Error fetching tenants:', error);
+        } else {
+          setTenants(data || []);
+        }
+      } catch (err) {
+        console.error('Error fetching tenants:', err);
+      } finally {
+        setIsLoadingTenants(false);
+      }
+    };
+
     fetchRoles();
+    fetchTenants();
   }, [currentTenantId]);
 
   return (
-    <Select value={roleFilter} onValueChange={onRoleFilterChange}>
-      <SelectTrigger className="w-40">
-        <SelectValue placeholder={isLoadingRoles ? "Loading..." : "Role"} />
-      </SelectTrigger>
-      <SelectContent>
-        <SelectItem value="all">All Roles</SelectItem>
-        {roles.map((role) => (
-          <SelectItem key={role.id} value={role.name}>
-            {role.name}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
+    <div className="flex items-center gap-4">
+      <Select value={statusFilter} onValueChange={onStatusFilterChange}>
+        <SelectTrigger className="w-40">
+          <SelectValue placeholder="All Status" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">All Status</SelectItem>
+          <SelectItem value="active">Active</SelectItem>
+          <SelectItem value="inactive">Inactive</SelectItem>
+          <SelectItem value="pending_verification">Pending</SelectItem>
+        </SelectContent>
+      </Select>
+
+      <Select value={roleFilter} onValueChange={onRoleFilterChange}>
+        <SelectTrigger className="w-40">
+          <SelectValue placeholder={isLoadingRoles ? "Loading..." : "All Roles"} />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">All Roles</SelectItem>
+          {roles.map((role) => (
+            <SelectItem key={role.id} value={role.name}>
+              {role.name}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+
+      <Select value={tenantFilter} onValueChange={onTenantFilterChange}>
+        <SelectTrigger className="w-48">
+          <SelectValue placeholder={isLoadingTenants ? "Loading..." : "All Tenants"} />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">All Tenants</SelectItem>
+          <SelectItem value="no-tenant">No Tenant</SelectItem>
+          {tenants.map((tenant) => (
+            <SelectItem key={tenant.id} value={tenant.id}>
+              {tenant.name}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
   );
 }

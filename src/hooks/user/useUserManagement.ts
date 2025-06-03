@@ -12,14 +12,14 @@ export function useUserManagement(tenantId?: string) {
   // Use provided tenantId, fallback to currentTenantId, or fetch all users if neither available
   const effectiveTenantId = tenantId || currentTenantId;
 
-  // Fetch users from Supabase with roles
+  // Fetch users from Supabase with roles and fresh data
   const {
     data: usersResult,
     isLoading,
     error,
     refetch
   } = useQuery({
-    queryKey: ['users', effectiveTenantId],
+    queryKey: ['users', effectiveTenantId, 'with-fresh-data'],
     queryFn: async () => {
       console.log('Fetching users with tenant filter:', effectiveTenantId);
       
@@ -60,7 +60,9 @@ export function useUserManagement(tenantId?: string) {
       );
     },
     enabled: !!currentUser, // Only fetch when user is logged in
-    staleTime: 2 * 60 * 1000, // 2 minutes
+    staleTime: 0, // Always consider data stale to ensure fresh data
+    refetchOnMount: true, // Always refetch when component mounts
+    refetchOnWindowFocus: true, // Refetch when window gains focus
     retry: (failureCount, error) => {
       console.error('Query failed:', error);
       return failureCount < 2; // Retry up to 2 times
