@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { UserWithRoles, CreateUserRequest, UpdateUserRequest } from '@/types/user';
 
@@ -46,11 +47,16 @@ export class UserManagementService {
         console.log('Successfully synced users from auth:', syncResult || 0);
       }
 
-      // Build the query - fix the ambiguous relationship by specifying the exact foreign key
+      // Build the query with tenant information
       let query = supabase
         .from('users')
         .select(`
           *,
+          tenant:tenants(
+            id,
+            name,
+            slug
+          ),
           user_roles:user_roles!user_roles_user_id_fkey(
             id,
             role_id,

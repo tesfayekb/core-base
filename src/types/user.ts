@@ -14,6 +14,11 @@ export interface UserWithRoles {
   failed_login_attempts?: number;
   locked_until?: string;
   metadata?: Record<string, any>;
+  tenant?: {
+    id: string;
+    name: string;
+    slug: string;
+  };
   user_roles?: UserRole[];
 }
 
@@ -21,7 +26,7 @@ export interface UserRole {
   id: string;
   role_id: string;
   assigned_at: string;
-  role: {
+  roles?: {
     id: string;
     name: string;
     description?: string;

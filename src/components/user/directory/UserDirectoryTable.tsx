@@ -49,15 +49,24 @@ export function UserDirectoryTable({
     return <Badge variant={variants[status] || 'secondary'}>{status}</Badge>;
   };
 
-  const getTenantName = (user: UserWithRoles) => {
-    // You might want to fetch tenant names and store them in context
-    // For now, just show tenant ID substring
-    return user.tenant_id ? user.tenant_id.substring(0, 8) + '...' : 'No tenant';
-  };
-
   const formatLastLogin = (lastLogin: string | null) => {
     if (!lastLogin) return 'Never';
     return format(new Date(lastLogin), 'MMM dd, yyyy HH:mm');
+  };
+
+  const handleEditUser = (userId: string) => {
+    console.log('Edit user:', userId);
+    // TODO: Implement edit functionality
+  };
+
+  const handleManageRoles = (userId: string) => {
+    console.log('Manage roles for user:', userId);
+    // TODO: Implement role management
+  };
+
+  const handleDeleteUser = (userId: string) => {
+    console.log('Delete user:', userId);
+    // TODO: Implement delete functionality
   };
 
   if (isLoading) {
@@ -128,20 +137,35 @@ export function UserDirectoryTable({
                     </div>
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
-                    {getTenantName(user)}
+                    {user.tenant?.name || 'No tenant'}
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
                     {formatLastLogin(user.last_login_at)}
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-1">
-                      <Button variant="ghost" size="sm">
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        onClick={() => handleEditUser(user.id)}
+                        title="Edit user"
+                      >
                         <Edit className="h-4 w-4" />
                       </Button>
-                      <Button variant="ghost" size="sm">
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        onClick={() => handleManageRoles(user.id)}
+                        title="Manage roles"
+                      >
                         <UserCog className="h-4 w-4" />
                       </Button>
-                      <Button variant="ghost" size="sm">
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        onClick={() => handleDeleteUser(user.id)}
+                        title="Delete user"
+                      >
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
