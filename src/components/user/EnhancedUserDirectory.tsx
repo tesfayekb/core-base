@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -14,7 +13,7 @@ import { UserWithRoles } from '@/types/user';
 
 export function EnhancedUserDirectory() {
   const { user, currentTenantId } = useAuth();
-  const { users, isLoading, error } = useUserManagement(); // Remove tenant filtering for now
+  const { users, isLoading, error } = useUserManagement(); // Remove tenant filtering to allow SuperAdmin access
   
   // State for search and filters
   const [searchQuery, setSearchQuery] = useState('');

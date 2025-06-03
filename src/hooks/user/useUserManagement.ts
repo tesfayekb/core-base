@@ -22,16 +22,32 @@ export function useUserManagement(tenantId?: string) {
     queryFn: async () => {
       console.log('Fetching users with tenant filter:', effectiveTenantId);
       
+      // Check if user is SuperAdmin by looking at user roles in the debug data
+      const { data: userData } = await supabase
+        .from('users')
+        .select(`
+          user_roles!inner(
+            roles!inner(
+              name
+            )
+          )
+        `)
+        .eq('id', currentUser?.id)
+        .single();
+      
+      const isSuperAdmin = userData?.user_roles?.some((ur: any) => ur.roles?.name === 'SuperAdmin') || false;
+      
       const filters: UserFilters = {};
       
-      // Only filter by tenant if we have a specific tenant ID
-      if (effectiveTenantId) {
+      // Only filter by tenant if not SuperAdmin
+      if (!isSuperAdmin && effectiveTenantId) {
         filters.tenantId = effectiveTenantId;
       }
       
       return await UserManagementService.getUsers(
         filters,
-        { page: 1, limit: 50 }
+        { page: 1, limit: 50 },
+        isSuperAdmin
       );
     },
     enabled: !!currentUser, // Only fetch when user is logged in

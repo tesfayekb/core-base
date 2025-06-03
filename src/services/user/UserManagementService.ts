@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { UserWithRoles, CreateUserRequest, UpdateUserRequest } from '@/types/user';
 
@@ -24,18 +25,19 @@ export interface PaginationOptions {
 export class UserManagementService {
   static async getUsers(
     filters: UserFilters = {},
-    pagination: PaginationOptions = { page: 1, limit: 10 }
+    pagination: PaginationOptions = { page: 1, limit: 10 },
+    isSuperAdmin: boolean = false
   ): Promise<PaginatedResult<UserWithRoles>> {
     try {
       let query = supabase
         .from('users')
         .select(`
           *,
-          user_roles!user_roles_user_id_fkey(
+          user_roles!inner(
             id,
             role_id,
             assigned_at,
-            role:roles(
+            roles!inner(
               id,
               name,
               description
@@ -48,7 +50,8 @@ export class UserManagementService {
         query = query.eq('status', filters.status);
       }
 
-      if (filters.tenantId) {
+      // Only filter by tenant if not SuperAdmin and tenantId is provided
+      if (!isSuperAdmin && filters.tenantId) {
         query = query.eq('tenant_id', filters.tenantId);
       }
 
