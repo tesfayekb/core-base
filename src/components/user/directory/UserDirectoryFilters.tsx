@@ -85,10 +85,10 @@ export function UserDirectoryFilters({
   }, [currentTenantId]);
 
   return (
-    <div className="flex flex-wrap items-center gap-2 sm:gap-4 w-full overflow-hidden">
+    <div className="flex flex-wrap items-center gap-2 sm:gap-4 w-full">
       <Select value={statusFilter} onValueChange={onStatusFilterChange}>
         <SelectTrigger className="w-32 sm:w-40">
-          <SelectValue placeholder="All Status" />
+          <SelectValue placeholder="Status" />
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="all">All Status</SelectItem>
@@ -100,7 +100,7 @@ export function UserDirectoryFilters({
 
       <Select value={roleFilter} onValueChange={onRoleFilterChange}>
         <SelectTrigger className="w-32 sm:w-40">
-          <SelectValue placeholder={isLoadingRoles ? "Loading..." : "All Roles"} />
+          <SelectValue placeholder={isLoadingRoles ? "Loading..." : "Roles"} />
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="all">All Roles</SelectItem>
@@ -114,7 +114,7 @@ export function UserDirectoryFilters({
 
       <Select value={tenantFilter} onValueChange={onTenantFilterChange}>
         <SelectTrigger className="w-36 sm:w-48">
-          <SelectValue placeholder={isLoadingTenants ? "Loading..." : "All Tenants"} />
+          <SelectValue placeholder={isLoadingTenants ? "Loading..." : "Tenants"} />
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="all">All Tenants</SelectItem>

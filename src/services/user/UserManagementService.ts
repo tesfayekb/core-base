@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { UserWithRoles, CreateUserRequest, UpdateUserRequest } from '@/types/user';
 
@@ -30,6 +29,9 @@ export class UserManagementService {
   ): Promise<PaginatedResult<UserWithRoles>> {
     try {
       console.log('UserManagementService.getUsers called with:', { filters, pagination, isSuperAdmin });
+      
+      // Force sync all users from auth to ensure fresh data
+      await this.syncAllUsersFromAuth();
       
       let query = supabase
         .from('users')
@@ -95,6 +97,22 @@ export class UserManagementService {
     } catch (error) {
       console.error('Error fetching users:', error);
       throw error;
+    }
+  }
+
+  // Force sync users from auth.users to ensure fresh last_login_at data
+  static async syncAllUsersFromAuth(): Promise<void> {
+    try {
+      console.log('Syncing all users from auth...');
+      const { data, error } = await supabase.rpc('force_sync_all_users');
+      
+      if (error) {
+        console.error('Error syncing users from auth:', error);
+      } else {
+        console.log('Successfully synced users from auth:', data);
+      }
+    } catch (error) {
+      console.error('Error in syncAllUsersFromAuth:', error);
     }
   }
 
