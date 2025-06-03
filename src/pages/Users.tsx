@@ -1,13 +1,15 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { PermissionBoundary } from "@/components/rbac/PermissionBoundary";
-import { EnhancedUserDirectory } from "@/components/user/EnhancedUserDirectory";
+import { UserDirectory } from "@/components/user/UserDirectory";
 import { PermissionDebug } from "@/components/debug/PermissionDebug";
 import { Users as UsersIcon } from "lucide-react";
 import { useAuth } from "@/components/auth/AuthProvider";
 
 export default function Users() {
   const { user } = useAuth();
+  
+  console.log('👤 Users page rendering');
 
   // Fallback card for when permissions are unclear
   const AccessFallback = ({ title, description }: { title: string; description: string }) => (
@@ -43,7 +45,7 @@ export default function Users() {
         </p>
       </div>
       
-      {/* User Directory with permission-based access */}
+      {/* User Directory with permission-based access - SINGLE INSTANCE */}
       <PermissionBoundary 
         action="read" 
         resource="users"
@@ -54,7 +56,7 @@ export default function Users() {
           />
         }
       >
-        <EnhancedUserDirectory />
+        <UserDirectory />
       </PermissionBoundary>
     </div>
   );

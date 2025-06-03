@@ -25,9 +25,6 @@ export function UserDirectorySearchFilters({
   tenantFilter,
   onTenantFilterChange,
 }: UserDirectorySearchFiltersProps) {
-  // Add debugging to track renders
-  console.log('🔍 UserDirectorySearchFilters component rendering');
-  
   return (
     <Card>
       <CardContent className="p-6">
