@@ -148,7 +148,7 @@ export function UserDirectory() {
         onAddUser={() => setShowAddUserModal(true)}
       />
       
-      {/* Search and Filters - Single instance only */}
+      {/* Search and Filters - ONLY ONE INSTANCE */}
       <UserDirectorySearchFilters
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
