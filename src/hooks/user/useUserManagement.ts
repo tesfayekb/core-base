@@ -22,34 +22,50 @@ export function useUserManagement(tenantId?: string) {
     queryKey: ['users', effectiveTenantId],
     queryFn: async () => {
       console.log('Fetching users with tenant filter:', effectiveTenantId);
+      console.log('Current user ID:', currentUser?.id);
       
-      // Check if user is SuperAdmin by looking at user roles in the debug data
-      const { data: userData } = await supabase
-        .from('users')
-        .select(`
-          user_roles!inner(
-            roles!inner(
+      // Check if user is SuperAdmin by looking at user roles
+      let isSuperAdmin = false;
+      
+      try {
+        const { data: userData, error: userError } = await supabase
+          .from('user_roles')
+          .select(`
+            roles!user_roles_role_id_fkey(
               name
             )
-          )
-        `)
-        .eq('id', currentUser?.id)
-        .single();
-      
-      const isSuperAdmin = userData?.user_roles?.some((ur: any) => ur.roles?.name === 'SuperAdmin') || false;
+          `)
+          .eq('user_id', currentUser?.id);
+        
+        if (userError) {
+          console.error('Error checking user roles:', userError);
+        } else {
+          console.log('User roles data:', userData);
+          isSuperAdmin = userData?.some((ur: any) => ur.roles?.name === 'SuperAdmin') || false;
+          console.log('Is SuperAdmin:', isSuperAdmin);
+        }
+      } catch (roleError) {
+        console.error('Error in role check:', roleError);
+      }
       
       const filters: UserFilters = {};
       
       // Only filter by tenant if not SuperAdmin
       if (!isSuperAdmin && effectiveTenantId) {
         filters.tenantId = effectiveTenantId;
+        console.log('Applying tenant filter for non-SuperAdmin:', filters.tenantId);
+      } else {
+        console.log('SuperAdmin detected - fetching all users without tenant filter');
       }
       
-      return await UserManagementService.getUsers(
+      const result = await UserManagementService.getUsers(
         filters,
         { page: 1, limit: 50 },
         isSuperAdmin
       );
+      
+      console.log('UserManagementService returned:', result);
+      return result;
     },
     enabled: !!currentUser, // Only fetch when user is logged in
     staleTime: 2 * 60 * 1000, // 2 minutes

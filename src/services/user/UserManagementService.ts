@@ -28,6 +28,8 @@ export class UserManagementService {
     isSuperAdmin: boolean = false
   ): Promise<PaginatedResult<UserWithRoles>> {
     try {
+      console.log('UserManagementService.getUsers called with:', { filters, pagination, isSuperAdmin });
+      
       let query = supabase
         .from('users')
         .select(`
@@ -47,15 +49,20 @@ export class UserManagementService {
       // Apply filters
       if (filters.status) {
         query = query.eq('status', filters.status);
+        console.log('Applied status filter:', filters.status);
       }
 
       // Only filter by tenant if not SuperAdmin and tenantId is provided
       if (!isSuperAdmin && filters.tenantId) {
         query = query.eq('tenant_id', filters.tenantId);
+        console.log('Applied tenant filter for non-SuperAdmin:', filters.tenantId);
+      } else if (isSuperAdmin) {
+        console.log('SuperAdmin access - no tenant filtering applied');
       }
 
       if (filters.search) {
         query = query.or(`email.ilike.%${filters.search}%,first_name.ilike.%${filters.search}%,last_name.ilike.%${filters.search}%`);
+        console.log('Applied search filter:', filters.search);
       }
 
       // Apply pagination
@@ -63,6 +70,7 @@ export class UserManagementService {
       const to = from + pagination.limit - 1;
       query = query.range(from, to);
 
+      console.log('Executing Supabase query...');
       const { data, error, count } = await query;
 
       if (error) {
@@ -70,7 +78,8 @@ export class UserManagementService {
         throw error;
       }
 
-      console.log('Successfully fetched users:', data?.length || 0);
+      console.log('Successfully fetched users:', data?.length || 0, 'total count:', count);
+      console.log('Raw user data:', data);
 
       return {
         data: data || [],
@@ -85,6 +94,7 @@ export class UserManagementService {
     }
   }
 
+  
   static async getUserById(id: string): Promise<UserWithRoles | null> {
     try {
       const { data, error } = await supabase
