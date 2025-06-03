@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { UserWithRoles, CreateUserRequest, UpdateUserRequest } from '@/types/user';
 
@@ -33,11 +32,11 @@ export class UserManagementService {
         .from('users')
         .select(`
           *,
-          user_roles!inner(
+          user_roles!user_roles_user_id_fkey(
             id,
             role_id,
             assigned_at,
-            roles!inner(
+            roles!user_roles_role_id_fkey(
               id,
               name,
               description
@@ -96,7 +95,7 @@ export class UserManagementService {
             id,
             role_id,
             assigned_at,
-            role:roles(
+            role:roles!user_roles_role_id_fkey(
               id,
               name,
               description
