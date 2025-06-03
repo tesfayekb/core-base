@@ -1,91 +1,107 @@
-
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { UserWithRoles } from '@/types/user';
+import { useAuth } from '@/contexts/AuthContext';
 import { format } from 'date-fns';
 
-interface UserProfileProps {
-  user: UserWithRoles;
-}
+export function UserProfile() {
+  const { user } = useAuth();
 
-export function UserProfile({ user }: UserProfileProps) {
-  const getUserInitials = () => {
-    const firstName = user.first_name || '';
-    const lastName = user.last_name || '';
-    return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase() || user.email.charAt(0).toUpperCase();
-  };
-
-  const getStatusBadge = (status: string) => {
-    const statusConfig = {
-      active: { variant: 'default' as const, label: 'Active' },
-      pending_verification: { variant: 'secondary' as const, label: 'Pending' },
-      suspended: { variant: 'destructive' as const, label: 'Suspended' },
-      inactive: { variant: 'outline' as const, label: 'Inactive' }
-    };
-    
-    const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.inactive;
-    return <Badge variant={config.variant}>{config.label}</Badge>;
+  const formatDate = (dateString: string | undefined) => {
+    if (!dateString) return 'N/A';
+    try {
+      return format(new Date(dateString), 'MMM dd, yyyy HH:mm');
+    } catch (error) {
+      console.error('Error formatting date:', error);
+      return 'N/A';
+    }
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>User Profile</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        <div className="flex items-center gap-4">
-          <Avatar className="h-16 w-16">
-            <AvatarFallback className="text-lg">
-              {getUserInitials()}
-            </AvatarFallback>
-          </Avatar>
+    <div className="max-w-2xl mx-auto p-6 space-y-6">
+      {/* Header Section */}
+      <div className="text-center">
+        <h2 className="text-2xl font-semibold">Your Profile</h2>
+        <p className="text-muted-foreground">View and manage your profile information.</p>
+      </div>
+
+      {/* User Information */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Profile Information</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Email */}
           <div>
-            <h3 className="text-xl font-semibold">
-              {user.first_name && user.last_name
-                ? `${user.first_name} ${user.last_name}`
-                : user.email
-              }
-            </h3>
-            <p className="text-sm text-muted-foreground">{user.email}</p>
-            <div className="mt-2">
-              {getStatusBadge(user.status)}
+            <Label className="text-sm font-medium text-muted-foreground">Email</Label>
+            <p className="text-sm font-semibold">{user?.email || 'N/A'}</p>
+          </div>
+
+          {/* First Name */}
+          <div>
+            <Label className="text-sm font-medium text-muted-foreground">First Name</Label>
+            <p className="text-sm">{user?.first_name || 'N/A'}</p>
+          </div>
+
+          {/* Last Name */}
+          <div>
+            <Label className="text-sm font-medium text-muted-foreground">Last Name</Label>
+            <p className="text-sm">{user?.last_name || 'N/A'}</p>
+          </div>
+
+          {/* Status */}
+          <div>
+            <Label className="text-sm font-medium text-muted-foreground">Status</Label>
+            <Badge variant={user?.status === 'active' ? 'default' : 'secondary'}>
+              {user?.status || 'N/A'}
+            </Badge>
+          </div>
+
+          {/* Roles */}
+          <div>
+            <Label className="text-sm font-medium text-muted-foreground">Roles</Label>
+            <div className="flex flex-wrap gap-2 mt-1">
+              {user?.user_roles && user.user_roles.length > 0 ? (
+                user.user_roles.map((userRole) => (
+                  <Badge key={userRole.id} variant="secondary">
+                    {userRole.roles?.name || 'Unknown Role'}
+                  </Badge>
+                ))
+              ) : (
+                <span className="text-sm text-muted-foreground">No roles assigned</span>
+              )}
             </div>
           </div>
-        </div>
 
-        <div className="grid grid-cols-2 gap-4">
+          {/* Tenant Information */}
           <div>
-            <h4 className="font-medium text-sm text-muted-foreground">Member Since</h4>
-            <p>{format(new Date(user.created_at), 'PPP')}</p>
-          </div>
-          <div>
-            <h4 className="font-medium text-sm text-muted-foreground">Last Login</h4>
-            <p>
-              {user.last_login_at
-                ? format(new Date(user.last_login_at), 'PPp')
-                : 'Never'
-              }
+            <Label className="text-sm font-medium text-muted-foreground">Tenant</Label>
+            <p className="text-sm">
+              {user?.tenant?.name || 'No Tenant Assigned'}
             </p>
           </div>
-        </div>
 
-        <div>
-          <h4 className="font-medium text-sm text-muted-foreground mb-2">Roles</h4>
-          <div className="flex flex-wrap gap-2">
-            {user.user_roles && user.user_roles.length > 0 ? (
-              user.user_roles.map((userRole) => (
-                <Badge key={userRole.id} variant="outline">
-                  {userRole.role.name}
-                </Badge>
-              ))
-            ) : (
-              <span className="text-sm text-muted-foreground">No roles assigned</span>
-            )}
+          {/* Email Verified At */}
+          <div>
+            <Label className="text-sm font-medium text-muted-foreground">Email Verified At</Label>
+            <p className="text-sm">{formatDate(user?.email_verified_at)}</p>
           </div>
-        </div>
-      </CardContent>
-    </Card>
+
+          {/* Last Login At */}
+          <div>
+            <Label className="text-sm font-medium text-muted-foreground">Last Login At</Label>
+            <p className="text-sm">{formatDate(user?.last_login_at)}</p>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Additional Information or Actions can be added here */}
+      <div className="text-center text-muted-foreground">
+        <p className="text-sm">
+          For assistance or further information, please contact your administrator.
+        </p>
+      </div>
+    </div>
   );
 }

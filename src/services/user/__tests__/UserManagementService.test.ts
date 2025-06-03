@@ -1,6 +1,6 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { UserManagementService, PaginationOptions } from '../UserManagementService';
+import { UserManagementService } from '../UserManagementService';
 
 // Mock Supabase
 vi.mock('@/integrations/supabase/client', () => ({
@@ -36,7 +36,8 @@ vi.mock('@/integrations/supabase/client', () => ({
       delete: vi.fn(() => ({
         eq: vi.fn()
       }))
-    }))
+    })),
+    rpc: vi.fn()
   }
 }));
 
@@ -77,14 +78,12 @@ describe('UserManagementService', () => {
         supabase: { from: mockFrom }
       }));
 
-      const pagination: PaginationOptions = { page: 1, limit: 10 };
-      const result = await UserManagementService.getUsers({}, pagination);
+      const result = await UserManagementService.getUsers({
+        pagination: { page: 1, limit: 10 }
+      });
 
-      expect(result.data).toEqual(mockUsers);
-      expect(result.total).toBe(1);
-      expect(result.page).toBe(1);
-      expect(result.pageSize).toBe(10);
-      expect(result.totalPages).toBe(1);
+      expect(result.users).toEqual(mockUsers);
+      expect(result.totalCount).toBe(1);
     });
   });
 

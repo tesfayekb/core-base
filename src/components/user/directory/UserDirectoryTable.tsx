@@ -1,13 +1,18 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Modal } from "@/components/ui/modal";
 import { Edit, UserCog, Trash2, ChevronUp, ChevronDown } from 'lucide-react';
 import { UserWithRoles } from '@/types/user';
 import { UserDirectoryTableProps } from './UserDirectoryTableProps';
+import { UserForm } from '../UserForm';
+import { UserRoleAssignment } from '../UserRoleAssignment';
 import { format } from 'date-fns';
+import { useUserManagement } from '@/hooks/user/useUserManagement';
+import { useAuth } from '@/contexts/AuthContext';
 
 export function UserDirectoryTable({
   users,
@@ -25,6 +30,12 @@ export function UserDirectoryTable({
   onPageSizeChange,
   totalUsers,
 }: UserDirectoryTableProps) {
+  const { currentTenantId } = useAuth();
+  const { updateUser, deleteUser } = useUserManagement(currentTenantId || '');
+  const [editingUser, setEditingUser] = useState<UserWithRoles | null>(null);
+  const [managingRolesUser, setManagingRolesUser] = useState<UserWithRoles | null>(null);
+  const [deletingUser, setDeletingUser] = useState<UserWithRoles | null>(null);
+
   const SortButton = ({ field, children }: { field: string; children: React.ReactNode }) => (
     <Button
       variant="ghost"
@@ -54,19 +65,37 @@ export function UserDirectoryTable({
     return format(new Date(lastLogin), 'MMM dd, yyyy HH:mm');
   };
 
-  const handleEditUser = (userId: string) => {
-    console.log('Edit user:', userId);
-    // TODO: Implement edit functionality
+  const handleEditUser = (user: UserWithRoles) => {
+    setEditingUser(user);
   };
 
-  const handleManageRoles = (userId: string) => {
-    console.log('Manage roles for user:', userId);
-    // TODO: Implement role management
+  const handleManageRoles = (user: UserWithRoles) => {
+    setManagingRolesUser(user);
   };
 
-  const handleDeleteUser = (userId: string) => {
-    console.log('Delete user:', userId);
-    // TODO: Implement delete functionality
+  const handleDeleteUser = (user: UserWithRoles) => {
+    setDeletingUser(user);
+  };
+
+  const handleEditSuccess = () => {
+    setEditingUser(null);
+    // Refresh will be handled by the parent component
+  };
+
+  const handleRoleManagementSuccess = () => {
+    setManagingRolesUser(null);
+    // Refresh will be handled by the parent component
+  };
+
+  const confirmDelete = async () => {
+    if (!deletingUser) return;
+    
+    try {
+      await deleteUser(deletingUser.id);
+      setDeletingUser(null);
+    } catch (error) {
+      console.error('Failed to delete user:', error);
+    }
   };
 
   if (isLoading) {
@@ -147,7 +176,7 @@ export function UserDirectoryTable({
                       <Button 
                         variant="ghost" 
                         size="sm"
-                        onClick={() => handleEditUser(user.id)}
+                        onClick={() => handleEditUser(user)}
                         title="Edit user"
                       >
                         <Edit className="h-4 w-4" />
@@ -155,7 +184,7 @@ export function UserDirectoryTable({
                       <Button 
                         variant="ghost" 
                         size="sm"
-                        onClick={() => handleManageRoles(user.id)}
+                        onClick={() => handleManageRoles(user)}
                         title="Manage roles"
                       >
                         <UserCog className="h-4 w-4" />
@@ -163,7 +192,7 @@ export function UserDirectoryTable({
                       <Button 
                         variant="ghost" 
                         size="sm"
-                        onClick={() => handleDeleteUser(user.id)}
+                        onClick={() => handleDeleteUser(user)}
                         title="Delete user"
                       >
                         <Trash2 className="h-4 w-4" />
@@ -220,6 +249,62 @@ export function UserDirectoryTable({
           </Button>
         </div>
       </div>
+
+      {/* Edit User Modal */}
+      <Modal
+        open={!!editingUser}
+        onOpenChange={(open) => !open && setEditingUser(null)}
+        title="Edit User"
+        size="lg"
+      >
+        {editingUser && currentTenantId && (
+          <UserForm
+            user={editingUser}
+            tenantId={currentTenantId}
+            onSuccess={handleEditSuccess}
+            onCancel={() => setEditingUser(null)}
+          />
+        )}
+      </Modal>
+
+      {/* Manage Roles Modal */}
+      <Modal
+        open={!!managingRolesUser}
+        onOpenChange={(open) => !open && setManagingRolesUser(null)}
+        title="Manage User Roles"
+        size="lg"
+      >
+        {managingRolesUser && currentTenantId && (
+          <UserRoleAssignment
+            user={managingRolesUser}
+            tenantId={currentTenantId}
+            onSuccess={handleRoleManagementSuccess}
+            onCancel={() => setManagingRolesUser(null)}
+          />
+        )}
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        open={!!deletingUser}
+        onOpenChange={(open) => !open && setDeletingUser(null)}
+        title="Delete User"
+      >
+        {deletingUser && (
+          <div className="space-y-4">
+            <p>Are you sure you want to delete user <strong>{deletingUser.email}</strong>?</p>
+            <p className="text-sm text-muted-foreground">This action cannot be undone.</p>
+            <div className="flex justify-end space-x-2">
+              <Button variant="outline" onClick={() => setDeletingUser(null)}>
+                Cancel
+              </Button>
+              <Button variant="destructive" onClick={confirmDelete}>
+                Delete User
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }
