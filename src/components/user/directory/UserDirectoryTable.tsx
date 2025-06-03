@@ -163,11 +163,13 @@ export function UserDirectoryTable({
                     <div className="flex flex-wrap gap-1">
                       {user.user_roles && user.user_roles.length > 0 ? (
                         user.user_roles.map((userRole) => (
-                          <Badge key={userRole.id} variant="outline" className="text-xs">
-                            <Shield className="h-3 w-3 mr-1" />
-                            {userRole.role.name}
-                          </Badge>
-                        ))
+                          userRole.role && userRole.role.name ? (
+                            <Badge key={userRole.id} variant="outline" className="text-xs">
+                              <Shield className="h-3 w-3 mr-1" />
+                              {userRole.role.name}
+                            </Badge>
+                          ) : null
+                        )).filter(Boolean)
                       ) : (
                         <span className="text-xs text-muted-foreground">No roles</span>
                       )}
