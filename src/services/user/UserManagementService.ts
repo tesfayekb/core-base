@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { UserWithRoles, CreateUserRequest, UpdateUserRequest } from '@/types/user';
 
@@ -29,6 +28,8 @@ export class UserManagementService {
     isSuperAdmin: boolean = false
   ): Promise<PaginatedResult<UserWithRoles>> {
     try {
+      console.log('UserManagementService.getUsers called with:', { filters, pagination, isSuperAdmin });
+      
       let query = supabase
         .from('users')
         .select(`
@@ -50,9 +51,13 @@ export class UserManagementService {
         query = query.eq('status', filters.status);
       }
 
-      // Only filter by tenant if not SuperAdmin and tenantId is provided
+      // Critical fix: For SuperAdmin, skip tenant filtering entirely
+      // For regular users, apply tenant filtering only if tenantId is provided
       if (!isSuperAdmin && filters.tenantId) {
         query = query.eq('tenant_id', filters.tenantId);
+        console.log('Applied tenant filter for regular user:', filters.tenantId);
+      } else if (isSuperAdmin) {
+        console.log('SuperAdmin access - fetching all users without tenant restrictions');
       }
 
       if (filters.search) {
@@ -64,6 +69,7 @@ export class UserManagementService {
       const to = from + pagination.limit - 1;
       query = query.range(from, to);
 
+      console.log('Executing Supabase query...');
       const { data, error, count } = await query;
 
       if (error) {
@@ -71,7 +77,7 @@ export class UserManagementService {
         throw error;
       }
 
-      console.log('Successfully fetched users:', data?.length || 0);
+      console.log('Successfully fetched users:', data?.length || 0, 'total count:', count);
 
       return {
         data: data || [],

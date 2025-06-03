@@ -23,26 +23,34 @@ export function useUserManagement(tenantId?: string) {
     queryFn: async () => {
       console.log('Fetching users with tenant filter:', effectiveTenantId);
       
-      // Check if user is SuperAdmin by looking at user roles in the debug data
-      const { data: userData } = await supabase
-        .from('users')
-        .select(`
-          user_roles!inner(
-            roles!inner(
+      // Check if user is SuperAdmin by querying user_roles directly
+      let isSuperAdmin = false;
+      
+      if (currentUser?.id) {
+        const { data: roleData, error: roleError } = await supabase
+          .from('user_roles')
+          .select(`
+            roles!user_roles_role_id_fkey(
               name
             )
-          )
-        `)
-        .eq('id', currentUser?.id)
-        .single();
-      
-      const isSuperAdmin = userData?.user_roles?.some((ur: any) => ur.roles?.name === 'SuperAdmin') || false;
+          `)
+          .eq('user_id', currentUser.id);
+        
+        if (!roleError && roleData) {
+          isSuperAdmin = roleData.some((ur: any) => ur.roles?.name === 'SuperAdmin');
+          console.log('SuperAdmin check result:', isSuperAdmin);
+        }
+      }
       
       const filters: UserFilters = {};
       
-      // Only filter by tenant if not SuperAdmin
+      // For SuperAdmin, don't apply any tenant filtering to show all users
+      // For regular users, apply tenant filtering
       if (!isSuperAdmin && effectiveTenantId) {
         filters.tenantId = effectiveTenantId;
+        console.log('Applying tenant filter for regular user:', effectiveTenantId);
+      } else if (isSuperAdmin) {
+        console.log('SuperAdmin detected - fetching all users without tenant restrictions');
       }
       
       return await UserManagementService.getUsers(
