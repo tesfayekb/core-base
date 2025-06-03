@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -17,6 +18,9 @@ export function UserProfile() {
       return 'N/A';
     }
   };
+
+  // Cast user to UserWithRoles type for access to extended properties
+  const userWithRoles = user as any;
 
   return (
     <div className="max-w-2xl mx-auto p-6 space-y-6">
@@ -41,20 +45,20 @@ export function UserProfile() {
           {/* First Name */}
           <div>
             <Label className="text-sm font-medium text-muted-foreground">First Name</Label>
-            <p className="text-sm">{user?.first_name || 'N/A'}</p>
+            <p className="text-sm">{userWithRoles?.first_name || 'N/A'}</p>
           </div>
 
           {/* Last Name */}
           <div>
             <Label className="text-sm font-medium text-muted-foreground">Last Name</Label>
-            <p className="text-sm">{user?.last_name || 'N/A'}</p>
+            <p className="text-sm">{userWithRoles?.last_name || 'N/A'}</p>
           </div>
 
           {/* Status */}
           <div>
             <Label className="text-sm font-medium text-muted-foreground">Status</Label>
-            <Badge variant={user?.status === 'active' ? 'default' : 'secondary'}>
-              {user?.status || 'N/A'}
+            <Badge variant={userWithRoles?.status === 'active' ? 'default' : 'secondary'}>
+              {userWithRoles?.status || 'N/A'}
             </Badge>
           </div>
 
@@ -62,8 +66,8 @@ export function UserProfile() {
           <div>
             <Label className="text-sm font-medium text-muted-foreground">Roles</Label>
             <div className="flex flex-wrap gap-2 mt-1">
-              {user?.user_roles && user.user_roles.length > 0 ? (
-                user.user_roles.map((userRole) => (
+              {userWithRoles?.user_roles && userWithRoles.user_roles.length > 0 ? (
+                userWithRoles.user_roles.map((userRole: any) => (
                   <Badge key={userRole.id} variant="secondary">
                     {userRole.roles?.name || 'Unknown Role'}
                   </Badge>
@@ -78,20 +82,20 @@ export function UserProfile() {
           <div>
             <Label className="text-sm font-medium text-muted-foreground">Tenant</Label>
             <p className="text-sm">
-              {user?.tenant?.name || 'No Tenant Assigned'}
+              {userWithRoles?.tenant?.name || 'No Tenant Assigned'}
             </p>
           </div>
 
           {/* Email Verified At */}
           <div>
             <Label className="text-sm font-medium text-muted-foreground">Email Verified At</Label>
-            <p className="text-sm">{formatDate(user?.email_verified_at)}</p>
+            <p className="text-sm">{formatDate(userWithRoles?.email_verified_at)}</p>
           </div>
 
           {/* Last Login At */}
           <div>
             <Label className="text-sm font-medium text-muted-foreground">Last Login At</Label>
-            <p className="text-sm">{formatDate(user?.last_login_at)}</p>
+            <p className="text-sm">{formatDate(userWithRoles?.last_login_at)}</p>
           </div>
         </CardContent>
       </Card>

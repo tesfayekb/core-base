@@ -3,7 +3,8 @@
 // Following src/docs/implementation/testing/CORE_TESTING_PATTERNS.md
 
 // Re-export testing library functions that other tests depend on
-export { render, screen, fireEvent, waitFor } from '@testing-library/react';
+export { render, fireEvent, waitFor } from '@testing-library/react';
+export { screen } from '@testing-library/react';
 export { expect } from 'vitest';
 
 export const testHelpers = {
