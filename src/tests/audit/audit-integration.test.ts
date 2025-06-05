@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from '@jest/globals';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/services/database';
 
 describe('Audit Integration Tests', () => {
   beforeEach(async () => {

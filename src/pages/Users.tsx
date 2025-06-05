@@ -3,6 +3,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { PermissionBoundary } from "@/components/rbac/PermissionBoundary";
 import { UserDirectory } from "@/components/user/UserDirectory";
 import { PermissionDebug } from "@/components/debug/PermissionDebug";
+import { RoleDebug } from "@/components/debug/RoleDebug";
+import { SuperAdminPanel } from "@/components/admin/SuperAdminPanel";
+import { RoleAssignmentFix } from "@/components/debug/RoleAssignmentFix";
+import { QuickRoleFix } from "@/components/debug/QuickRoleFix";
+import { ApiRequestTest } from "@/components/debug/ApiRequestTest";
+import { SimpleRoleTest } from "@/components/debug/SimpleRoleTest";
+import { RoleVerification } from "@/components/debug/RoleVerification";
+import { DatabaseConnectionTest } from "@/components/debug/DatabaseConnectionTest";
+
 import { Users as UsersIcon } from "lucide-react";
 import { useAuth } from "@/components/auth/AuthProvider";
 
@@ -29,6 +38,14 @@ export default function Users() {
           </div>
         )}
         <PermissionDebug />
+        <RoleDebug />
+        <SuperAdminPanel />
+        <RoleAssignmentFix />
+        <QuickRoleFix />
+        <ApiRequestTest />
+        <SimpleRoleTest />
+        <RoleVerification />
+        <DatabaseConnectionTest />
       </CardContent>
     </Card>
   );

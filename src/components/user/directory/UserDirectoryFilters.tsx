@@ -1,8 +1,8 @@
 
 import React, { useEffect, useState } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/services/database';
+import { useAuth } from '@/components/auth/AuthProvider';
 
 interface UserDirectoryFiltersProps {
   statusFilter: string;

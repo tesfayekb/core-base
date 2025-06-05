@@ -3,11 +3,11 @@ import { describe, test, expect, beforeEach, afterEach } from '@jest/globals';
 import { render, screen, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { AuthProvider } from '@/components/auth/AuthProvider';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/services/database';
 
 // Mock the Supabase client to control the authentication state during tests
-jest.mock('@/integrations/supabase/client', () => {
-  const originalModule = jest.requireActual('@/integrations/supabase/client');
+jest.mock('@/services/database', () => {
+  const originalModule = jest.requireActual('@/services/database');
   let mockUser: any = null;
 
   return {

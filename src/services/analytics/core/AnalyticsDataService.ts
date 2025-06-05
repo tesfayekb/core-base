@@ -1,6 +1,6 @@
 
 // Core Analytics Data Service - Focused on data operations
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/services/database';
 import { AnalyticsTimeRange } from '../UserAnalyticsService';
 
 export interface AnalyticsQueryResult<T> {
