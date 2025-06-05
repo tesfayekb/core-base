@@ -71,7 +71,7 @@ describe('Auth E2E Tests', () => {
       }
     };
 
-    jest.mock('@/integrations/supabase/client', () => ({
+    jest.mock('@/services/database', () => ({
       supabase: mockSupabaseClient,
     }));
 
@@ -105,7 +105,7 @@ describe('Auth E2E Tests', () => {
       }
     };
 
-    jest.mock('@/integrations/supabase/client', () => ({
+    jest.mock('@/services/database', () => ({
       supabase: mockSupabaseClient,
     }));
 

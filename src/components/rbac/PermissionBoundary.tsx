@@ -1,8 +1,8 @@
 
 import React, { ReactNode } from 'react';
 import { usePermission } from '@/hooks/usePermission';
-import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/components/auth/AuthProvider';
+import { supabase } from '@/services/database';
 import { useQuery } from '@tanstack/react-query';
 
 interface PermissionBoundaryProps {
@@ -28,21 +28,51 @@ export function PermissionBoundary({
     queryFn: async () => {
       if (!user?.id) return false;
       
-      const { data: roleData, error } = await supabase
+      console.log('🔍 PermissionBoundary: Checking SuperAdmin status for user:', user.id);
+      
+      const { data: systemRoleData, error: systemError } = await supabase
         .from('user_roles')
         .select(`
-          roles!user_roles_role_id_fkey(
+          id,
+          tenant_id,
+          roles!user_roles_role_id_fkey (
+            name
+          )
+        `)
+        .eq('user_id', user.id)
+        .is('tenant_id', null)
+        .eq('roles.name', 'SuperAdmin');
+      
+      if (!systemError && systemRoleData && systemRoleData.length > 0) {
+        console.log('🔐 PermissionBoundary: Found system-wide SuperAdmin role:', systemRoleData);
+        return true;
+      }
+      
+      const { data: allRoleData, error: allError } = await supabase
+        .from('user_roles')
+        .select(`
+          id,
+          tenant_id,
+          roles!user_roles_role_id_fkey (
             name
           )
         `)
         .eq('user_id', user.id);
       
-      if (error || !roleData) return false;
+      if (allError) {
+        console.error('PermissionBoundary: Error checking all user roles:', allError);
+        return false;
+      }
       
-      return roleData.some((ur: any) => ur.roles?.name === 'SuperAdmin');
+      if (!allRoleData) return false;
+      
+      const isSuperAdmin = allRoleData.some((ur: any) => ur.roles?.name === 'SuperAdmin');
+      console.log(`🔐 PermissionBoundary: SuperAdmin check for ${user.email}: ${isSuperAdmin}`, allRoleData);
+      
+      return isSuperAdmin;
     },
     enabled: !!user?.id,
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 5 * 60 * 1000,
   });
 
   const { hasPermission, loading } = usePermission(action, resource, {

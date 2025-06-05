@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { UserManagementService } from '../UserManagementService';
 
 // Mock Supabase
-vi.mock('@/integrations/supabase/client', () => ({
+vi.mock('@/services/database', () => ({
   supabase: {
     from: vi.fn(() => ({
       select: vi.fn(() => ({
@@ -74,7 +74,7 @@ describe('UserManagementService', () => {
       const mockSelect = vi.fn().mockReturnValue({ eq: mockEq, range: mockRange });
       const mockFrom = vi.fn().mockReturnValue({ select: mockSelect });
 
-      vi.doMock('@/integrations/supabase/client', () => ({
+      vi.doMock('@/services/database', () => ({
         supabase: { from: mockFrom }
       }));
 
