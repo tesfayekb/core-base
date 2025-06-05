@@ -122,6 +122,14 @@ export class UserManagementService {
 
   static async createUser(userData: CreateUserRequest): Promise<UserWithRoles> {
     try {
+      if (!userData.email || !userData.email.includes('@')) {
+        throw new Error('Valid email is required');
+      }
+      
+      if (!userData.first_name?.trim()) {
+        throw new Error('First name is required');
+      }
+
       // Set tenant context if provided
       if (userData.tenant_id) {
         await supabase.rpc('set_tenant_context', { tenant_id: userData.tenant_id });
@@ -260,23 +268,21 @@ export class UserManagementService {
 
   static async assignRoles(userId: string, roleIds: string[], tenantId: string): Promise<void> {
     try {
-      // Remove existing roles for the user and tenant
+      // Remove existing roles for the user
       const { error: deleteError } = await supabase
         .from('user_roles')
         .delete()
-        .eq('user_id', userId)
-        .eq('tenant_id', tenantId);
+        .eq('user_id', userId);
 
       if (deleteError) {
         console.error('Error deleting existing user roles:', deleteError);
         throw deleteError;
       }
 
-      // Insert new roles for the user and tenant
+      // Insert new roles for the user
       const newRoles = roleIds.map(roleId => ({
         user_id: userId,
         role_id: roleId,
-        tenant_id: tenantId,
         assigned_at: new Date().toISOString()
       }));
 

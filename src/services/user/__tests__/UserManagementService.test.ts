@@ -101,6 +101,41 @@ describe('UserManagementService', () => {
     });
   });
 
+  describe('updateUser', () => {
+    it('should update user data', async () => {
+      const updateData = {
+        first_name: 'Updated',
+        last_name: 'Name'
+      };
+
+      await expect(
+        UserManagementService.updateUser('user-1', updateData)
+      ).resolves.toBeDefined();
+    });
+  });
+
+  describe('getUserById', () => {
+    it('should retrieve user by ID', async () => {
+      await expect(
+        UserManagementService.getUserById('user-1')
+      ).resolves.toBeDefined();
+    });
+
+    it('should return null for non-existent user', async () => {
+      await expect(
+        UserManagementService.getUserById('non-existent')
+      ).resolves.toBeNull();
+    });
+  });
+
+  describe('assignRoles', () => {
+    it('should assign roles to user', async () => {
+      await expect(
+        UserManagementService.assignRoles('user-1', ['role-1', 'role-2'], 'tenant-1')
+      ).resolves.not.toThrow();
+    });
+  });
+
   describe('deleteUser', () => {
     it('should delete a user', async () => {
       await expect(UserManagementService.deleteUser('user-1')).resolves.not.toThrow();
