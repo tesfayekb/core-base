@@ -1,7 +1,7 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/components/auth/AuthProvider';
+import { supabase } from '@/services/database';
 import { UserManagementService } from '@/services/user/UserManagementService';
 import { UserWithRoles, CreateUserRequest, UpdateUserRequest } from '@/types/user';
 
@@ -36,7 +36,9 @@ export function useUserManagement(tenantId?: string) {
           `)
           .eq('user_id', currentUser.id);
         
-        if (!roleError && roleData) {
+        if (roleError) {
+          console.error('Error checking SuperAdmin role in useUserManagement:', roleError);
+        } else if (roleData) {
           isSuperAdmin = roleData.some((ur: any) => ur.roles?.name === 'SuperAdmin');
           console.log('SuperAdmin check result:', isSuperAdmin);
         }

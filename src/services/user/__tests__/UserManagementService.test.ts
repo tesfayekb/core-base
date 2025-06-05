@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { UserManagementService } from '../UserManagementService';
 
 // Mock Supabase
-vi.mock('@/integrations/supabase/client', () => ({
+vi.mock('@/services/database', () => ({
   supabase: {
     from: vi.fn(() => ({
       select: vi.fn(() => ({
@@ -74,7 +74,7 @@ describe('UserManagementService', () => {
       const mockSelect = vi.fn().mockReturnValue({ eq: mockEq, range: mockRange });
       const mockFrom = vi.fn().mockReturnValue({ select: mockSelect });
 
-      vi.doMock('@/integrations/supabase/client', () => ({
+      vi.doMock('@/services/database', () => ({
         supabase: { from: mockFrom }
       }));
 
@@ -98,6 +98,41 @@ describe('UserManagementService', () => {
 
       const result = await UserManagementService.createUser(userData);
       expect(result).toBeDefined();
+    });
+  });
+
+  describe('updateUser', () => {
+    it('should update user data', async () => {
+      const updateData = {
+        first_name: 'Updated',
+        last_name: 'Name'
+      };
+
+      await expect(
+        UserManagementService.updateUser('user-1', updateData)
+      ).resolves.toBeDefined();
+    });
+  });
+
+  describe('getUserById', () => {
+    it('should retrieve user by ID', async () => {
+      await expect(
+        UserManagementService.getUserById('user-1')
+      ).resolves.toBeDefined();
+    });
+
+    it('should return null for non-existent user', async () => {
+      await expect(
+        UserManagementService.getUserById('non-existent')
+      ).resolves.toBeNull();
+    });
+  });
+
+  describe('assignRoles', () => {
+    it('should assign roles to user', async () => {
+      await expect(
+        UserManagementService.assignRoles('user-1', ['role-1', 'role-2'], 'tenant-1')
+      ).resolves.not.toThrow();
     });
   });
 

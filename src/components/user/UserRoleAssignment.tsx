@@ -6,7 +6,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { UserManagementService } from '@/services/user/UserManagementService';
 import { UserWithRoles } from '@/types/user';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/services/database';
 
 interface Role {
   id: string;

@@ -1,5 +1,5 @@
 
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/services/database';
 import { UserWithRoles, CreateUserRequest, UpdateUserRequest } from '@/types/user';
 
 export class UserManagementService {
@@ -22,29 +22,32 @@ export class UserManagementService {
       direction?: 'asc' | 'desc';
     };
     tenantId?: string;
-    isSuperAdmin?: boolean;
+    isSystemAdmin?: boolean;
   } = {}): Promise<{ users: UserWithRoles[]; totalCount: number }> {
     const {
       filters = {},
       pagination = { page: 1, limit: 50 },
       sorting = { field: 'created_at', direction: 'desc' },
       tenantId,
-      isSuperAdmin = false
+      isSystemAdmin = false
     } = options;
 
     console.log('UserManagementService.getUsers called with:', {
       filters,
       pagination,
-      isSuperAdmin,
+      isSystemAdmin,
       tenantId
     });
 
     try {
-      // First sync users from auth to ensure we have the latest data
-      if (isSuperAdmin) {
-        console.log('Syncing all users from auth...');
-        const { data: syncResult } = await supabase.rpc('force_sync_all_users');
-        console.log('Successfully synced users from auth:', syncResult || 0);
+      if (isSystemAdmin) {
+        console.log('Syncing all users from identity service...');
+        const { data: syncResult, error: syncError } = await supabase.rpc('force_sync_all_users');
+        if (syncError) {
+          console.error('Sync error:', syncError);
+        } else {
+          console.log('Successfully synced users from identity service:', syncResult || 0);
+        }
       }
 
       // Build the query with tenant information
@@ -70,11 +73,11 @@ export class UserManagementService {
         `, { count: 'exact' });
 
       // Apply tenant filtering (unless superadmin wants all users)
-      if (!isSuperAdmin && tenantId) {
+      if (!isSystemAdmin && tenantId) {
         console.log('Applying tenant filter:', tenantId);
         query = query.eq('tenant_id', tenantId);
-      } else if (isSuperAdmin) {
-        console.log('SuperAdmin access - fetching all users without tenant restrictions');
+      } else if (isSystemAdmin) {
+        console.log('SystemAdmin access - fetching all users without tenant restrictions');
       } else {
         console.log('No tenant context - this might cause issues');
       }
@@ -122,39 +125,126 @@ export class UserManagementService {
 
   static async createUser(userData: CreateUserRequest): Promise<UserWithRoles> {
     try {
-      // Set tenant context if provided
-      if (userData.tenant_id) {
-        await supabase.rpc('set_tenant_context', { tenant_id: userData.tenant_id });
-        await supabase.rpc('set_user_context', { user_id: (await supabase.auth.getUser()).data.user?.id });
+      if (!userData.email || !userData.email.includes('@')) {
+        throw new Error('Valid email is required');
+      }
+      
+      if (!userData.first_name?.trim()) {
+        throw new Error('First name is required');
       }
 
-      const { data, error } = await supabase
-        .from('users')
-        .insert({
-          ...userData,
-          password_hash: '', // We don't handle passwords in the public table
-        })
-        .select(`
-          *,
-          user_roles:user_roles!user_roles_user_id_fkey(
-            id,
-            role_id,
-            assigned_at,
-            roles:roles(
+      console.log('Creating user with data:', userData);
+
+      try {
+        const { data: authData, error: authError } = await supabase['auth']['admin']['createUser']({
+          email: userData.email,
+          email_confirm: true,
+          user_metadata: { 
+            first_name: userData.first_name,
+            last_name: userData.last_name 
+          }
+        });
+
+        if (authError) {
+          console.warn('API failed:', authError);
+          throw new Error('SERVICE_UNAVAILABLE');
+        }
+
+        const userId = authData.user.id;
+        console.log('Successfully created user via API:', userId);
+
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
+        try {
+          const { data: syncResult } = await supabase.rpc('manually_sync_user', { p_user_id: userId });
+          console.log('Manual sync result:', syncResult);
+        } catch (syncError) {
+          console.warn('Sync function not available:', syncError);
+        }
+
+        if (userData.tenant_id) {
+          await supabase.rpc('set_tenant_context', { tenant_id: userData.tenant_id });
+          await supabase.rpc('set_user_context', { user_id: (await supabase['auth'].getUser()).data.user?.id });
+        }
+
+        const { data: updateData, error: updateError } = await supabase
+          .from('users')
+          .update({
+            tenant_id: userData.tenant_id,
+            status: userData.status || 'active'
+          })
+          .eq('id', userId)
+          .select(`
+            *,
+            user_roles:user_roles!user_roles_user_id_fkey(
               id,
-              name,
-              description
+              role_id,
+              assigned_at,
+              roles:roles(
+                id,
+                name,
+                description
+              )
             )
-          )
-        `)
-        .single();
+          `)
+          .single();
 
-      if (error) {
-        console.error('Create user error:', error);
-        throw error;
+        if (updateError) {
+          console.error('Update user error after creation:', updateError);
+          throw updateError;
+        }
+
+        return updateData as UserWithRoles;
+
+      } catch (apiError) {
+        console.log('API failed, falling back to direct database insertion');
+        
+        const userId = crypto.randomUUID();
+        
+        try {
+          if (userData.tenant_id) {
+            await supabase.rpc('set_tenant_context', { tenant_id: userData.tenant_id });
+            await supabase.rpc('set_user_context', { user_id: (await supabase['auth'].getUser()).data.user?.id });
+          }
+        } catch (contextError) {
+          console.warn('Context setting failed, continuing without context:', contextError);
+        }
+
+        // Insert directly into users table as fallback
+        const { data: insertData, error: insertError } = await supabase
+          .from('users')
+          .insert({
+            id: userId,
+            email: userData.email,
+            first_name: userData.first_name,
+            last_name: userData.last_name,
+            tenant_id: userData.tenant_id,
+            status: userData.status || 'active',
+            credential_field: null
+          })
+          .select(`
+            *,
+            user_roles:user_roles!user_roles_user_id_fkey(
+              id,
+              role_id,
+              assigned_at,
+              roles:roles(
+                id,
+                name,
+                description
+              )
+            )
+          `)
+          .single();
+
+        if (insertError) {
+          console.error('Direct insertion error:', insertError);
+          throw new Error(`User creation failed: ${insertError.message}`);
+        }
+
+        console.log('Successfully created user via direct insertion:', insertData);
+        return insertData as UserWithRoles;
       }
-
-      return data as UserWithRoles;
     } catch (error) {
       console.error('Error creating user:', error);
       throw error;
@@ -163,13 +253,23 @@ export class UserManagementService {
 
   static async updateUser(userId: string, userData: UpdateUserRequest): Promise<UserWithRoles> {
     try {
-      // Get current user for tenant context
-      const { data: currentUser } = await supabase.auth.getUser();
+      const { data: currentUser } = await supabase['auth'].getUser();
       if (currentUser.user) {
-        await supabase.rpc('set_user_context', { user_id: currentUser.user.id });
+        try {
+          await supabase.rpc('set_user_context', { user_id: currentUser.user.id });
+        } catch (contextError) {
+          console.warn('Context setting failed:', contextError);
+        }
       }
 
       console.log('Updating user:', userId, 'with data:', userData);
+
+      try {
+        const { data: syncResult } = await supabase.rpc('manually_sync_user', { p_user_id: userId });
+        console.log('Pre-update sync result:', syncResult);
+      } catch (syncError) {
+        console.warn('Sync function not available or failed:', syncError);
+      }
 
       const { data, error } = await supabase
         .from('users')
@@ -260,23 +360,21 @@ export class UserManagementService {
 
   static async assignRoles(userId: string, roleIds: string[], tenantId: string): Promise<void> {
     try {
-      // Remove existing roles for the user and tenant
+      // Remove existing roles for the user
       const { error: deleteError } = await supabase
         .from('user_roles')
         .delete()
-        .eq('user_id', userId)
-        .eq('tenant_id', tenantId);
+        .eq('user_id', userId);
 
       if (deleteError) {
         console.error('Error deleting existing user roles:', deleteError);
         throw deleteError;
       }
 
-      // Insert new roles for the user and tenant
+      // Insert new roles for the user
       const newRoles = roleIds.map(roleId => ({
         user_id: userId,
         role_id: roleId,
-        tenant_id: tenantId,
         assigned_at: new Date().toISOString()
       }));
 

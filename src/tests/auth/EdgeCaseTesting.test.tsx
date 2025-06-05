@@ -5,10 +5,10 @@ import { describe, test, expect, beforeEach, afterEach, jest } from '@jest/globa
 import { AuthProvider } from '@/components/auth/AuthProvider';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/services/database';
 
 // Mock Supabase client
-jest.mock('@/integrations/supabase/client', () => ({
+jest.mock('@/services/database', () => ({
   supabase: {
     auth: {
       getSession: jest.fn(),

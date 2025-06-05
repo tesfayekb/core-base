@@ -48,10 +48,10 @@ export function UserDirectory() {
       
       const matchesStatus = statusFilter === 'all' || user.status === statusFilter;
       
-      // Role filtering using actual role data
+      // Role filtering using actual role data with improved matching
       const matchesRole = roleFilter === 'all' || (
         user.user_roles && user.user_roles.some(userRole => 
-          userRole?.roles?.name?.toLowerCase() === roleFilter.toLowerCase()
+          userRole?.roles?.name?.toLowerCase().trim() === roleFilter.toLowerCase().trim()
         )
       );
       
@@ -123,6 +123,9 @@ export function UserDirectory() {
     console.error('User directory error:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
     
+    const isPermissionError = errorMessage.includes('permission') || errorMessage.includes('unauthorized');
+    const isNetworkError = errorMessage.includes('network') || errorMessage.includes('fetch');
+    
     return (
       <div className="space-y-6">
         <UserDirectoryHeader 
@@ -132,7 +135,21 @@ export function UserDirectory() {
         />
         <Alert variant="destructive">
           <AlertDescription>
-            Failed to load user directory: {errorMessage}
+            {isPermissionError ? (
+              <>
+                <strong>Permission Error:</strong> You don't have permission to view users. 
+                Please contact your administrator.
+              </>
+            ) : isNetworkError ? (
+              <>
+                <strong>Network Error:</strong> Unable to connect to the server. 
+                Please check your connection and try again.
+              </>
+            ) : (
+              <>
+                <strong>Error:</strong> Failed to load user directory: {errorMessage}
+              </>
+            )}
             <br />
             <button 
               onClick={() => refetch()} 

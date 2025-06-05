@@ -138,7 +138,7 @@ For resources with database dependencies, the scaffolding system generates datab
 
 ```typescript
 // src/tests/resources/{ResourceName}/fixtures/database.ts
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/services/database';
 import { create{ResourceName} } from '../{ResourceName}TestData';
 
 export async function seed{ResourceName}Data(count = 5, overrides?: Partial<{ResourceName}>) {
@@ -167,7 +167,7 @@ The scaffolding system generates test utilities for database transaction managem
 
 ```typescript
 // src/tests/utils/dbTransaction.ts
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/services/database';
 
 export async function withTestTransaction<T>(callback: () => Promise<T>): Promise<T> {
   try {

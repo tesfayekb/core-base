@@ -8,10 +8,13 @@ export default defineConfig(({ mode }) => ({
   server: {
     host: "::",
     port: 8080,
+    hmr: process.env.TUNNEL_MODE ? false : {
+      port: 8080,
+    },
   },
   plugins: [
     react(),
-    mode === 'development' &&
+    mode === 'development' && !process.env.TUNNEL_MODE &&
     componentTagger(),
   ].filter(Boolean),
   resolve: {
@@ -19,4 +22,5 @@ export default defineConfig(({ mode }) => ({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  base: "/",
 }));

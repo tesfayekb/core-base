@@ -1,5 +1,5 @@
 
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/services/database';
 import { UserManagementService } from './UserManagementService';
 import { UserWithRoles } from '@/types/user';
 
